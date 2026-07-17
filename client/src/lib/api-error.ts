@@ -1,0 +1,102 @@
+import type { ValidationIssue } from "@/lib/types";
+import { parseLocale, type Locale } from "@/lib/preferences";
+
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    public readonly status: number,
+    public readonly issues: ValidationIssue[] = [],
+  ) {
+    super(message);
+    this.name = "ApiError";
+  }
+}
+
+const germanApiMessages: Record<string, string> = {
+  "Invalid email or password": "E-Mail-Adresse oder Passwort ist falsch.",
+  "An account with this email already exists":
+    "Für diese E-Mail-Adresse gibt es bereits ein Konto.",
+  "Current password is incorrect": "Das aktuelle Passwort ist falsch.",
+  "New password must be different": "Das neue Passwort muss sich unterscheiden.",
+  "Authentication required": "Bitte melde dich an, um fortzufahren.",
+  "Access token has expired": "Deine Anmeldung ist abgelaufen.",
+  "Session is no longer active": "Diese Sitzung ist nicht mehr aktiv.",
+  "Refresh token is missing": "Deine Sitzung ist abgelaufen.",
+  "Refresh token has expired": "Deine Sitzung ist abgelaufen.",
+  "Invalid refresh token": "Deine Sitzung ist ungültig.",
+  "User not found": "Das Benutzerkonto wurde nicht gefunden.",
+  "Task not found": "Die Aufgabe wurde nicht gefunden.",
+  "Administrator permission is required": "Dafür sind Administratorrechte nötig.",
+  "You cannot remove your own administrator role":
+    "Du kannst deine eigene Administratorrolle nicht entfernen.",
+  "You cannot delete your own administrator account":
+    "Du kannst dein eigenes Administratorkonto nicht löschen.",
+  "The last administrator cannot be demoted":
+    "Der letzte Administrator kann nicht zurückgestuft werden.",
+  "The last administrator cannot be deleted":
+    "Der letzte Administrator kann nicht gelöscht werden.",
+  "Invalid task ID": "Die Aufgaben-ID ist ungültig.",
+  "Invalid user ID": "Die Benutzer-ID ist ungültig.",
+  "Invalid session ID": "Die Sitzungs-ID ist ungültig.",
+  "Invalid access token": "Deine Anmeldung ist ungültig.",
+  "User no longer exists": "Das Benutzerkonto existiert nicht mehr.",
+  "At least one task field or an attachment must be provided":
+    "Ändere mindestens ein Aufgabenfeld oder füge einen Anhang hinzu.",
+  "Task does not have an attachment": "Diese Aufgabe hat keinen Anhang.",
+  "Active session not found": "Die aktive Sitzung wurde nicht gefunden.",
+  "Refresh authentication is required": "Bitte melde dich erneut an.",
+  "Invalid refresh session": "Die Sitzung ist ungültig.",
+  "Refresh session is no longer active": "Diese Sitzung ist nicht mehr aktiv.",
+  "Refresh token reuse detected. Please log in again":
+    "Die Sitzung konnte nicht bestätigt werden. Bitte melde dich erneut an.",
+  "Invalid user": "Das Benutzerkonto ist ungültig.",
+  "You do not have permission for this action":
+    "Du hast keine Berechtigung für diese Aktion.",
+  "Request body contains malformed JSON": "Die gesendeten Daten sind ungültig.",
+  "Request body cannot exceed 1 MB": "Die Anfrage darf höchstens 1 MB groß sein.",
+  "Validation failed": "Bitte überprüfe deine Eingaben.",
+  "A record with this value already exists":
+    "Ein Eintrag mit diesem Wert existiert bereits.",
+  "Attachment cannot exceed 5 MB": "Der Anhang darf höchstens 5 MB groß sein.",
+  "Only JPG, PNG, WEBP, PDF and TXT attachments are allowed":
+    "Als Anhang sind nur JPG-, PNG-, WEBP-, PDF- und TXT-Dateien erlaubt.",
+  "Attachment upload is unavailable because Cloudinary is not configured":
+    "Dateiuploads sind derzeit nicht verfügbar.",
+  "Attachment upload failed": "Der Anhang konnte nicht hochgeladen werden.",
+  "Too many registration attempts. Please try again later":
+    "Zu viele Registrierungsversuche. Bitte versuche es später erneut.",
+  "Too many failed login attempts. Please try again later":
+    "Zu viele fehlgeschlagene Anmeldeversuche. Bitte versuche es später erneut.",
+  "Too many failed token refresh attempts. Please try again later":
+    "Zu viele fehlgeschlagene Sitzungsversuche. Bitte versuche es später erneut.",
+  "Too many refreshes for this session. Please try again later":
+    "Zu viele Aktualisierungen dieser Sitzung. Bitte versuche es später erneut.",
+  "At least one profile field must be provided": "Ändere mindestens ein Profilfeld.",
+  "At least one user field must be provided": "Ändere mindestens ein Benutzerfeld.",
+  "Your session has expired. Please sign in again.":
+    "Deine Sitzung ist abgelaufen. Bitte melde dich erneut an.",
+  "The server could not process the request.":
+    "Der Server konnte die Anfrage nicht verarbeiten.",
+  "Internal server error": "Ein interner Serverfehler ist aufgetreten.",
+  "Unknown server error": "Ein unbekannter Serverfehler ist aufgetreten.",
+};
+
+export const getRuntimeLocale = (): Locale =>
+  typeof document === "undefined" ? "en" : parseLocale(document.documentElement.lang);
+
+export const localizeApiMessage = (message: string, locale: Locale): string => {
+  if (locale !== "de") return message;
+  const exact = germanApiMessages[message];
+  if (exact) return exact;
+  if (/^Invalid value for /.test(message)) return "Ein gesendeter Wert ist ungültig.";
+  if (/^Route not found: /.test(message))
+    return "Die angeforderte Route wurde nicht gefunden.";
+  return "Die Anfrage konnte nicht verarbeitet werden. Bitte versuche es erneut.";
+};
+
+export const getErrorMessage = (error: unknown, locale = getRuntimeLocale()): string => {
+  if (error instanceof Error) return localizeApiMessage(error.message, locale);
+  return locale === "de"
+    ? "Es ist ein Fehler aufgetreten. Bitte versuche es erneut."
+    : "Something went wrong. Please try again.";
+};

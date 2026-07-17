@@ -1,0 +1,29 @@
+{
+  "name": "task-manager-platform",
+  "version": "1.0.0",
+  "private": true,
+  "description": "A full-stack task manager with an Express API and a Next.js client.",
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "workspaces": [
+    "server",
+    "client"
+  ],
+  "scripts": {
+    "dev": "concurrently --kill-others-on-fail --names server,client --prefix-colors cyan,magenta \"npm run dev --workspace server\" \"npm run dev --workspace client\"",
+    "dev:server": "npm run dev --workspace server",
+    "dev:client": "npm run dev --workspace client",
+    "build": "npm run build --workspace server && npm run build --workspace client",
+    "typecheck": "npm run typecheck --workspace server && npm run typecheck --workspace client",
+    "lint": "npm run lint --workspace client",
+    "format": "prettier --write --ignore-unknown .",
+    "format:check": "prettier --check --ignore-unknown .",
+    "start:server": "npm run start --workspace server",
+    "start:client": "npm run start --workspace client"
+  },
+  "devDependencies": {
+    "concurrently": "^10.0.3",
+    "prettier": "^3.6.2"
+  }
+}

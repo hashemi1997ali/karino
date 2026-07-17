@@ -1,0 +1,184 @@
+@import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  --background: #f3f1e9;
+  --foreground: #171a18;
+  --surface: #fffdf7;
+  --surface-muted: #e9e6dc;
+  --surface-strong: #171a18;
+  --border: #d7d2c5;
+  --primary: #f15a38;
+  --primary-dark: #d94424;
+  --primary-soft: #ffe0d6;
+  --highlight: #d8f56a;
+  --highlight-soft: #eef9be;
+  --success: #087f68;
+  --warning: #b96707;
+  --danger: #cf3e56;
+  --muted: #686b66;
+  --focus: #f15a38;
+  color-scheme: light;
+}
+
+.dark {
+  --background: #101310;
+  --foreground: #f7f5ed;
+  --surface: #191d19;
+  --surface-muted: #242a23;
+  --surface-strong: #090b09;
+  --border: #353b33;
+  --primary: #ff7655;
+  --primary-dark: #f15a38;
+  --primary-soft: #47271f;
+  --highlight: #d8f56a;
+  --highlight-soft: #30391f;
+  --success: #4fd5b1;
+  --warning: #f4b84d;
+  --danger: #ff8091;
+  --muted: #afb4aa;
+  --focus: #ff967e;
+  color-scheme: dark;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans:
+    "Aptos", "Inter", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+    "Segoe UI", sans-serif;
+}
+
+* {
+  border-color: var(--border);
+}
+
+html {
+  scroll-behavior: smooth;
+  background: var(--background);
+}
+
+body {
+  margin: 0;
+  background:
+    radial-gradient(circle at 82% -8%, rgba(241, 90, 56, 0.13), transparent 28rem),
+    radial-gradient(circle at 8% 34%, rgba(216, 245, 106, 0.1), transparent 24rem),
+    var(--background);
+  color: var(--foreground);
+  font-family:
+    "Aptos",
+    "Inter",
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+  transition:
+    background-color 160ms ease,
+    color 160ms ease;
+}
+
+.dark body {
+  background:
+    radial-gradient(circle at 82% -8%, rgba(255, 118, 85, 0.13), transparent 28rem),
+    radial-gradient(circle at 8% 34%, rgba(216, 245, 106, 0.06), transparent 24rem),
+    var(--background);
+}
+
+/* The original UI used Tailwind's slate/white palette directly. These
+   semantic dark overrides keep every existing surface readable while feature
+   components are migrated to CSS variables. */
+.dark .bg-white {
+  background-color: var(--surface);
+}
+
+.dark .bg-slate-50,
+.dark .bg-slate-100 {
+  background-color: var(--surface-muted);
+}
+
+.dark .text-slate-950,
+.dark .text-slate-900,
+.dark .text-slate-800 {
+  color: var(--foreground);
+}
+
+.dark .text-slate-700,
+.dark .text-slate-600,
+.dark .text-slate-500,
+.dark .text-slate-400 {
+  color: var(--muted);
+}
+
+.dark .border-white {
+  border-color: var(--border);
+}
+
+button,
+a,
+input,
+textarea,
+select {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button:not(:disabled),
+[role="button"]:not([aria-disabled="true"]) {
+  cursor: pointer;
+}
+
+::selection {
+  background: rgba(241, 90, 56, 0.23);
+}
+
+.focus-ring {
+  outline: none;
+}
+
+.focus-ring:focus-visible {
+  box-shadow:
+    0 0 0 2px var(--surface),
+    0 0 0 4px var(--focus);
+}
+
+.surface-shadow {
+  box-shadow: 0 22px 60px rgba(48, 43, 32, 0.1);
+}
+
+.dark .surface-shadow {
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.32);
+}
+
+.text-balance {
+  text-wrap: balance;
+}
+
+.paper-grid {
+  background-image: radial-gradient(
+    color-mix(in srgb, var(--foreground) 14%, transparent) 0.75px,
+    transparent 0.75px
+  );
+  background-size: 18px 18px;
+}
+
+.eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}

@@ -1,0 +1,62 @@
+import { rateLimit } from "express-rate-limit";
+
+import { getPositiveIntegerEnv } from "#utils";
+
+const standardOptions = {
+  standardHeaders: "draft-8" as const,
+  legacyHeaders: false,
+  passOnStoreError: false,
+};
+
+const ipOptions = {
+  ...standardOptions,
+  ipv6Subnet: 56,
+};
+
+export const registerRateLimiter = rateLimit({
+  ...ipOptions,
+  identifier: "auth-register",
+  windowMs: getPositiveIntegerEnv("AUTH_REGISTER_RATE_WINDOW_MS", 60 * 60 * 1000),
+  limit: getPositiveIntegerEnv("AUTH_REGISTER_RATE_LIMIT", 5),
+  message: {
+    success: false,
+    message: "Too many registration attempts. Please try again later",
+  },
+});
+
+export const loginRateLimiter = rateLimit({
+  ...ipOptions,
+  identifier: "auth-login",
+  windowMs: getPositiveIntegerEnv("AUTH_LOGIN_RATE_WINDOW_MS", 15 * 60 * 1000),
+  limit: getPositiveIntegerEnv("AUTH_LOGIN_RATE_LIMIT", 10),
+  skipSuccessfulRequests: true,
+  message: {
+    success: false,
+    message: "Too many failed login attempts. Please try again later",
+  },
+});
+
+export const refreshIpRateLimiter = rateLimit({
+  ...ipOptions,
+  identifier: "auth-refresh",
+  windowMs: getPositiveIntegerEnv("AUTH_REFRESH_RATE_WINDOW_MS", 15 * 60 * 1000),
+  limit: getPositiveIntegerEnv("AUTH_REFRESH_RATE_LIMIT", 30),
+  skipSuccessfulRequests: true,
+  message: {
+    success: false,
+    message: "Too many failed token refresh attempts. Please try again later",
+  },
+});
+
+export const refreshSessionRateLimiter = rateLimit({
+  ...standardOptions,
+  identifier: "auth-refresh-session",
+  windowMs: getPositiveIntegerEnv("AUTH_REFRESH_SESSION_RATE_WINDOW_MS", 15 * 60 * 1000),
+  limit: getPositiveIntegerEnv("AUTH_REFRESH_SESSION_RATE_LIMIT", 30),
+  keyGenerator: (request) =>
+    request.refreshAuth?.sessionId ?? "unverified-refresh-session",
+  message: {
+    success: false,
+    message: "Too many refreshes for this session. Please try again later",
+  },
+});
