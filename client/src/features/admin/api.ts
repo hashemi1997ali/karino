@@ -1,11 +1,17 @@
 import { apiRequest } from "@/lib/api-client";
-import type { Pagination, User } from "@/lib/types";
+import type { BanReason, Pagination, User, UserRole } from "@/lib/types";
 
 export interface UserFilters {
   page: number;
   limit?: number;
   search?: string;
-  role?: "user" | "admin" | "";
+  role?: UserRole | "";
+  banned?: "true" | "false" | "";
+}
+
+export interface AdminUserDetail {
+  user: User;
+  stats: { taskCount: number; activeSessionCount: number };
 }
 
 export const getUsersRequest = async (
@@ -17,6 +23,7 @@ export const getUsersRequest = async (
   });
   if (filters.search) query.set("search", filters.search);
   if (filters.role) query.set("role", filters.role);
+  if (filters.banned) query.set("banned", filters.banned);
   const data = await apiRequest<{
     users: User[];
     pagination?: Pagination;
@@ -36,6 +43,9 @@ export const getUsersRequest = async (
   };
 };
 
+export const getUserRequest = (id: string): Promise<AdminUserDetail> =>
+  apiRequest<AdminUserDetail>(`/admin/users/${id}`);
+
 export const updateUserRequest = async (
   id: string,
   values: { firstName: string; lastName: string; email: string },
@@ -54,6 +64,21 @@ export const setAdminRoleRequest = async (
   const data = await apiRequest<{ user: User }>(`/admin/users/${id}/admin-role`, {
     method: "PATCH",
     json: { isAdmin },
+  });
+  return data.user;
+};
+
+export const banUserRequest = async (id: string, reason: BanReason): Promise<User> => {
+  const data = await apiRequest<{ user: User }>(`/admin/users/${id}/ban`, {
+    method: "POST",
+    json: { reason },
+  });
+  return data.user;
+};
+
+export const unbanUserRequest = async (id: string): Promise<User> => {
+  const data = await apiRequest<{ user: User }>(`/admin/users/${id}/unban`, {
+    method: "POST",
   });
   return data.user;
 };

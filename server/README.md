@@ -1,442 +1,293 @@
 # Task Manager API
 
-REST API پروژه‌ی Task Manager با Express 5، TypeScript، MongoDB/Mongoose، Zod، JWT، bcrypt، cookie، Multer و Cloudinary است.
+REST API for the Task Manager platform, built with Express 5, TypeScript, MongoDB/Mongoose, Zod, JWT, bcrypt, cookies, Multer, and optional Cloudinary uploads.
 
-## قابلیت‌ها
+## Features
 
-- ثبت‌نام، ورود، refresh، خروج و پروفایل کاربر
-- access token کوتاه‌عمر و refresh session دیتابیسی با rotation
-- مدیریت sessionهای فعال و تشخیص refresh token replay
-- CRUD تسک‌های شخصی، فیلتر، جست‌وجو، صفحه‌بندی و آمار تجمیعی
-- فایل پیوست اختیاری با Cloudinary
-- مدیریت همه‌ی تسک‌ها و کاربران توسط مدیر
-- ویرایش نقش مدیر با بررسی دوباره‌ی نقش از دیتابیس
-- Zod validation، error handler مرکزی و rate limiting
+- Registration, login, token refresh, logout, and profile management
+- Short-lived access tokens and database-backed refresh sessions with rotation
+- Active-session management and refresh-token replay detection
+- Personal task CRUD, filtering, search, pagination, summaries, and optional attachments
+- `user`, `admin`, and `super_admin` roles
+- User bans with a predefined reason, timestamp, captured active-session IP addresses, and immediate session revocation
+- AI assistant for guests and authenticated users
+- Persistent chat history, human-support queues, transfers, ratings, and AI reply suggestions
+- Centralized validation, error handling, and rate limiting
 
-## راه‌اندازی
+## Requirements
 
-این workspace به Node.js نسخه‌ی `24` یا بالاتر نیاز دارد.
+- Node.js `24` or later
+- npm
+- MongoDB locally or through MongoDB Atlas
+- Cloudinary only when file attachments are required
 
-از ریشه‌ی monorepo:
+## Setup
+
+From the monorepo root:
 
 ```bash
 npm install
-```
-
-فایل محیطی را بسازید:
-
-```powershell
-Copy-Item server/.env.example server/.env
-```
-
-سپس API را اجرا کنید:
-
-```bash
+cp server/.env.example server/.env
 npm run dev:server
 ```
 
-یا از داخل پوشه‌ی `server`:
+On Windows PowerShell:
 
-```bash
-npm run dev
+```powershell
+Copy-Item server/.env.example server/.env
+npm run dev:server
 ```
 
-با تنظیمات نمونه، API روی `http://localhost:4000` در دسترس است. `GET /` نیز وضعیت اجرای API را برمی‌گرداند.
+With the example configuration, the API is available at `http://localhost:4000`.
 
-| Method | Route | توضیح                                                      |
-| ------ | ----- | ---------------------------------------------------------- |
-| `GET`  | `/`   | health response ساده با پیام `Task Manager API is running` |
+## Environment Variables
 
-## متغیرهای محیطی
+See `server/.env.example` for the complete list.
 
-```dotenv
-NODE_ENV=development
-PORT=4000
-TRUST_PROXY_HOPS=1
+| Variable                      | Description                                                     |
+| ----------------------------- | --------------------------------------------------------------- |
+| `PORT`                        | Express port                                                    |
+| `MONGO_URI`                   | MongoDB connection URI                                          |
+| `ACCESS_JWT_SECRET`           | Secret used to sign access tokens                               |
+| `REFRESH_JWT_SECRET`          | Separate secret used to sign refresh tokens                     |
+| `ACCESS_TOKEN_TTL`            | Access-token lifetime in seconds                                |
+| `REFRESH_TOKEN_TTL`           | Absolute refresh-session lifetime in seconds                    |
+| `JWT_ISSUER`                  | JWT issuer                                                      |
+| `TRUST_PROXY_HOPS`            | Exact number of trusted proxy hops                              |
+| `SUPER_ADMIN_EMAIL`           | Existing account promoted to the initial super admin on startup |
+| `AI_PROVIDER`                 | `openrouter`, `openai`, `anthropic`, `gemini`, or `ollama`      |
+| `OPENROUTER_API_KEY`          | OpenRouter API key                                              |
+| `OPENROUTER_MODEL`            | OpenRouter model identifier                                     |
+| `OPENAI_API_KEY`              | OpenAI API key                                                  |
+| `OPENAI_MODEL`                | OpenAI model identifier                                         |
+| `ANTHROPIC_API_KEY`           | Anthropic API key                                               |
+| `ANTHROPIC_MODEL`             | Anthropic model identifier                                      |
+| `GEMINI_API_KEY`              | Gemini API key                                                  |
+| `GEMINI_MODEL`                | Gemini model identifier                                         |
+| `OLLAMA_BASE_URL`             | Ollama server URL                                               |
+| `OLLAMA_MODEL`                | Local Ollama model                                              |
+| `AI_TIMEOUT_MS`               | AI request timeout in milliseconds                              |
+| `SUPPORT_CHAT_RETENTION_DAYS` | Number of days ended chats remain in MongoDB                    |
+| `CLOUDINARY_*`                | Optional attachment-upload settings                             |
+| `AUTH_*`                      | Authentication rate-limit settings                              |
+| `CHAT_*`                      | Assistant and suggestion rate-limit settings                    |
 
-MONGO_URI=mongodb://127.0.0.1:27017/task-manager-api
+Use `TRUST_PROXY_HOPS=0` when Express is directly exposed. Use `1` when Next.js is the only trusted proxy in front of Express. Set the exact number of trusted proxies in other deployments so the client IP cannot be spoofed.
 
-ACCESS_JWT_SECRET=replace_with_a_long_random_access_secret
-REFRESH_JWT_SECRET=replace_with_a_long_random_refresh_secret
-ACCESS_TOKEN_TTL=900
-REFRESH_TOKEN_TTL=604800
-JWT_ISSUER=task-manager-api
+## Response Format
 
-AUTH_REGISTER_RATE_LIMIT=5
-AUTH_REGISTER_RATE_WINDOW_MS=3600000
-AUTH_LOGIN_RATE_LIMIT=10
-AUTH_LOGIN_RATE_WINDOW_MS=900000
-AUTH_REFRESH_RATE_LIMIT=30
-AUTH_REFRESH_RATE_WINDOW_MS=900000
-AUTH_REFRESH_SESSION_RATE_LIMIT=30
-AUTH_REFRESH_SESSION_RATE_WINDOW_MS=900000
-
-CLOUDINARY_CLOUD_NAME=
-CLOUDINARY_API_KEY=
-CLOUDINARY_API_SECRET=
-```
-
-`ACCESS_TOKEN_TTL` و `REFRESH_TOKEN_TTL` بر حسب ثانیه و windowهای rate limit بر حسب میلی‌ثانیه‌اند. Cloudinary اختیاری است؛ بدون آن همه‌ی عملیات به‌جز آپلود فایل کار می‌کنند و درخواست آپلود پاسخ `503` می‌گیرد.
-
-در اجرای مستقیم Express مقدار `TRUST_PROXY_HOPS=0` بگذارید. اگر Next.js تنها proxy جلوی API است مقدار `1` مناسب است. مقدار واقعی باید دقیقاً با تعداد proxyهای مورد اعتماد برابر باشد تا IP کاربر قابل جعل نباشد.
-
-## قرارداد عمومی پاسخ
-
-پاسخ موفق معمولاً این شکل را دارد:
+Successful responses generally use:
 
 ```json
 {
   "success": true,
-  "message": "Optional human-readable message",
   "data": {}
 }
 ```
 
-پاسخ خطا:
+Errors generally use:
 
 ```json
 {
   "success": false,
   "message": "Validation failed",
-  "errors": [{ "field": "email", "message": "Please provide a valid email address" }]
+  "issues": []
 }
 ```
 
-برای routeهای محافظت‌شده access token را بفرستید:
+Protected routes require:
 
 ```text
 Authorization: Bearer ACCESS_TOKEN
 ```
 
-## Auth API
+The refresh token is sent through an `HttpOnly` cookie named `refreshToken`.
+
+## Authentication
 
 Base path: `/auth`
 
-| Method   | Route                       | نیازمندی                      | توضیح                                          |
-| -------- | --------------------------- | ----------------------------- | ---------------------------------------------- |
-| `POST`   | `/auth/register`            | عمومی                         | ساخت حساب، session و tokenها                   |
-| `POST`   | `/auth/login`               | عمومی                         | ورود و ساخت session مستقل                      |
-| `POST`   | `/auth/refresh`             | refresh cookie                | rotation کوکی و دریافت access token جدید       |
-| `POST`   | `/auth/logout`              | refresh cookie اختیاری        | باطل‌کردن session جاری و پاک‌کردن cookie       |
-| `GET`    | `/auth/me`                  | access token + active session | دریافت کاربر جاری                              |
-| `PATCH`  | `/auth/me`                  | access token + active session | ویرایش نام، نام خانوادگی یا ایمیل              |
-| `PATCH`  | `/auth/me/password`         | access token + active session | تغییر رمز و خروج سایر sessionها                |
-| `GET`    | `/auth/sessions`            | access token + active session | فهرست sessionهای فعال                          |
-| `DELETE` | `/auth/sessions/others`     | access token + active session | خروج از همه‌ی sessionها به‌جز session جاری     |
-| `DELETE` | `/auth/sessions/:sessionId` | access token + active session | باطل‌کردن یک session متعلق به کاربر            |
-| `DELETE` | `/auth/sessions`            | access token + active session | خروج از همه‌ی sessionها و پاک‌کردن cookie جاری |
+| Method   | Route                       | Access                  | Description                                            |
+| -------- | --------------------------- | ----------------------- | ------------------------------------------------------ |
+| `POST`   | `/auth/register`            | Public                  | Create an account and session                          |
+| `POST`   | `/auth/login`               | Public                  | Sign in and create an independent session              |
+| `POST`   | `/auth/refresh`             | Refresh cookie          | Rotate the refresh token and return a new access token |
+| `POST`   | `/auth/logout`              | Optional refresh cookie | Revoke the current session and clear the cookie        |
+| `GET`    | `/auth/me`                  | Authenticated           | Return the current user                                |
+| `PATCH`  | `/auth/me`                  | Authenticated           | Update first name, last name, or email                 |
+| `PATCH`  | `/auth/me/password`         | Authenticated           | Change the password and revoke other sessions          |
+| `GET`    | `/auth/sessions`            | Authenticated           | List active sessions                                   |
+| `DELETE` | `/auth/sessions/others`     | Authenticated           | Revoke all sessions except the current one             |
+| `DELETE` | `/auth/sessions/:sessionId` | Authenticated           | Revoke one owned session                               |
+| `DELETE` | `/auth/sessions`            | Authenticated           | Revoke all sessions                                    |
 
-### ثبت‌نام
+Each login creates a separate refresh-session document. Only a SHA-256 hash of the refresh token identifier is stored. Every successful refresh rotates that identifier. Reusing an old refresh token revokes the related session with the reason `reuse-detected`.
 
-```http
-POST /auth/register
-Content-Type: application/json
+All protected routes verify the access-token signature, the active refresh session, and the current user document. Revoking a session therefore invalidates access immediately rather than waiting for the access token to expire.
+
+## Roles and Permissions
+
+The application has three roles:
+
+- `user`: manages only their own account, sessions, tasks, and chat history
+- `admin`: manages regular users, regular-user bans, all tasks, and regular-user support cases
+- `super_admin`: has all staff permissions and may additionally promote or demote admins, manage admin accounts, and handle escalated admin support cases
+
+Only a super admin can grant or remove the admin role. An admin cannot manage another admin or a super admin. A super admin cannot be banned or demoted through the application.
+
+To create the first super admin, register the account normally and set:
+
+```dotenv
+SUPER_ADMIN_EMAIL=owner@example.com
 ```
 
-```json
-{
-  "firstName": "Ali",
-  "lastName": "Hashemi",
-  "email": "ali@example.com",
-  "password": "Password123"
-}
-```
+The matching existing account is promoted on the next server startup.
 
-نام و نام خانوادگی پس از trim باید بین ۲ تا ۵۰ کاراکتر باشند. ایمیل trim و lowercase می‌شود و باید یکتا باشد. رمز عبور باید بین ۸ تا ۷۲ کاراکتر و حداکثر ۷۲ بایت UTF-8 باشد و حداقل یک حرف کوچک، یک حرف بزرگ و یک عدد داشته باشد.
+## Bans
 
-پاسخ register و login شامل کاربر و access token است:
+Admins can ban and unban regular users. Super admins can also ban and unban admins.
 
-```json
-{
-  "success": true,
-  "data": {
-    "user": {
-      "id": "66f000000000000000000001",
-      "firstName": "Ali",
-      "lastName": "Hashemi",
-      "email": "ali@example.com",
-      "roles": ["user"],
-      "createdAt": "2026-07-16T10:00:00.000Z",
-      "updatedAt": "2026-07-16T10:00:00.000Z"
-    },
-    "accessToken": "eyJ..."
-  }
-}
-```
+Allowed reasons:
 
-refresh token جداگانه در cookie با نام `refreshToken` قرار می‌گیرد و در JavaScript مرورگر قابل‌خواندن نیست.
+- `spam`
+- `abusive-behavior`
+- `harassment`
+- `fraud`
+- `terms-violation`
+- `security`
+- `other`
 
-### ویرایش پروفایل
+When a user is banned, the user document stores:
 
-حداقل یکی از فیلدها را بفرستید:
+- `ban.isBanned`
+- `ban.reason`
+- `ban.bannedAt`
+- `ban.sessionIps`
 
-```http
-PATCH /auth/me
-Authorization: Bearer ACCESS_TOKEN
-Content-Type: application/json
-```
+All active sessions are then revoked. Login, refresh, and matching registration attempts return `403` with the ban reason and date. Unbanning clears the complete `ban` object.
 
-```json
-{
-  "firstName": "Amir",
-  "lastName": "Hashemi",
-  "email": "amir@example.com"
-}
-```
+## Tasks
 
-قبل از تغییر ایمیل، یکتابودن آن برای کاربر دیگری بررسی می‌شود؛ ایمیل تکراری پاسخ `409` می‌گیرد.
+Base path: `/tasks`
 
-### تغییر رمز
+All task routes require an authenticated active session. Regular users can access only their own tasks.
 
-```http
-PATCH /auth/me/password
-Authorization: Bearer ACCESS_TOKEN
-Content-Type: application/json
-```
+| Method   | Route                   | Description                                       |
+| -------- | ----------------------- | ------------------------------------------------- |
+| `GET`    | `/tasks`                | List personal tasks with filtering and pagination |
+| `GET`    | `/tasks/summary`        | Return personal task statistics                   |
+| `GET`    | `/tasks/:id`            | Return one personal task                          |
+| `POST`   | `/tasks`                | Create a task                                     |
+| `PATCH`  | `/tasks/:id`            | Update a task or replace its attachment           |
+| `DELETE` | `/tasks/:id`            | Delete a task                                     |
+| `DELETE` | `/tasks/:id/attachment` | Remove the attachment only                        |
 
-```json
-{
-  "currentPassword": "Password123",
-  "newPassword": "NewPassword456"
-}
-```
+Task fields:
 
-رمز فعلی باید صحیح باشد و رمز جدید باید متفاوت و مطابق قواعد ثبت‌نام باشد. پس از تغییر موفق، تمام refresh sessionهای دیگر با دلیل `password-changed` باطل می‌شوند و session جاری فعال می‌ماند. پاسخ، تعداد `revokedSessions` را برمی‌گرداند.
+| Field         | Description                                        |
+| ------------- | -------------------------------------------------- |
+| `title`       | Required when creating; 3 to 100 characters        |
+| `description` | Optional; up to 2,000 characters                   |
+| `status`      | `todo`, `in-progress`, or `done`                   |
+| `priority`    | `low`, `medium`, or `high`                         |
+| `dueDate`     | Optional ISO 8601 date-time with a timezone offset |
+| `completedAt` | Managed by the server                              |
+| `attachment`  | Optional file using the form field `attachment`    |
 
-### مدیریت sessionها
+Allowed attachment types are JPG, PNG, WEBP, PDF, and TXT. The maximum file size is 5 MB.
 
-هر login یک refresh session مستقل می‌سازد و اطلاعات دستگاه را در حد `userAgent` و `ipAddress` نگه می‌دارد. پاسخ `GET /auth/sessions` برای هر مورد شامل این فیلدهاست:
+Common `GET /tasks` query parameters:
 
-```json
-{
-  "id": "66f000000000000000000010",
-  "userAgent": "Mozilla/5.0 ...",
-  "ipAddress": "127.0.0.1",
-  "createdAt": "2026-07-16T10:00:00.000Z",
-  "lastUsedAt": "2026-07-16T10:05:00.000Z",
-  "expiresAt": "2026-07-23T10:00:00.000Z",
-  "rotationCounter": 2,
-  "isCurrent": true
-}
-```
+- `status`
+- `priority`
+- `search`
+- `dueBefore`
+- `dueAfter`
+- `page`
+- `limit`
+- `sortBy`
+- `order`
 
-- `DELETE /auth/sessions/:sessionId` فقط session متعلق به همان کاربر را باطل می‌کند. اگر session جاری باشد `isCurrent: true` برمی‌گرداند و cookie را پاک می‌کند.
-- `DELETE /auth/sessions/others` session جاری را نگه می‌دارد.
-- `DELETE /auth/sessions` همه‌ی sessionهای فعال را باطل و cookie جاری را پاک می‌کند.
-- `POST /auth/logout` حتی بدون cookie معتبر نیز idempotent است و پاسخ موفق می‌دهد.
+## Administration
 
-سند session بعد از revoke برای ثبت سابقه باقی می‌ماند و MongoDB پس از رسیدن `expiresAt` آن را با TTL index به‌صورت eventual حذف فیزیکی می‌کند؛ حذف TTL لحظه‌ای تضمین نمی‌شود. حذف یک کاربر توسط مدیر استثناست و sessionهای آن کاربر را همان موقع به‌صورت فیزیکی حذف می‌کند.
+Base path: `/admin`
 
-### refresh token rotation
+Every admin route requires a valid access token, an active refresh session, and a freshly loaded `admin` or `super_admin` role from MongoDB.
 
-در دیتابیس خود refresh token ذخیره نمی‌شود و فقط SHA-256 hash مربوط به JTI جاری نگهداری می‌شود. هر `POST /auth/refresh`:
+### All Tasks
 
-1. refresh token و session را اعتبارسنجی می‌کند.
-2. JTI را با یک update اتمیک rotate می‌کند.
-3. refresh cookie جدید با همان انقضای مطلق می‌فرستد.
-4. access token جدید را در JSON برمی‌گرداند.
+| Method   | Route                         | Description                                  |
+| -------- | ----------------------------- | -------------------------------------------- |
+| `GET`    | `/admin/tasks`                | List all tasks, optionally filtered by owner |
+| `GET`    | `/admin/tasks/:id`            | Return any task                              |
+| `PATCH`  | `/admin/tasks/:id`            | Update any task or replace its attachment    |
+| `DELETE` | `/admin/tasks/:id`            | Delete any task                              |
+| `DELETE` | `/admin/tasks/:id/attachment` | Remove a task attachment                     |
 
-اگر token قدیمی دوباره استفاده شود، replay تشخیص داده شده و کل همان session با دلیل `reuse-detected` باطل می‌شود. کلاینت باید refreshهای هم‌زمان را single-flight کند.
+`GET /admin/tasks` supports `ownerId`, `search`, `status`, `priority`, `page`, `limit`, `sortBy`, and `order`.
 
-access token به‌طور پیش‌فرض ۱۵ دقیقه عمر دارد و stateless است، اما همه‌ی routeهای محافظت‌شده‌ی فعلی بعد از بررسی امضا، فعال‌بودن session و وجود کاربر را نیز از دیتابیس بررسی می‌کنند. بنابراین باطل‌کردن session، دسترسی همان access token را فوراً قطع می‌کند.
+### Users
 
-## Tasks API
+| Method   | Route                         | Description                                       |
+| -------- | ----------------------------- | ------------------------------------------------- |
+| `GET`    | `/admin/users`                | List users with role and ban filters              |
+| `GET`    | `/admin/users/:id`            | Return a user with task and active-session counts |
+| `PATCH`  | `/admin/users/:id`            | Update a manageable user                          |
+| `PATCH`  | `/admin/users/:id/admin-role` | Grant or remove admin access; super admin only    |
+| `POST`   | `/admin/users/:id/ban`        | Ban a manageable account                          |
+| `POST`   | `/admin/users/:id/unban`      | Remove a ban and clear ban metadata               |
+| `DELETE` | `/admin/users/:id`            | Delete a manageable user and related data         |
 
-Base path: `/tasks`. همه‌ی مسیرهای این بخش به access token و active session نیاز دارند و هر کاربر فقط به تسک‌های خودش دسترسی دارد.
+## AI and Support Chat
 
-| Method   | Route                   | توضیح                                      |
-| -------- | ----------------------- | ------------------------------------------ |
-| `GET`    | `/tasks`                | فهرست صفحه‌بندی‌شده‌ی تسک‌های کاربر        |
-| `POST`   | `/tasks`                | ساخت تسک                                   |
-| `GET`    | `/tasks/summary`        | آمار status، priority و تسک‌های عقب‌افتاده |
-| `GET`    | `/tasks/:id`            | دریافت یک تسک متعلق به کاربر               |
-| `PATCH`  | `/tasks/:id`            | ویرایش فیلدها یا جایگزینی فایل پیوست       |
-| `DELETE` | `/tasks/:id`            | حذف تسک                                    |
-| `DELETE` | `/tasks/:id/attachment` | حذف فایل پیوست بدون حذف تسک                |
+Base path: `/chat`
 
-### فیلدهای تسک
+The guest assistant is not stored. Authenticated chats are stored in MongoDB. Ended chats receive an expiration date and are removed by MongoDB's TTL monitor after `SUPPORT_CHAT_RETENTION_DAYS`.
 
-| فیلد          | مقدار                                            |
-| ------------- | ------------------------------------------------ |
-| `title`       | الزامی در ساخت، ۳ تا ۱۰۰ کاراکتر                 |
-| `description` | اختیاری، حداکثر ۲۰۰۰ کاراکتر                     |
-| `status`      | `todo`، `in-progress` یا `done`؛ پیش‌فرض `todo`  |
-| `priority`    | `low`، `medium` یا `high`؛ پیش‌فرض `medium`      |
-| `dueDate`     | ISO 8601 datetime دارای timezone offset؛ اختیاری |
-| `completedAt` | زمان واقعی تکمیل؛ فقط توسط سرور مدیریت می‌شود    |
-| `attachment`  | فایل اختیاری با field name برابر `attachment`    |
+The chat locale is stored as `en` or `de`. AI responses, command replies, system messages, and suggested support replies use the relevant chat language.
 
-نمونه‌ی ساخت بدون فایل:
+| Method | Route                         | Access         | Description                                     |
+| ------ | ----------------------------- | -------------- | ----------------------------------------------- |
+| `POST` | `/chat/guest`                 | Public         | Ask the AI assistant without database history   |
+| `GET`  | `/chat`                       | Authenticated  | List the current user's latest chats            |
+| `POST` | `/chat`                       | Authenticated  | Start a persistent AI chat                      |
+| `GET`  | `/chat/:id`                   | Chat owner     | Return one chat                                 |
+| `POST` | `/chat/:id/messages`          | Chat owner     | Send a message to AI or assigned staff          |
+| `POST` | `/chat/:id/escalate`          | Chat owner     | Send the conversation to human support          |
+| `POST` | `/chat/:id/end`               | Chat owner     | End the chat                                    |
+| `POST` | `/chat/:id/rating`            | Chat owner     | Save a score from 1 to 5 and an optional reason |
+| `GET`  | `/chat/staff/queue`           | Staff          | List open and active support chats              |
+| `POST` | `/chat/staff/:id/claim`       | Eligible staff | Atomically accept a chat                        |
+| `POST` | `/chat/staff/:id/messages`    | Assigned staff | Send a human reply                              |
+| `POST` | `/chat/staff/:id/transfer`    | Assigned admin | Transfer a case to a super admin                |
+| `POST` | `/chat/staff/:id/end`         | Assigned staff | End a support chat                              |
+| `GET`  | `/chat/staff/:id/suggestions` | Eligible staff | Generate suggested replies in the chat language |
 
-```json
-{
-  "title": "Complete the dashboard",
-  "description": "Connect the summary cards to the API",
-  "status": "in-progress",
-  "priority": "high",
-  "dueDate": "2026-08-01T12:00:00.000Z"
-}
-```
-
-برای ساخت یا ویرایش همراه فایل از `multipart/form-data` استفاده کنید:
-
-```bash
-curl -X POST http://localhost:4000/tasks \
-  -H "Authorization: Bearer ACCESS_TOKEN" \
-  -F "title=Review API documentation" \
-  -F "priority=high" \
-  -F "attachment=@notes.pdf"
-```
-
-فایل‌های مجاز `JPG`، `PNG`، `WEBP`، `PDF` و `TXT` با حداکثر حجم ۵ مگابایت هستند. تنها یک فایل پذیرفته می‌شود. اگر در PATCH فایل جدید ارسال شود، فایل قبلی پس از ذخیره‌ی موفق تسک پاک می‌شود. برای پاک‌کردن `dueDate` در PATCH مقدار خالی form یا `null` در JSON بفرستید.
-
-`completedAt` ورودی API نیست. سرور هنگام تغییر status از `todo` یا `in-progress` به `done` آن را ثبت می‌کند، هنگام ویرایش یک تسک done مقدارش را نگه می‌دارد و با بازکردن دوباره‌ی تسک آن را `null` می‌کند. تسک‌های قدیمی که پیش از اضافه‌شدن این فیلد تکمیل شده‌اند ممکن است مقدار `null` داشته باشند، چون زمان واقعی تکمیل آن‌ها قابل بازیابی نیست.
-
-### فیلتر و صفحه‌بندی تسک‌های شخصی
-
-پارامترهای `GET /tasks`:
-
-| Query       | توضیح                                                    |
-| ----------- | -------------------------------------------------------- |
-| `status`    | یکی از statusهای معتبر                                   |
-| `priority`  | یکی از priorityهای معتبر                                 |
-| `search`    | جست‌وجوی case-insensitive در title و description         |
-| `dueBefore` | تاریخ معتبر؛ `dueDate <= value`                          |
-| `dueAfter`  | تاریخ معتبر؛ `dueDate >= value`                          |
-| `page`      | شماره‌ی صفحه؛ پیش‌فرض `1`                                |
-| `limit`     | تعداد در صفحه؛ پیش‌فرض `10` و حداکثر `100`               |
-| `sortBy`    | `createdAt`، `updatedAt`، `dueDate`، `title` یا `status` |
-| `order`     | `asc` یا `desc`؛ پیش‌فرض `desc`                          |
+Staff account actions are executed only when a message begins with an explicit command:
 
 ```text
-GET /tasks?status=todo&priority=high
-GET /tasks?search=typescript
-GET /tasks?dueAfter=2026-07-01&dueBefore=2026-08-01&sortBy=dueDate&order=asc
-GET /tasks?page=2&limit=20
+/ban user@example.com terms-violation
+/unban user@example.com
+/user user@example.com
+/promote user@example.com
+/demote user@example.com
 ```
 
-پاسخ لیست‌ها شامل `tasks` و pagination زیر است:
+`/promote` and `/demote` are available only to super admins. Normal sentences never trigger account changes.
 
-```json
-{
-  "total": 42,
-  "page": 2,
-  "limit": 10,
-  "totalPages": 5,
-  "hasNextPage": true,
-  "hasPreviousPage": true
-}
-```
+## Rate Limiting
 
-`GET /tasks/summary` مقادیر `total`، `todo`، `inProgress`، `done`، `low`، `medium`، `high` و `overdue` را برمی‌گرداند. تسک عقب‌افتاده باید dueDate گذشته داشته باشد و status آن `done` نباشد.
+Authentication, guest chat, authenticated chat, and suggestion generation have separate rate limits. The default limiter uses in-memory storage and is suitable for a single process. Use a shared store such as Redis when deploying multiple application instances.
 
-## Admin API
+## Validation and Build
 
-Base path: `/admin`. همه‌ی مسیرها سه کنترل پشت‌سرهم دارند:
-
-1. access token معتبر؛
-2. refresh session فعال در دیتابیس؛
-3. نقش `admin` تازه‌خوانده‌شده از سند User.
-
-### مدیریت همه‌ی تسک‌ها
-
-| Method   | Route                         | توضیح                                |
-| -------- | ----------------------------- | ------------------------------------ |
-| `GET`    | `/admin/tasks`                | فهرست همه‌ی تسک‌ها همراه owner       |
-| `GET`    | `/admin/tasks/:id`            | مشاهده‌ی یک تسک                      |
-| `PATCH`  | `/admin/tasks/:id`            | ویرایش هر تسک یا جایگزینی attachment |
-| `DELETE` | `/admin/tasks/:id`            | حذف هر تسک و پاک‌سازی attachment     |
-| `DELETE` | `/admin/tasks/:id/attachment` | حذف attachment یک تسک                |
-
-پارامترهای `GET /admin/tasks`:
-
-| Query      | توضیح                                                                |
-| ---------- | -------------------------------------------------------------------- |
-| `search`   | جست‌وجو در title و description، حداکثر ۱۰۰ کاراکتر                   |
-| `status`   | `todo`، `in-progress` یا `done`                                      |
-| `priority` | `low`، `medium` یا `high`                                            |
-| `ownerId`  | MongoDB ObjectId کاربر                                               |
-| `page`     | پیش‌فرض `1`                                                          |
-| `limit`    | پیش‌فرض `20`، حداکثر `100`                                           |
-| `sortBy`   | `createdAt`، `updatedAt`، `dueDate`، `title`، `status` یا `priority` |
-| `order`    | `asc` یا `desc`؛ پیش‌فرض `desc`                                      |
-
-```text
-GET /admin/tasks?ownerId=66f000000000000000000001&status=todo
-GET /admin/tasks?search=invoice&sortBy=priority&order=desc&page=1&limit=20
-```
-
-در حذف تسک/attachment، اگر رکورد دیتابیس با موفقیت تغییر کند ولی پاک‌سازی Cloudinary شکست بخورد، پاسخ موفق باقی می‌ماند و `attachmentCleanupFailed: true` گزارش می‌شود.
-
-### مدیریت کاربران
-
-| Method   | Route                         | توضیح                                          |
-| -------- | ----------------------------- | ---------------------------------------------- |
-| `GET`    | `/admin/users`                | فهرست کاربران                                  |
-| `GET`    | `/admin/users/:id`            | کاربر همراه `taskCount` و `activeSessionCount` |
-| `PATCH`  | `/admin/users/:id`            | تغییر نام، نام خانوادگی یا ایمیل               |
-| `PATCH`  | `/admin/users/:id/admin-role` | افزودن یا حذف نقش مدیر                         |
-| `DELETE` | `/admin/users/:id`            | حذف کاربر و داده‌های مرتبط                     |
-
-پارامترهای `GET /admin/users`:
-
-- `search`: جست‌وجو در نام، نام خانوادگی و ایمیل؛ حداکثر ۱۰۰ کاراکتر
-- `role`: فقط `user` یا `admin`
-- `page`: پیش‌فرض `1`
-- `limit`: پیش‌فرض `20` و حداکثر `100`
-
-ویرایش اطلاعات کاربر مشابه profile است و باید حداقل یک فیلد داشته باشد؛ ایمیل تکراری پاسخ `409` می‌گیرد.
-
-برای تغییر نقش:
-
-```http
-PATCH /admin/users/66f000000000000000000001/admin-role
-Authorization: Bearer ADMIN_ACCESS_TOKEN
-Content-Type: application/json
-```
-
-```json
-{ "isAdmin": true }
-```
-
-نقش‌های نهایی همیشه یا `["user"]` یا `["user", "admin"]` هستند. در صورت تغییر نقش، همه‌ی sessionهای فعال کاربر هدف با دلیل `role-changed` باطل می‌شوند و تعداد آن‌ها در `sessionsRevoked` می‌آید.
-
-محدودیت‌های حفاظتی:
-
-- مدیر نمی‌تواند نقش admin خودش را حذف کند.
-- مدیر نمی‌تواند حساب خودش را از admin endpoint حذف کند.
-- آخرین مدیر سیستم قابل demote یا delete نیست.
-- حذف کاربر، تسک‌ها و refresh sessionهای او را حذف می‌کند و برای پاک‌کردن attachmentهای Cloudinary تلاش می‌کند.
-
-### ساخت اولین مدیر
-
-کاربرها با نقش `user` ثبت‌نام می‌شوند. برای bootstrap اولین مدیر، یک‌بار مستقیماً در MongoDB اجرا کنید:
-
-```javascript
-db.users.updateOne({ email: "admin@example.com" }, { $addToSet: { roles: "admin" } });
-```
-
-بعد از آن مدیر می‌تواند از `PATCH /admin/users/:id/admin-role` استفاده کند.
-
-## Rate limiting احراز هویت
-
-| Route                 |          مقدار پیش‌فرض | نحوه‌ی شمارش                          |
-| --------------------- | ---------------------: | ------------------------------------- |
-| `POST /auth/register` |   ۵ درخواست در یک ساعت | همه‌ی درخواست‌ها بر اساس IP           |
-| `POST /auth/login`    | ۱۰ درخواست در ۱۵ دقیقه | فقط loginهای ناموفق بر اساس IP        |
-| `POST /auth/refresh`  | ۳۰ درخواست در ۱۵ دقیقه | refreshهای ناموفق بر اساس IP          |
-| `POST /auth/refresh`  | ۳۰ درخواست در ۱۵ دقیقه | همه‌ی refreshها بر اساس session معتبر |
-
-پاسخ محدودشده status `429` و headerهای استاندارد `RateLimit` دارد. store فعلی in-memory است و برای یک process مناسب است؛ در deployment چندنمونه‌ای باید store اشتراکی مانند Redis جایگزین شود.
-
-## Build و بررسی TypeScript
-
-از ریشه‌ی پروژه:
+From the monorepo root:
 
 ```bash
-npm run typecheck --workspace server
-npm run build --workspace server
-npm run start:server
+npm run format:check
+npm run typecheck
+npm run lint
+npm run build
 ```
 
-build در پوشه‌ی `server/dist` تولید می‌شود.
+The server build output is written to `server/dist`.

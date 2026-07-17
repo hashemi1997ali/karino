@@ -3,7 +3,7 @@ import express from "express";
 
 import "#db";
 import { errorHandler, notFound, timeLogger } from "#middlewares";
-import { adminRouter, authRouter, taskRouter } from "#routers";
+import { adminRouter, authRouter, chatRouter, taskRouter } from "#routers";
 import { getNonNegativeIntegerEnv } from "#utils";
 
 const app = express();
@@ -31,6 +31,7 @@ app.get("/", (_request, response) => {
 app.use("/auth", authRouter);
 app.use("/tasks", taskRouter);
 app.use("/admin", adminRouter);
+app.use("/chat", chatRouter);
 
 app.use(notFound);
 app.use(errorHandler);

@@ -1,12 +1,34 @@
 import bcrypt from "bcrypt";
 import { model, Schema } from "mongoose";
 
+export const USER_ROLES = ["user", "admin", "super_admin"] as const;
+export type UserRole = (typeof USER_ROLES)[number];
+
+export const BAN_REASONS = [
+  "spam",
+  "abusive-behavior",
+  "harassment",
+  "fraud",
+  "terms-violation",
+  "security",
+  "other",
+] as const;
+export type BanReason = (typeof BAN_REASONS)[number];
+
+export interface IUserBan {
+  isBanned: boolean;
+  reason: BanReason;
+  bannedAt: Date;
+  sessionIps: string[];
+}
+
 export interface IUser {
   firstName: string;
   lastName: string;
   email: string;
   password: string;
   roles: string[];
+  ban: IUserBan | null;
   createdAt: Date;
   updatedAt: Date;
   comparePassword(candidatePassword: string): Promise<boolean>;
@@ -42,8 +64,20 @@ const userSchema = new Schema<IUser>(
     },
     roles: {
       type: [String],
-      enum: ["user", "admin"],
+      enum: USER_ROLES,
       default: ["user"],
+    },
+    ban: {
+      type: new Schema<IUserBan>(
+        {
+          isBanned: { type: Boolean, required: true, default: true },
+          reason: { type: String, enum: BAN_REASONS, required: true },
+          bannedAt: { type: Date, required: true, default: Date.now },
+          sessionIps: { type: [String], default: [] },
+        },
+        { _id: false },
+      ),
+      default: null,
     },
   },
   {

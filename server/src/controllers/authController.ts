@@ -1,7 +1,7 @@
 import type { Request, RequestHandler, Response } from "express";
 import mongoose from "mongoose";
 
-import { User } from "#models";
+import { User, type IUserBan } from "#models";
 import {
   createRefreshSession,
   listActiveRefreshSessions,
@@ -51,6 +51,11 @@ const getSessionContext = (request: Request): RefreshSessionContext => ({
   ipAddress: request.ip ?? null,
 });
 
+const createBannedError = (ban: IUserBan): AppError =>
+  new AppError("Your account has been banned", 403).withPublicDetails({
+    ban: { reason: ban.reason, bannedAt: ban.bannedAt },
+  });
+
 const issueNewSessionTokens = async (
   response: Response,
   userId: string,
@@ -77,10 +82,30 @@ const issueNewSessionTokens = async (
 export const register: RequestHandler = async (request, response) => {
   const { firstName, lastName, email, password } = request.body;
 
-  const emailAlreadyExists = await User.exists({ email });
+  const existingUser = await User.findOne({ email }).select("ban").lean();
 
-  if (emailAlreadyExists) {
+  if (existingUser) {
+    if (existingUser.ban?.isBanned) {
+      throw createBannedError(existingUser.ban);
+    }
+
     throw new AppError("An account with this email already exists", 409);
+  }
+
+  // Block re-registration from an IP that belongs to a banned account.
+  const requestIp = request.ip ?? null;
+
+  if (requestIp) {
+    const bannedByIp = await User.findOne({
+      "ban.isBanned": true,
+      "ban.sessionIps": requestIp,
+    })
+      .select("ban")
+      .lean();
+
+    if (bannedByIp?.ban) {
+      throw createBannedError(bannedByIp.ban);
+    }
   }
 
   const user = await User.create({ firstName, lastName, email, password });
@@ -120,6 +145,10 @@ export const login: RequestHandler = async (request, response) => {
 
   if (!user || !(await user.comparePassword(password))) {
     throw new AppError("Invalid email or password", 401);
+  }
+
+  if (user.ban?.isBanned) {
+    throw createBannedError(user.ban);
   }
 
   const accessToken = await issueNewSessionTokens(
@@ -298,6 +327,12 @@ export const refreshAccessToken: RequestHandler = async (request, response) => {
     await revokeRefreshSession(refreshAuth.sessionId, refreshAuth.userId, "user-deleted");
     clearRefreshTokenCookie(response);
     throw new AppError("User no longer exists", 401);
+  }
+
+  if (user.ban?.isBanned) {
+    await revokeRefreshSession(refreshAuth.sessionId, refreshAuth.userId, "banned");
+    clearRefreshTokenCookie(response);
+    throw createBannedError(user.ban);
   }
 
   const accessToken = createAccessToken(

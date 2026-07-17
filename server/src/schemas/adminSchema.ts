@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { TASK_PRIORITIES, TASK_STATUSES } from "#models";
+import { BAN_REASONS, TASK_PRIORITIES, TASK_STATUSES } from "#models";
 import { updateTaskSchema } from "./taskSchema.ts";
 
 const objectIdSchema = z
@@ -54,7 +54,13 @@ export const adminTaskQuerySchema = z
 export const adminUserQuerySchema = z
   .object({
     search: optionalSearchSchema,
-    role: z.enum(["user", "admin"]).optional(),
+    role: z.enum(["user", "admin", "super_admin"]).optional(),
+    banned: z
+      .preprocess(
+        (value) => (value === "" ? undefined : value),
+        z.enum(["true", "false"]).optional(),
+      )
+      .transform((value) => (value === undefined ? undefined : value === "true")),
     page: pageSchema,
     limit: limitSchema,
   })
@@ -74,6 +80,13 @@ export const adminUpdateUserSchema = z
 export const adminRoleSchema = z
   .object({
     isAdmin: z.boolean(),
+  })
+  .strict();
+
+export const adminBanSchema = z
+  .object({
+    reason: z.enum(BAN_REASONS),
+    note: z.string().trim().max(500).optional(),
   })
   .strict();
 

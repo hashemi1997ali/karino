@@ -6,6 +6,7 @@ export class ApiError extends Error {
     message: string,
     public readonly status: number,
     public readonly issues: ValidationIssue[] = [],
+    public readonly details?: unknown,
   ) {
     super(message);
     this.name = "ApiError";
@@ -79,6 +80,40 @@ const germanApiMessages: Record<string, string> = {
     "Der Server konnte die Anfrage nicht verarbeiten.",
   "Internal server error": "Ein interner Serverfehler ist aufgetreten.",
   "Unknown server error": "Ein unbekannter Serverfehler ist aufgetreten.",
+  "Your account has been banned": "Dein Konto wurde gesperrt.",
+  "Chat not found": "Der Chat wurde nicht gefunden.",
+  "This chat has ended": "Dieser Chat ist bereits beendet.",
+  "This chat has already been sent to support":
+    "Dieser Chat wurde bereits an den Support gesendet.",
+  "This chat has already been rated": "Dieser Chat wurde bereits bewertet.",
+  "End the chat before rating it": "Beende den Chat, bevor du ihn bewertest.",
+  "This chat is unavailable or has already been claimed":
+    "Dieser Chat ist nicht verfügbar oder wurde bereits angenommen.",
+  "This chat requires a super administrator":
+    "Dieser Chat erfordert einen Super-Administrator.",
+  "You must claim this chat before replying":
+    "Du musst diesen Chat annehmen, bevor du antwortest.",
+  "Super administrators manage support directly":
+    "Super-Administratoren verwalten Supportfälle direkt.",
+  "A super administrator cannot transfer a chat upward":
+    "Ein Super-Administrator kann einen Chat nicht weiter nach oben übertragen.",
+  "Only a super administrator can change administrator roles":
+    "Nur ein Super-Administrator kann Administratorrollen ändern.",
+  "A super administrator role cannot be changed here":
+    "Die Super-Administratorrolle kann hier nicht geändert werden.",
+  "You cannot ban this account": "Du kannst dieses Konto nicht sperren.",
+  "You cannot unban this account": "Du kannst die Sperre dieses Kontos nicht aufheben.",
+  "You cannot ban your own account": "Du kannst dein eigenes Konto nicht sperren.",
+  "You do not have permission to ban this account":
+    "Du hast keine Berechtigung, dieses Konto zu sperren.",
+  "You do not have permission to unban this account":
+    "Du hast keine Berechtigung, die Sperre dieses Kontos aufzuheben.",
+  "You do not have permission to edit this account":
+    "Du hast keine Berechtigung, dieses Konto zu bearbeiten.",
+  "You do not have permission to delete this account":
+    "Du hast keine Berechtigung, dieses Konto zu löschen.",
+  "This user is not banned": "Dieser Benutzer ist nicht gesperrt.",
+  "Administrator required": "Administratorrechte sind erforderlich.",
 };
 
 export const getRuntimeLocale = (): Locale =>
@@ -95,6 +130,14 @@ export const localizeApiMessage = (message: string, locale: Locale): string => {
 };
 
 export const getErrorMessage = (error: unknown, locale = getRuntimeLocale()): string => {
+  if (error instanceof ApiError && error.message === "Your account has been banned") {
+    const details = error.details as
+      { ban?: { reason?: string; bannedAt?: string } } | undefined;
+    const reason = details?.ban?.reason;
+    const base = localizeApiMessage(error.message, locale);
+    if (!reason) return base;
+    return locale === "de" ? `${base} Grund: ${reason}` : `${base} Reason: ${reason}`;
+  }
   if (error instanceof Error) return localizeApiMessage(error.message, locale);
   return locale === "de"
     ? "Es ist ein Fehler aufgetreten. Bitte versuche es erneut."

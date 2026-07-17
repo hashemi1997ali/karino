@@ -3,6 +3,7 @@
 import * as Dialog from "@radix-ui/react-dialog";
 import {
   CheckSquare2,
+  Headphones,
   LayoutDashboard,
   ListChecks,
   LogOut,
@@ -32,6 +33,7 @@ const copy = {
     account: "Account",
     allTasks: "All tasks",
     users: "Users",
+    support: "Support",
     logout: "Sign out",
     loggedOut: "You have been signed out.",
     logoutTitle: "Sign out of this device?",
@@ -54,6 +56,7 @@ const copy = {
     account: "Konto",
     allTasks: "Alle Aufgaben",
     users: "Benutzer",
+    support: "Support",
     logout: "Abmelden",
     loggedOut: "Du wurdest abgemeldet.",
     logoutTitle: "Von diesem Gerät abmelden?",
@@ -92,6 +95,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const adminLinks = [
     { href: "/admin/tasks", label: t.allTasks, icon: ListChecks },
     { href: "/admin/users", label: t.users, icon: UsersRound },
+    { href: "/admin/support", label: t.support, icon: Headphones },
   ];
   const links = isAdmin ? [...normalLinks, ...adminLinks] : normalLinks;
 

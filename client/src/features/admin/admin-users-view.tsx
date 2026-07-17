@@ -3,7 +3,18 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as Switch from "@radix-ui/react-switch";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Edit3, Search, ShieldCheck, Trash2, UserRound } from "lucide-react";
+import {
+  Ban,
+  Edit3,
+  Eye,
+  RotateCcw,
+  Search,
+  ShieldCheck,
+  ShieldEllipsis,
+  Trash2,
+  UserRound,
+} from "lucide-react";
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
@@ -15,187 +26,151 @@ import { Dialog } from "@/components/ui/dialog";
 import { Field, Input, Select } from "@/components/ui/form-controls";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui/states";
 import {
+  banUserRequest,
   deleteUserRequest,
   getUsersRequest,
   setAdminRoleRequest,
+  unbanUserRequest,
   updateUserRequest,
   type UserFilters,
 } from "@/features/admin/api";
 import { useAuth } from "@/features/auth/auth-provider";
 import { createProfileSchema, type ProfileFormValues } from "@/features/auth/schemas";
 import { getErrorMessage } from "@/lib/api-error";
-import type { Locale } from "@/lib/preferences";
-import type { User } from "@/lib/types";
+import { getBanReasonLabel } from "@/lib/domain-labels";
+import type { BanReason, User } from "@/lib/types";
 import { getId, initials } from "@/lib/utils";
 import { usePreferences } from "@/providers/preferences-provider";
 
-interface AdminUsersCopy {
-  editTitle: string;
-  editDescription: string;
-  firstName: string;
-  lastName: string;
-  email: string;
-  saveChanges: string;
-  userSaved: string;
-  adminEnabled: string;
-  adminRemoved: string;
-  userDeleted: string;
-  eyebrow: string;
-  title: string;
-  description: string;
-  searchPlaceholder: string;
-  searchAria: string;
-  roleFilterAria: string;
-  allRoles: string;
-  regularUser: string;
-  administrator: string;
-  loadingUsers: string;
-  emptyTitle: string;
-  emptyDescription: string;
-  user: string;
-  joined: string;
-  adminAccess: string;
-  actions: string;
-  you: string;
-  userSingular: string;
-  userPlural: string;
-  page: string;
-  previous: string;
-  next: string;
-  deleteTitle: string;
-  adminAccessAria: (name: string) => string;
-  editAria: (name: string) => string;
-  deleteAria: (name: string) => string;
-  deleteDescription: (name: string) => string;
-}
-
-const isolate = (value: string): string => `\u2068${value}\u2069`;
+const banReasons: BanReason[] = [
+  "spam",
+  "abusive-behavior",
+  "harassment",
+  "fraud",
+  "terms-violation",
+  "security",
+  "other",
+];
 
 const copy = {
   en: {
-    editTitle: "Edit user",
-    editDescription:
-      "Update this user's name and email. Administrator access is managed separately.",
+    eyebrow: "Access and safety",
+    title: "Users",
+    description:
+      "Open a profile to see its tasks, manage bans, and—when you are a super admin—change administrator access.",
+    search: "Search by name or email…",
+    allRoles: "All roles",
+    user: "Regular user",
+    admin: "Administrator",
+    superAdmin: "Super administrator",
+    allStates: "All account states",
+    active: "Active",
+    banned: "Banned",
+    loading: "Loading users…",
+    emptyTitle: "No users found",
+    emptyDescription: "Try another search or filter.",
+    joined: "Joined",
+    role: "Role",
+    actions: "Actions",
+    you: "You",
+    edit: "Edit user",
+    editDescription: "Update the user's name or email address.",
     firstName: "First name",
     lastName: "Last name",
     email: "Email",
-    saveChanges: "Save changes",
-    userSaved: "The user's details have been saved.",
-    adminEnabled: "Administrator access has been enabled.",
-    adminRemoved: "Administrator access has been removed.",
-    userDeleted: "The user and all related data have been deleted.",
-    eyebrow: "Access management",
-    title: "Users",
-    description: "Review users, update their details, or change administrator access.",
-    searchPlaceholder: "Search by name or email...",
-    searchAria: "Search users",
-    roleFilterAria: "Filter users by role",
-    allRoles: "All roles",
-    regularUser: "Regular user",
-    administrator: "Administrator",
-    loadingUsers: "Loading users...",
-    emptyTitle: "No users found",
-    emptyDescription: "Try another search term or role filter.",
-    user: "User",
-    joined: "Joined",
-    adminAccess: "Administrator access",
-    actions: "Actions",
-    you: "You",
-    userSingular: "user",
-    userPlural: "users",
-    page: "Page",
+    save: "Save changes",
+    saved: "User details saved.",
+    roleEnabled: "Administrator access enabled.",
+    roleRemoved: "Administrator access removed.",
+    deleted: "User and related data deleted.",
+    banTitle: "Ban user",
+    banDescription: "The user will be signed out on every active device.",
+    reason: "Ban reason",
+    banAction: "Ban account",
+    bannedDone: "The account was banned and active sessions were revoked.",
+    unbannedDone: "The account was unbanned and ban metadata was cleared.",
+    unbanTitle: "Unban user",
+    unbanDescription: "All ban metadata will be cleared from the account.",
+    deleteTitle: "Delete user",
+    deleteDescription: (name: string) =>
+      `${name}'s account, sessions, tasks, and attachments will be permanently deleted.`,
     previous: "Previous",
     next: "Next",
-    deleteTitle: "Delete user",
-    adminAccessAria: (name: string) => `Administrator access for ${isolate(name)}`,
-    editAria: (name: string) => `Edit ${isolate(name)}`,
-    deleteAria: (name: string) => `Delete ${isolate(name)}`,
-    deleteDescription: (name: string) =>
-      `The account for ${isolate(name)}, including all sessions, tasks, and attachments, will be permanently deleted.`,
+    page: "Page",
+    users: "users",
+    viewProfile: "Open profile and tasks",
+    adminToggle: "Administrator access",
+    bannedReason: "Reason",
   },
   de: {
-    editTitle: "Benutzer bearbeiten",
-    editDescription:
-      "Ändere Name und E-Mail-Adresse. Administratorrechte werden separat verwaltet.",
-    firstName: "Vorname",
-    lastName: "Nachname",
-    email: "E-Mail-Adresse",
-    saveChanges: "Änderungen speichern",
-    userSaved: "Die Benutzerdaten wurden gespeichert.",
-    adminEnabled: "Administratorrechte wurden aktiviert.",
-    adminRemoved: "Administratorrechte wurden entfernt.",
-    userDeleted: "Der Benutzer und alle zugehörigen Daten wurden gelöscht.",
-    eyebrow: "Zugriffsverwaltung",
+    eyebrow: "Zugriff und Sicherheit",
     title: "Benutzer",
     description:
-      "Prüfe Benutzerdaten, bearbeite sie oder ändere die Administratorrechte.",
-    searchPlaceholder: "Nach Name oder E-Mail-Adresse suchen...",
-    searchAria: "Benutzer suchen",
-    roleFilterAria: "Benutzer nach Rolle filtern",
+      "Öffne ein Profil, um Aufgaben zu sehen, Sperren zu verwalten und als Super-Admin Administratorrechte zu ändern.",
+    search: "Nach Name oder E-Mail suchen…",
     allRoles: "Alle Rollen",
-    regularUser: "Standardbenutzer",
-    administrator: "Administrator",
-    loadingUsers: "Benutzer werden geladen...",
+    user: "Standardbenutzer",
+    admin: "Administrator",
+    superAdmin: "Super-Administrator",
+    allStates: "Alle Kontostatus",
+    active: "Aktiv",
+    banned: "Gesperrt",
+    loading: "Benutzer werden geladen…",
     emptyTitle: "Keine Benutzer gefunden",
-    emptyDescription: "Versuche einen anderen Suchbegriff oder Rollenfilter.",
-    user: "Benutzer",
+    emptyDescription: "Versuche eine andere Suche oder einen anderen Filter.",
     joined: "Registriert",
-    adminAccess: "Administratorrechte",
+    role: "Rolle",
     actions: "Aktionen",
     you: "Du",
-    userSingular: "Benutzer",
-    userPlural: "Benutzer",
-    page: "Seite",
+    edit: "Benutzer bearbeiten",
+    editDescription: "Name oder E-Mail-Adresse des Benutzers ändern.",
+    firstName: "Vorname",
+    lastName: "Nachname",
+    email: "E-Mail",
+    save: "Änderungen speichern",
+    saved: "Benutzerdaten gespeichert.",
+    roleEnabled: "Administratorrechte aktiviert.",
+    roleRemoved: "Administratorrechte entfernt.",
+    deleted: "Benutzer und zugehörige Daten gelöscht.",
+    banTitle: "Benutzer sperren",
+    banDescription: "Der Benutzer wird auf allen aktiven Geräten abgemeldet.",
+    reason: "Sperrgrund",
+    banAction: "Konto sperren",
+    bannedDone: "Das Konto wurde gesperrt und aktive Sitzungen wurden beendet.",
+    unbannedDone: "Die Sperre und alle Sperrdaten wurden entfernt.",
+    unbanTitle: "Sperre aufheben",
+    unbanDescription: "Alle Sperrdaten werden aus dem Konto entfernt.",
+    deleteTitle: "Benutzer löschen",
+    deleteDescription: (name: string) =>
+      `Konto, Sitzungen, Aufgaben und Anhänge von ${name} werden dauerhaft gelöscht.`,
     previous: "Zurück",
     next: "Weiter",
-    deleteTitle: "Benutzer löschen",
-    adminAccessAria: (name: string) => `Administratorrechte für ${isolate(name)}`,
-    editAria: (name: string) => `${isolate(name)} bearbeiten`,
-    deleteAria: (name: string) => `${isolate(name)} löschen`,
-    deleteDescription: (name: string) =>
-      `Das Konto von ${isolate(name)} wird einschließlich aller Sitzungen, Aufgaben und Anhänge dauerhaft gelöscht.`,
+    page: "Seite",
+    users: "Benutzer",
+    viewProfile: "Profil und Aufgaben öffnen",
+    adminToggle: "Administratorrechte",
+    bannedReason: "Grund",
   },
-} as const satisfies Record<Locale, AdminUsersCopy>;
+} as const;
 
-const formatDate = (value: string, intlLocale: string): string => {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "—";
-  return new Intl.DateTimeFormat(intlLocale, { dateStyle: "medium" }).format(date);
-};
-
-const formatPagination = (
-  total: number,
-  page: number,
-  intlLocale: string,
-  t: AdminUsersCopy,
-): string => {
-  const number = new Intl.NumberFormat(intlLocale);
-  const pluralCategory = new Intl.PluralRules(intlLocale).select(total);
-  const noun = pluralCategory === "one" ? t.userSingular : t.userPlural;
-  return `${number.format(total)} ${noun} · ${t.page} ${number.format(page)}`;
-};
-
-function UserEditDialog({
+function EditUserDialog({
   user,
-  onOpenChange,
   loading,
+  onClose,
   onSave,
 }: {
   user: User | null;
-  onOpenChange: (open: boolean) => void;
   loading: boolean;
+  onClose: () => void;
   onSave: (values: ProfileFormValues) => Promise<void>;
 }) {
   const { locale } = usePreferences();
   const t = copy[locale];
-  const localizedProfileSchema = useMemo(() => createProfileSchema(locale), [locale]);
+  const schema = useMemo(() => createProfileSchema(locale), [locale]);
   const form = useForm<ProfileFormValues>({
-    resolver: zodResolver(localizedProfileSchema),
+    resolver: zodResolver(schema),
+    defaultValues: { firstName: "", lastName: "", email: "" },
   });
-
-  useEffect(() => {
-    form.clearErrors();
-  }, [locale, form]);
 
   useEffect(() => {
     if (user) {
@@ -210,30 +185,23 @@ function UserEditDialog({
   return (
     <Dialog
       open={Boolean(user)}
-      onOpenChange={onOpenChange}
-      title={t.editTitle}
+      onOpenChange={(open) => !open && onClose()}
+      title={t.edit}
       description={t.editDescription}
     >
-      <form onSubmit={form.handleSubmit(onSave)} className="grid gap-3" noValidate>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <Field label={t.firstName} error={form.formState.errors.firstName?.message}>
-            <Input dir="auto" autoComplete="given-name" {...form.register("firstName")} />
-          </Field>
-          <Field label={t.lastName} error={form.formState.errors.lastName?.message}>
-            <Input dir="auto" autoComplete="family-name" {...form.register("lastName")} />
-          </Field>
-        </div>
-        <Field label={t.email} error={form.formState.errors.email?.message}>
-          <Input
-            type="email"
-            dir="ltr"
-            autoComplete="email"
-            {...form.register("email")}
-          />
+      <form className="space-y-2" onSubmit={form.handleSubmit(onSave)}>
+        <Field label={t.firstName} error={form.formState.errors.firstName?.message}>
+          <Input {...form.register("firstName")} autoComplete="off" />
         </Field>
-        <div className="mt-2 flex justify-end">
+        <Field label={t.lastName} error={form.formState.errors.lastName?.message}>
+          <Input {...form.register("lastName")} autoComplete="off" />
+        </Field>
+        <Field label={t.email} error={form.formState.errors.email?.message}>
+          <Input {...form.register("email")} type="email" autoComplete="off" />
+        </Field>
+        <div className="flex justify-end pt-2">
           <Button type="submit" loading={loading}>
-            {t.saveChanges}
+            {t.save}
           </Button>
         </div>
       </form>
@@ -241,16 +209,66 @@ function UserEditDialog({
   );
 }
 
+function BanUserDialog({
+  user,
+  loading,
+  onClose,
+  onBan,
+}: {
+  user: User | null;
+  loading: boolean;
+  onClose: () => void;
+  onBan: (reason: BanReason) => Promise<void>;
+}) {
+  const { locale } = usePreferences();
+  const t = copy[locale];
+  const [reason, setReason] = useState<BanReason>("terms-violation");
+
+  return (
+    <Dialog
+      open={Boolean(user)}
+      onOpenChange={(open) => !open && onClose()}
+      title={t.banTitle}
+      description={t.banDescription}
+    >
+      <div className="space-y-4">
+        <label className="grid gap-2 text-sm font-bold">
+          {t.reason}
+          <Select
+            value={reason}
+            onChange={(event) => setReason(event.target.value as BanReason)}
+          >
+            {banReasons.map((value) => (
+              <option key={value} value={value}>
+                {getBanReasonLabel(value, locale)}
+              </option>
+            ))}
+          </Select>
+        </label>
+        <div className="flex justify-end">
+          <Button variant="danger" loading={loading} onClick={() => void onBan(reason)}>
+            <Ban className="size-4" />
+            {t.banAction}
+          </Button>
+        </div>
+      </div>
+    </Dialog>
+  );
+}
+
 export function AdminUsersView() {
-  const queryClient = useQueryClient();
-  const { user: currentUser, updateUser } = useAuth();
   const { locale, intlLocale } = usePreferences();
   const t = copy[locale];
+  const queryClient = useQueryClient();
+  const { user: currentUser, isSuperAdmin, updateUser } = useAuth();
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [role, setRole] = useState<UserFilters["role"]>("");
+  const [banned, setBanned] = useState<UserFilters["banned"]>("");
   const [page, setPage] = useState(1);
   const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [banningUser, setBanningUser] = useState<User | null>(null);
+  const [unbanningUser, setUnbanningUser] = useState<User | null>(null);
   const [deletingUser, setDeletingUser] = useState<User | null>(null);
 
   useEffect(() => {
@@ -262,46 +280,61 @@ export function AdminUsersView() {
   }, [search]);
 
   const filters = useMemo<UserFilters>(
-    () => ({ page, limit: 10, search: debouncedSearch, role }),
-    [page, debouncedSearch, role],
+    () => ({ page, limit: 10, search: debouncedSearch, role, banned }),
+    [page, debouncedSearch, role, banned],
   );
   const usersQuery = useQuery({
     queryKey: ["admin", "users", filters],
     queryFn: () => getUsersRequest(filters),
   });
-
   const invalidate = () =>
     queryClient.invalidateQueries({ queryKey: ["admin", "users"] });
 
   const editMutation = useMutation({
     mutationFn: ({ user, values }: { user: User; values: ProfileFormValues }) =>
       updateUserRequest(getId(user), values),
-    onSuccess: async (updatedUser, variables) => {
-      if (currentUser && getId(currentUser) === getId(variables.user)) {
-        updateUser(updatedUser);
-      }
+    onSuccess: async (updated, variables) => {
+      if (currentUser && getId(currentUser) === getId(variables.user))
+        updateUser(updated);
       setEditingUser(null);
-      toast.success(t.userSaved);
+      toast.success(t.saved);
       await invalidate();
     },
     onError: (error) => toast.error(getErrorMessage(error, locale)),
   });
-
   const roleMutation = useMutation({
     mutationFn: ({ user, isAdmin }: { user: User; isAdmin: boolean }) =>
       setAdminRoleRequest(getId(user), isAdmin),
-    onSuccess: async (_data, variables) => {
-      toast.success(variables.isAdmin ? t.adminEnabled : t.adminRemoved);
+    onSuccess: async (_user, variables) => {
+      toast.success(variables.isAdmin ? t.roleEnabled : t.roleRemoved);
       await invalidate();
     },
     onError: (error) => toast.error(getErrorMessage(error, locale)),
   });
-
+  const banMutation = useMutation({
+    mutationFn: ({ user, reason }: { user: User; reason: BanReason }) =>
+      banUserRequest(getId(user), reason),
+    onSuccess: async () => {
+      setBanningUser(null);
+      toast.success(t.bannedDone);
+      await invalidate();
+    },
+    onError: (error) => toast.error(getErrorMessage(error, locale)),
+  });
+  const unbanMutation = useMutation({
+    mutationFn: (user: User) => unbanUserRequest(getId(user)),
+    onSuccess: async () => {
+      setUnbanningUser(null);
+      toast.success(t.unbannedDone);
+      await invalidate();
+    },
+    onError: (error) => toast.error(getErrorMessage(error, locale)),
+  });
   const deleteMutation = useMutation({
     mutationFn: (user: User) => deleteUserRequest(getId(user)),
     onSuccess: async () => {
       setDeletingUser(null);
-      toast.success(t.userDeleted);
+      toast.success(t.deleted);
       await invalidate();
     },
     onError: (error) => toast.error(getErrorMessage(error, locale)),
@@ -309,29 +342,25 @@ export function AdminUsersView() {
 
   const users = usersQuery.data?.users ?? [];
   const pagination = usersQuery.data?.pagination;
+  const formatDate = (value: string) =>
+    new Intl.DateTimeFormat(intlLocale, { dateStyle: "medium" }).format(new Date(value));
 
   return (
     <div>
-      <div>
-        <p className="text-sm font-bold text-indigo-600 dark:text-indigo-300">
-          {t.eyebrow}
-        </p>
-        <h1 className="mt-1 text-2xl font-black text-[var(--foreground)] sm:text-3xl">
-          {t.title}
-        </h1>
-        <p className="mt-2 text-sm text-[var(--muted)]">{t.description}</p>
-      </div>
+      <p className="eyebrow text-[var(--primary)]">{t.eyebrow}</p>
+      <h1 className="mt-2 text-3xl font-black">{t.title}</h1>
+      <p className="mt-2 max-w-3xl text-sm leading-6 text-[var(--muted)]">
+        {t.description}
+      </p>
 
-      <section className="mt-6 grid gap-3 rounded-2xl border bg-[var(--surface)] p-3 shadow-sm sm:grid-cols-[1fr_13rem]">
+      <section className="mt-6 grid gap-3 rounded-[1.5rem] border bg-[var(--surface)] p-3 shadow-sm md:grid-cols-[1fr_12rem_13rem]">
         <label className="relative">
-          <Search className="pointer-events-none absolute start-3.5 top-3.5 size-4 text-[var(--muted)]" />
+          <Search className="pointer-events-none absolute start-3.5 top-4 size-4 text-[var(--muted)]" />
           <Input
             value={search}
             onChange={(event) => setSearch(event.target.value)}
-            dir="auto"
-            placeholder={t.searchPlaceholder}
+            placeholder={t.search}
             className="ps-10"
-            aria-label={t.searchAria}
           />
         </label>
         <Select
@@ -340,17 +369,28 @@ export function AdminUsersView() {
             setRole(event.target.value as UserFilters["role"]);
             setPage(1);
           }}
-          aria-label={t.roleFilterAria}
         >
           <option value="">{t.allRoles}</option>
-          <option value="user">{t.regularUser}</option>
-          <option value="admin">{t.administrator}</option>
+          <option value="user">{t.user}</option>
+          <option value="admin">{t.admin}</option>
+          <option value="super_admin">{t.superAdmin}</option>
+        </Select>
+        <Select
+          value={banned}
+          onChange={(event) => {
+            setBanned(event.target.value as UserFilters["banned"]);
+            setPage(1);
+          }}
+        >
+          <option value="">{t.allStates}</option>
+          <option value="false">{t.active}</option>
+          <option value="true">{t.banned}</option>
         </Select>
       </section>
 
       <Card className="mt-6 overflow-hidden">
         {usersQuery.isPending ? (
-          <LoadingState label={t.loadingUsers} />
+          <LoadingState label={t.loading} />
         ) : usersQuery.isError ? (
           <div className="p-5">
             <ErrorState
@@ -363,102 +403,137 @@ export function AdminUsersView() {
             <EmptyState title={t.emptyTitle} description={t.emptyDescription} />
           </div>
         ) : (
-          <>
-            <div className="hidden grid-cols-[minmax(15rem,1.4fr)_minmax(13rem,1fr)_9rem_10rem] gap-4 border-b bg-[var(--surface-muted)] px-5 py-3 text-xs font-bold text-[var(--muted)] md:grid">
-              <span>{t.user}</span>
-              <span>{t.joined}</span>
-              <span>{t.adminAccess}</span>
-              <span className="text-end">{t.actions}</span>
-            </div>
-            <div className="divide-y">
-              {users.map((user) => {
-                const id = getId(user);
-                const self = id === currentUser?.id || id === currentUser?._id;
-                const isAdmin = user.roles.includes("admin");
-                return (
-                  <article
-                    key={id}
-                    className="grid gap-4 p-4 md:grid-cols-[minmax(15rem,1.4fr)_minmax(13rem,1fr)_9rem_10rem] md:items-center md:px-5"
-                  >
-                    <div className="flex min-w-0 items-center gap-3">
-                      <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-indigo-50 font-black text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-200">
-                        {initials(user.firstName, user.lastName)}
-                      </span>
-                      <div className="min-w-0">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <p
-                            className="truncate text-sm font-bold text-[var(--foreground)]"
-                            dir="auto"
-                          >
-                            <bdi>{user.firstName}</bdi> <bdi>{user.lastName}</bdi>
-                          </p>
-                          {self && (
-                            <Badge className="bg-[var(--surface-muted)] text-[var(--muted)]">
-                              {t.you}
-                            </Badge>
-                          )}
-                        </div>
-                        <p
-                          className="mt-1 truncate text-xs text-[var(--muted)]"
-                          dir="ltr"
+          <div className="divide-y">
+            {users.map((user) => {
+              const id = getId(user);
+              const self = id === currentUser?.id || id === currentUser?._id;
+              const superAdmin = user.roles.includes("super_admin");
+              const admin = user.roles.includes("admin");
+              const targetStaff = admin || superAdmin;
+              const mayManage = self || !targetStaff || isSuperAdmin;
+              const mayBan = !self && !superAdmin && (!admin || isSuperAdmin);
+              const roleLabel = superAdmin ? t.superAdmin : admin ? t.admin : t.user;
+
+              return (
+                <article
+                  key={id}
+                  className="grid gap-4 p-4 lg:grid-cols-[minmax(16rem,1.5fr)_10rem_11rem_minmax(14rem,1fr)] lg:items-center lg:px-5"
+                >
+                  <div className="flex min-w-0 items-center gap-3">
+                    <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-[var(--primary-soft)] font-black text-[var(--primary-dark)]">
+                      {initials(user.firstName, user.lastName)}
+                    </span>
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Link
+                          href={`/admin/users/${id}`}
+                          className="focus-ring truncate rounded font-bold hover:text-[var(--primary)]"
+                          title={t.viewProfile}
                         >
-                          {user.email}
-                        </p>
+                          {user.firstName} {user.lastName}
+                        </Link>
+                        {self && <Badge>{t.you}</Badge>}
+                        {user.ban?.isBanned && (
+                          <Badge className="border-rose-200 bg-rose-50 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300">
+                            {t.banned}
+                          </Badge>
+                        )}
                       </div>
+                      <p className="truncate text-xs text-[var(--muted)]" dir="ltr">
+                        {user.email}
+                      </p>
+                      {user.ban?.isBanned && (
+                        <p className="mt-1 text-xs text-rose-600 dark:text-rose-300">
+                          {t.bannedReason}: {getBanReasonLabel(user.ban.reason, locale)}
+                        </p>
+                      )}
                     </div>
-                    <div className="flex items-center gap-2 text-sm text-[var(--muted)]">
-                      <UserRound className="size-4 md:hidden" />
-                      {formatDate(user.createdAt, intlLocale)}
-                    </div>
-                    <div className="flex items-center gap-3">
+                  </div>
+
+                  <div className="flex items-center gap-2 text-sm text-[var(--muted)]">
+                    <UserRound className="size-4" />
+                    {formatDate(user.createdAt)}
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    {superAdmin ? (
+                      <ShieldEllipsis className="size-5 text-[var(--primary)]" />
+                    ) : (
                       <Switch.Root
-                        checked={isAdmin}
-                        disabled={self || roleMutation.isPending}
+                        checked={admin}
+                        disabled={!isSuperAdmin || self || roleMutation.isPending}
                         onCheckedChange={(checked) =>
                           roleMutation.mutate({ user, isAdmin: checked })
                         }
-                        className="focus-ring relative h-6 w-11 rounded-full bg-slate-200 transition data-[state=checked]:bg-[var(--primary)] disabled:cursor-not-allowed disabled:opacity-50 dark:bg-slate-700"
-                        aria-label={t.adminAccessAria(
-                          `${user.firstName} ${user.lastName}`,
-                        )}
+                        aria-label={t.adminToggle}
+                        className="focus-ring relative h-6 w-11 rounded-full bg-slate-200 transition data-[state=checked]:bg-[var(--primary)] disabled:opacity-50 dark:bg-slate-700"
                       >
-                        <Switch.Thumb className="block size-5 translate-x-0.5 rounded-full bg-[#fff] shadow transition data-[state=checked]:translate-x-5" />
+                        <Switch.Thumb className="block size-5 translate-x-0.5 rounded-full bg-white shadow transition data-[state=checked]:translate-x-5" />
                       </Switch.Root>
-                      {isAdmin && (
-                        <ShieldCheck className="size-4 text-indigo-600 dark:text-indigo-300" />
-                      )}
-                    </div>
-                    <div className="flex justify-end gap-1">
+                    )}
+                    <span className="text-xs font-bold text-[var(--muted)]">
+                      {roleLabel}
+                    </span>
+                  </div>
+
+                  <div className="flex flex-wrap justify-end gap-1">
+                    <Link
+                      href={`/admin/users/${id}`}
+                      className="focus-ring grid size-10 place-items-center rounded-full text-[var(--muted)] hover:bg-[var(--surface-muted)]"
+                      aria-label={t.viewProfile}
+                    >
+                      <Eye className="size-4" />
+                    </Link>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      disabled={!mayManage}
+                      onClick={() => setEditingUser(user)}
+                    >
+                      <Edit3 className="size-4" />
+                    </Button>
+                    {user.ban?.isBanned ? (
                       <Button
-                        variant="ghost"
+                        variant="secondary"
                         size="icon"
-                        onClick={() => setEditingUser(user)}
-                        aria-label={t.editAria(user.firstName)}
+                        disabled={!mayBan}
+                        onClick={() => setUnbanningUser(user)}
                       >
-                        <Edit3 className="size-4" />
+                        <RotateCcw className="size-4" />
                       </Button>
+                    ) : (
                       <Button
                         variant="danger"
                         size="icon"
-                        disabled={self}
-                        onClick={() => setDeletingUser(user)}
-                        aria-label={t.deleteAria(user.firstName)}
+                        disabled={!mayBan}
+                        onClick={() => setBanningUser(user)}
                       >
-                        <Trash2 className="size-4" />
+                        <Ban className="size-4" />
                       </Button>
-                    </div>
-                  </article>
-                );
-              })}
-            </div>
-          </>
+                    )}
+                    <Button
+                      variant="danger"
+                      size="icon"
+                      disabled={!mayManage || self}
+                      onClick={() => setDeletingUser(user)}
+                    >
+                      <Trash2 className="size-4" />
+                    </Button>
+                    {targetStaff && (
+                      <ShieldCheck className="my-auto ml-1 size-4 text-[var(--primary)]" />
+                    )}
+                  </div>
+                </article>
+              );
+            })}
+          </div>
         )}
       </Card>
 
       {pagination && pagination.totalPages > 1 && (
         <div className="mt-5 flex items-center justify-between text-sm">
           <span className="text-[var(--muted)]">
-            {formatPagination(pagination.total, pagination.page, intlLocale, t)}
+            {pagination.total} {t.users} · {t.page} {pagination.page}
           </span>
           <div className="flex gap-2">
             <Button
@@ -481,12 +556,10 @@ export function AdminUsersView() {
         </div>
       )}
 
-      <UserEditDialog
+      <EditUserDialog
         user={editingUser}
-        onOpenChange={(open) => {
-          if (!open) setEditingUser(null);
-        }}
         loading={editMutation.isPending}
+        onClose={() => setEditingUser(null)}
         onSave={(values) =>
           editingUser
             ? editMutation
@@ -495,21 +568,42 @@ export function AdminUsersView() {
             : Promise.resolve()
         }
       />
+      <BanUserDialog
+        key={banningUser?.id ?? "closed"}
+        user={banningUser}
+        loading={banMutation.isPending}
+        onClose={() => setBanningUser(null)}
+        onBan={(reason) =>
+          banningUser
+            ? banMutation.mutateAsync({ user: banningUser, reason }).then(() => undefined)
+            : Promise.resolve()
+        }
+      />
+      <ConfirmDialog
+        open={Boolean(unbanningUser)}
+        onOpenChange={(open) => !open && setUnbanningUser(null)}
+        title={t.unbanTitle}
+        description={t.unbanDescription}
+        loading={unbanMutation.isPending}
+        onConfirm={() =>
+          unbanningUser
+            ? unbanMutation.mutateAsync(unbanningUser).then(() => undefined)
+            : undefined
+        }
+      />
       <ConfirmDialog
         open={Boolean(deletingUser)}
-        onOpenChange={(open) => {
-          if (!open) setDeletingUser(null);
-        }}
+        onOpenChange={(open) => !open && setDeletingUser(null)}
         title={t.deleteTitle}
         description={t.deleteDescription(
           `${deletingUser?.firstName ?? ""} ${deletingUser?.lastName ?? ""}`.trim(),
         )}
         loading={deleteMutation.isPending}
-        onConfirm={() => {
-          if (deletingUser) {
-            return deleteMutation.mutateAsync(deletingUser).then(() => undefined);
-          }
-        }}
+        onConfirm={() =>
+          deletingUser
+            ? deleteMutation.mutateAsync(deletingUser).then(() => undefined)
+            : undefined
+        }
       />
     </div>
   );

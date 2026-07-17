@@ -151,8 +151,9 @@ export function TaskManager({ admin = false }: { admin?: boolean }) {
       priority,
       sortBy: "createdAt",
       order: "desc",
+      ownerId: admin ? (searchParams.get("ownerId") ?? undefined) : undefined,
     }),
-    [page, debouncedSearch, status, priority],
+    [page, debouncedSearch, status, priority, admin, searchParams],
   );
   const queryKey = admin ? ["admin", "tasks", filters] : ["tasks", "mine", filters];
   const tasksQuery = useQuery({

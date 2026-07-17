@@ -60,3 +60,38 @@ export const refreshSessionRateLimiter = rateLimit({
     message: "Too many refreshes for this session. Please try again later",
   },
 });
+
+export const guestChatRateLimiter = rateLimit({
+  ...ipOptions,
+  identifier: "chat-guest",
+  windowMs: getPositiveIntegerEnv("CHAT_GUEST_RATE_WINDOW_MS", 15 * 60 * 1000),
+  limit: getPositiveIntegerEnv("CHAT_GUEST_RATE_LIMIT", 20),
+  message: {
+    success: false,
+    message: "Too many assistant requests. Please try again later",
+  },
+});
+
+export const authenticatedChatRateLimiter = rateLimit({
+  ...standardOptions,
+  identifier: "chat-authenticated",
+  windowMs: getPositiveIntegerEnv("CHAT_AUTH_RATE_WINDOW_MS", 15 * 60 * 1000),
+  limit: getPositiveIntegerEnv("CHAT_AUTH_RATE_LIMIT", 80),
+  keyGenerator: (request) => request.user?.userId ?? "unauthenticated-chat-user",
+  message: {
+    success: false,
+    message: "Too many chat requests. Please try again later",
+  },
+});
+
+export const suggestionRateLimiter = rateLimit({
+  ...standardOptions,
+  identifier: "chat-suggestions",
+  windowMs: getPositiveIntegerEnv("CHAT_SUGGESTION_RATE_WINDOW_MS", 15 * 60 * 1000),
+  limit: getPositiveIntegerEnv("CHAT_SUGGESTION_RATE_LIMIT", 30),
+  keyGenerator: (request) => request.user?.userId ?? "unauthenticated-support-user",
+  message: {
+    success: false,
+    message: "Too many suggestion requests. Please try again later",
+  },
+});

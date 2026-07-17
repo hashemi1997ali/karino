@@ -33,6 +33,7 @@ interface AuthContextValue {
   status: AuthStatus;
   user: User | null;
   isAdmin: boolean;
+  isSuperAdmin: boolean;
   login: (values: LoginValues) => Promise<User>;
   register: (values: RegisterValues) => Promise<User>;
   logout: () => Promise<void>;
@@ -144,7 +145,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     () => ({
       status,
       user,
-      isAdmin: user?.roles.includes("admin") ?? false,
+      isAdmin:
+        user?.roles.some((role) => role === "admin" || role === "super_admin") ?? false,
+      isSuperAdmin: user?.roles.includes("super_admin") ?? false,
       login,
       register,
       logout,

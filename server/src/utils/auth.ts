@@ -100,7 +100,9 @@ export const verifyAccessToken = (token: string): AccessTokenPayload => {
     typeof payload.exp !== "number" ||
     !Array.isArray(payload.roles) ||
     payload.roles.length === 0 ||
-    !payload.roles.every((role) => role === "user" || role === "admin")
+    !payload.roles.every(
+      (role) => role === "user" || role === "admin" || role === "super_admin",
+    )
   ) {
     throw invalidToken("Invalid access token payload");
   }

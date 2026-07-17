@@ -15,6 +15,7 @@ export interface TaskFilters {
   priority?: TaskPriority | "";
   sortBy?: "createdAt" | "updatedAt" | "dueDate" | "title" | "status";
   order?: "asc" | "desc";
+  ownerId?: string;
 }
 
 export interface TaskListResult {
@@ -31,6 +32,7 @@ const toQuery = (filters: TaskFilters): string => {
   if (filters.priority) query.set("priority", filters.priority);
   if (filters.sortBy) query.set("sortBy", filters.sortBy);
   if (filters.order) query.set("order", filters.order);
+  if (filters.ownerId) query.set("ownerId", filters.ownerId);
   return query.toString();
 };
 

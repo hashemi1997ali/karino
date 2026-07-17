@@ -102,7 +102,9 @@ export const errorHandler: ErrorRequestHandler = (
     response.status(error.statusCode).json({
       success: false,
       message: error.message,
+      ...(error.publicDetails !== undefined && { details: error.publicDetails }),
       ...(process.env.NODE_ENV !== "production" &&
+        error.publicDetails === undefined &&
         error.details !== undefined && { details: error.details }),
     });
     return;

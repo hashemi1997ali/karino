@@ -9,6 +9,7 @@ export const REFRESH_SESSION_REVOCATION_REASONS = [
   "password-changed",
   "role-changed",
   "admin",
+  "banned",
 ] as const;
 
 export type RefreshSessionRevocationReason =

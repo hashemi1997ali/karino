@@ -123,6 +123,10 @@ The complete list of environment variables is available in `server/.env.example`
 | `TRUST_PROXY_HOPS`   | Exact number of trusted proxy hops                                 |
 | `AUTH_*`             | Rate limit windows and limits for authentication routes            |
 | `CLOUDINARY_*`       | Optional configuration for file uploads                            |
+| `SUPER_ADMIN_EMAIL`  | Existing account promoted to the initial `super_admin` on startup  |
+| `AI_PROVIDER` / keys | AI provider and provider-specific model/API key settings           |
+| `SUPPORT_CHAT_*`     | Chat retention configuration                                       |
+| `CHAT_*`             | Chat and AI-suggestion rate limits                                 |
 
 ### Client
 
@@ -151,31 +155,36 @@ Access tokens are short-lived and inherently stateless. However, all protected r
 
 ## Roles
 
-- `user`: Manage their own profile, sessions, and tasks
-- `admin`: All user permissions, plus management of all users and tasks
+- `user`: Manage only their own profile, sessions, tasks, and chat history.
+- `admin`: Manage regular users, ban or unban regular users, access all tasks, and handle regular-user support conversations.
+- `super_admin`: All staff capabilities, plus promotion or demotion of admins, management of admin accounts, and support cases escalated by admins.
 
-Routes under `/admin/*` verify the admin role directly from the database in addition to validating the access token and active session. Removing the admin role therefore takes effect immediately. Changing a user’s role also invalidates all of that user’s active sessions.
+All `/admin/*` and staff-support routes re-read the current role from MongoDB. Role changes revoke the affected user’s active refresh sessions. An admin cannot manage another admin or a super admin, and nobody can ban or demote a super admin through the application.
 
-To create the first administrator, promote an existing user directly in MongoDB:
+To bootstrap the first super administrator, register the account normally and set its email in `server/.env`:
 
-```javascript
-db.users.updateOne({ email: "admin@example.com" }, { $addToSet: { roles: "admin" } });
+```dotenv
+SUPER_ADMIN_EMAIL=owner@example.com
 ```
+
+The account is promoted on the next server startup. Further admin promotions and demotions are available only to a super admin.
 
 ## User Interface Routes
 
-| Route          | Access             | Description                                         |
-| -------------- | ------------------ | --------------------------------------------------- |
-| `/`            | Public             | Project landing page                                |
-| `/login`       | Public             | Login                                               |
-| `/register`    | Public             | Create an account                                   |
-| `/dashboard`   | Authenticated user | Task overview and statistics                        |
-| `/tasks`       | Authenticated user | List, filter, create, and edit personal tasks       |
-| `/account`     | Authenticated user | Profile, password changes, and session management   |
-| `/admin/tasks` | Admin              | View, edit, and delete all tasks                    |
-| `/admin/users` | Admin              | View and edit users, change roles, and delete users |
+| Route               | Access               | Description                                             |
+| ------------------- | -------------------- | ------------------------------------------------------- |
+| `/`                 | Public               | Project landing page                                    |
+| `/login`            | Public               | Login                                                   |
+| `/register`         | Public               | Create an account                                       |
+| `/dashboard`        | Authenticated user   | Task overview and statistics                            |
+| `/tasks`            | Authenticated user   | List, filter, create, and edit personal tasks           |
+| `/account`          | Authenticated user   | Profile, password changes, and session management       |
+| `/admin/tasks`      | Admin or super admin | View, filter by owner, edit, and delete all tasks       |
+| `/admin/users`      | Admin or super admin | Manage users and bans; role changes require super admin |
+| `/admin/users/[id]` | Admin or super admin | View a user profile, statistics, and their tasks        |
+| `/admin/support`    | Admin or super admin | Claim, reply to, transfer, and close support chats      |
 
-When a guest selects “View my tasks” or its German equivalent, “Meine Aufgaben ansehen,” they are redirected to the login page. Admin navigation is displayed only for users who have the `admin` role.
+When a guest selects “View my tasks” or its German equivalent, “Meine Aufgaben ansehen,” they are redirected to the login page. Staff navigation is displayed only for users who have the `admin` or `super_admin` role. A floating assistant is available across the application; guests receive general AI help, while authenticated users also receive persistent history and human-support escalation according to their role.
 
 ## API Documentation
 

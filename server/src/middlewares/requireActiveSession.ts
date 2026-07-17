@@ -14,18 +14,27 @@ export const requireActiveSession = async (
   }
 
   try {
-    const [sessionExists, userExists] = await Promise.all([
+    const [sessionExists, user] = await Promise.all([
       RefreshSession.exists({
         _id: request.user.sessionId,
         user: request.user.userId,
         revokedAt: null,
         expiresAt: { $gt: new Date() },
       }),
-      User.exists({ _id: request.user.userId }),
+      User.findById(request.user.userId).select("ban").lean(),
     ]);
 
-    if (!sessionExists || !userExists) {
+    if (!sessionExists || !user) {
       next(new AppError("Session is no longer active", 401));
+      return;
+    }
+
+    if (user.ban?.isBanned) {
+      next(
+        new AppError("Your account has been banned", 403).withPublicDetails({
+          ban: { reason: user.ban.reason, bannedAt: user.ban.bannedAt },
+        }),
+      );
       return;
     }
 

@@ -5,6 +5,7 @@ import { useState, type ReactNode } from "react";
 import { Toaster } from "sonner";
 
 import { AuthProvider } from "@/features/auth/auth-provider";
+import { ChatWidget } from "@/features/chat/chat-widget";
 import { ApiError } from "@/lib/api-error";
 import type { Locale, ThemePreference } from "@/lib/preferences";
 import { PreferencesProvider, usePreferences } from "@/providers/preferences-provider";
@@ -49,7 +50,10 @@ export function AppProviders({
   return (
     <PreferencesProvider initialLocale={initialLocale} initialTheme={initialTheme}>
       <QueryClientProvider client={queryClient}>
-        <AuthProvider>{children}</AuthProvider>
+        <AuthProvider>
+          {children}
+          <ChatWidget />
+        </AuthProvider>
         <AppToaster />
       </QueryClientProvider>
     </PreferencesProvider>

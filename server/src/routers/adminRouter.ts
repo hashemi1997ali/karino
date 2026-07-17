@@ -2,6 +2,7 @@ import { Router } from "express";
 
 import { authenticate, requireActiveSession, upload, validateByZod } from "#middlewares";
 import {
+  banAdminUser,
   deleteAdminTask,
   deleteAdminTaskAttachment,
   deleteAdminUser,
@@ -9,20 +10,22 @@ import {
   getAdminTasks,
   getAdminUserById,
   getAdminUsers,
+  unbanAdminUser,
   updateAdminRole,
   updateAdminTask,
   updateAdminUser,
-} from "../controllers/adminController.ts";
-import { requireCurrentAdmin } from "../middlewares/requireCurrentAdmin.ts";
+} from "#controllers";
+import { requireCurrentStaff, requireCurrentSuperAdmin } from "#middlewares";
 import {
+  adminBanSchema,
   adminRoleSchema,
   adminUpdateTaskSchema,
   adminUpdateUserSchema,
-} from "../schemas/adminSchema.ts";
+} from "#schemas";
 
 export const adminRouter = Router();
 
-adminRouter.use(authenticate, requireActiveSession, requireCurrentAdmin);
+adminRouter.use(authenticate, requireActiveSession, requireCurrentStaff);
 
 adminRouter.get("/tasks", getAdminTasks);
 adminRouter.delete("/tasks/:id/attachment", deleteAdminTaskAttachment);
@@ -39,9 +42,12 @@ adminRouter
 adminRouter.get("/users", getAdminUsers);
 adminRouter.patch(
   "/users/:id/admin-role",
+  requireCurrentSuperAdmin,
   validateByZod(adminRoleSchema),
   updateAdminRole,
 );
+adminRouter.post("/users/:id/ban", validateByZod(adminBanSchema), banAdminUser);
+adminRouter.post("/users/:id/unban", unbanAdminUser);
 adminRouter
   .route("/users/:id")
   .get(getAdminUserById)

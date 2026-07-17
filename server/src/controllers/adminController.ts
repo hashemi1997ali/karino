@@ -1,9 +1,23 @@
 import type { RequestHandler } from "express";
 import mongoose, { type QueryFilter, type SortOrder } from "mongoose";
 
-import { RefreshSession, Task, type ITask, type IUser, User } from "#models";
+import {
+  RefreshSession,
+  SupportChat,
+  Task,
+  type BanReason,
+  type ITask,
+  type IUser,
+  User,
+} from "#models";
 import { deleteAttachmentFromCloudinary, uploadAttachment } from "#middlewares";
-import { AppError, applyTaskStatusTransition } from "#utils";
+import { banUser, setAdministratorRole, unbanUser } from "#services";
+import {
+  AppError,
+  applyTaskStatusTransition,
+  canDeleteAccount,
+  canManageBan,
+} from "#utils";
 import { adminTaskQuerySchema, adminUserQuerySchema } from "../schemas/adminSchema.ts";
 
 const escapeRegExp = (value: string): string =>
@@ -33,6 +47,7 @@ const serializeUser = (user: {
   roles: string[];
   createdAt: Date;
   updatedAt: Date;
+  ban?: IUser["ban"];
 }) => ({
   id: String(user._id),
   firstName: user.firstName,
@@ -41,6 +56,7 @@ const serializeUser = (user: {
   roles: user.roles,
   createdAt: user.createdAt,
   updatedAt: user.updatedAt,
+  ban: user.ban ?? null,
 });
 
 const createPagination = (total: number, page: number, limit: number) => ({
@@ -246,6 +262,15 @@ export const getAdminUsers: RequestHandler = async (request, response) => {
     filter.roles = query.role;
   }
 
+  if (query.banned === true) {
+    filter["ban.isBanned"] = true;
+  } else if (query.banned === false) {
+    filter.$and = [
+      ...(filter.$and ?? []),
+      { $or: [{ ban: null }, { "ban.isBanned": { $ne: true } }] },
+    ];
+  }
+
   if (query.search) {
     const search = new RegExp(escapeRegExp(query.search), "i");
     filter.$or = [{ firstName: search }, { lastName: search }, { email: search }];
@@ -301,6 +326,13 @@ export const updateAdminUser: RequestHandler = async (request, response) => {
     throw new AppError("User not found", 404);
   }
 
+  if (
+    String(user._id) !== request.user?.userId &&
+    !canDeleteAccount(request.user?.roles ?? [], user.roles)
+  ) {
+    throw new AppError("You do not have permission to edit this account", 403);
+  }
+
   const { firstName, lastName, email } = request.body as {
     firstName?: string;
     lastName?: string;
@@ -351,53 +383,20 @@ export const updateAdminUser: RequestHandler = async (request, response) => {
 };
 
 export const updateAdminRole: RequestHandler = async (request, response) => {
-  const currentAdminId = requireAdminId(request.user?.userId);
+  const actorId = requireAdminId(request.user?.userId);
   const userId = validateObjectId(request.params.id, "user");
   const { isAdmin } = request.body as { isAdmin: boolean };
-
-  if (currentAdminId === userId && !isAdmin) {
-    throw new AppError("You cannot remove your own administrator role", 400);
-  }
-
   const user = await User.findById(userId);
 
   if (!user) {
     throw new AppError("User not found", 404);
   }
 
-  const currentlyAdmin = user.roles.includes("admin");
-
-  if (!isAdmin && currentlyAdmin) {
-    const adminCount = await User.countDocuments({ roles: "admin" });
-
-    if (adminCount <= 1) {
-      throw new AppError("The last administrator cannot be demoted", 409);
-    }
-  }
-
-  const roles = isAdmin ? ["user", "admin"] : ["user"];
-  const roleChanged =
-    currentlyAdmin !== isAdmin ||
-    user.roles.length !== roles.length ||
-    !user.roles.includes("user");
-
-  let sessionsRevoked = 0;
-
-  if (roleChanged) {
-    user.roles = roles;
-    await user.save();
-
-    const revokeResult = await RefreshSession.updateMany(
-      { user: user._id, revokedAt: null },
-      {
-        $set: {
-          revokedAt: new Date(),
-          revocationReason: "role-changed",
-        },
-      },
-    );
-    sessionsRevoked = revokeResult.modifiedCount;
-  }
+  const result = await setAdministratorRole(
+    { userId: actorId, roles: request.user?.roles ?? [] },
+    user,
+    isAdmin,
+  );
 
   response.status(200).json({
     success: true,
@@ -405,9 +404,58 @@ export const updateAdminRole: RequestHandler = async (request, response) => {
       ? "Administrator role enabled successfully"
       : "Administrator role removed successfully",
     data: {
-      user: serializeUser(user),
-      sessionsRevoked,
+      user: serializeUser(result.user),
+      sessionsRevoked: result.sessionsRevoked,
     },
+  });
+};
+
+export const banAdminUser: RequestHandler = async (request, response) => {
+  const actorId = requireAdminId(request.user?.userId);
+  const userId = validateObjectId(request.params.id, "user");
+
+  if (actorId === userId) {
+    throw new AppError("You cannot ban your own account", 400);
+  }
+
+  const user = await User.findById(userId);
+  if (!user) throw new AppError("User not found", 404);
+
+  if (!canManageBan(request.user?.roles ?? [], user.roles)) {
+    throw new AppError("You do not have permission to ban this account", 403);
+  }
+
+  const { reason } = request.body as { reason: BanReason };
+  const result = await banUser(user, reason);
+
+  response.status(200).json({
+    success: true,
+    message: "User banned successfully",
+    data: {
+      user: serializeUser(result.user),
+      sessionsRevoked: result.sessionsRevoked,
+    },
+  });
+};
+
+export const unbanAdminUser: RequestHandler = async (request, response) => {
+  const userId = validateObjectId(request.params.id, "user");
+  const user = await User.findById(userId);
+  if (!user) throw new AppError("User not found", 404);
+
+  if (!canManageBan(request.user?.roles ?? [], user.roles)) {
+    throw new AppError("You do not have permission to unban this account", 403);
+  }
+
+  if (!user.ban?.isBanned) {
+    throw new AppError("This user is not banned", 409);
+  }
+
+  await unbanUser(user);
+  response.status(200).json({
+    success: true,
+    message: "User unbanned successfully",
+    data: { user: serializeUser(user) },
   });
 };
 
@@ -425,12 +473,8 @@ export const deleteAdminUser: RequestHandler = async (request, response) => {
     throw new AppError("User not found", 404);
   }
 
-  if (user.roles.includes("admin")) {
-    const adminCount = await User.countDocuments({ roles: "admin" });
-
-    if (adminCount <= 1) {
-      throw new AppError("The last administrator cannot be deleted", 409);
-    }
+  if (!canDeleteAccount(request.user?.roles ?? [], user.roles)) {
+    throw new AppError("You do not have permission to delete this account", 403);
   }
 
   const tasks = await Task.find({ owner: user._id }).select("attachment");
@@ -448,6 +492,7 @@ export const deleteAdminUser: RequestHandler = async (request, response) => {
 
   const taskDeleteResult = await Task.deleteMany({ owner: user._id });
   await RefreshSession.deleteMany({ user: user._id });
+  const chatDeleteResult = await SupportChat.deleteMany({ user: user._id });
   await User.deleteOne({ _id: user._id });
 
   const cleanupResults = await Promise.allSettled(
@@ -470,6 +515,7 @@ export const deleteAdminUser: RequestHandler = async (request, response) => {
     message: "User and related data deleted successfully",
     data: {
       deletedTaskCount: taskDeleteResult.deletedCount,
+      deletedChatCount: chatDeleteResult.deletedCount,
       attachmentCleanupFailures,
     },
   });

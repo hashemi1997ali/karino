@@ -11,6 +11,7 @@ interface ApiEnvelope<T> {
   message?: string;
   data?: T;
   errors?: ValidationIssue[];
+  details?: unknown;
 }
 
 interface ApiRequestOptions extends Omit<RequestInit, "body"> {
@@ -42,7 +43,7 @@ const performRefresh = async (): Promise<string> => {
   if (!response.ok || !payload.data?.accessToken) {
     clearAccessToken({ broadcast: true });
     const message = payload.message ?? "Your session has expired. Please sign in again.";
-    throw new ApiError(message, response.status, payload.errors);
+    throw new ApiError(message, response.status, payload.errors, payload.details);
   }
 
   setAccessToken(payload.data.accessToken, { broadcast: true });
@@ -111,7 +112,7 @@ export const apiRequest = async <T>(
 
   if (!response.ok) {
     const message = payload.message ?? "The server could not process the request.";
-    throw new ApiError(message, response.status, payload.errors);
+    throw new ApiError(message, response.status, payload.errors, payload.details);
   }
 
   return payload.data as T;
