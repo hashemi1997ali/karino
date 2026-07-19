@@ -18,6 +18,10 @@
     "typecheck": "tsc --noEmit"
   },
   "imports": {
+    "#ai": {
+      "development": "./src/ai/index.ts",
+      "default": "./dist/ai/index.js"
+    },
     "#controllers": {
       "development": "./src/controllers/index.ts",
       "default": "./dist/controllers/index.js"
