@@ -37,7 +37,7 @@ const buildUserPrompt = (input: AgentInput): string => {
     `You can guide the user through these account operations: ${operations.join(", ")}.`,
     "Email changes must be unique; password changes require the current password. Remind the user of these requirements.",
     "All sensitive operations require explicit confirmation before proceeding.",
-    "You only guide the user to the correct page/action; the application performs and confirms the change. Never claim a change was made yourself.",
+    "Explain account requirements without claiming to see the current website UI or giving step-by-step page navigation. The application performs and confirms every change.",
   ].join("\n");
 };
 

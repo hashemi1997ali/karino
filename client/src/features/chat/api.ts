@@ -1,56 +1,74 @@
 import { apiRequest } from "@/lib/api-client";
-import type { Pagination, SupportChat } from "@/lib/types";
+import type { ChatStatus, Pagination, SupportChat } from "@/lib/types";
 
-export interface GuestMessage {
-  role: "user" | "assistant";
-  content: string;
+export interface ChatEscalationResult {
+  requested: boolean;
+  completed: boolean;
+  reason: SupportChat["escalationReason"];
 }
 
-export interface AssistantReply {
-  reply: string;
-  agent: string;
-  provider: string;
+export interface ChatTurnResult {
+  chat: SupportChat;
+  provider: string | null;
+  escalation: ChatEscalationResult;
+}
+
+export interface EndChatResult {
+  chat: SupportChat;
+  deleted: boolean;
 }
 
 export const guestChatRequest = (
   message: string,
-  history: GuestMessage[],
   locale: "en" | "de",
-): Promise<AssistantReply> =>
-  apiRequest<AssistantReply>("/chat/guest", {
+  chatId?: string,
+): Promise<ChatTurnResult> =>
+  apiRequest<ChatTurnResult>("/chat/guest", {
     method: "POST",
     auth: false,
-    json: { message, history, locale },
+    json: { message, locale, ...(chatId ? { chatId } : {}) },
   });
+
+export const getGuestChatRequest = async (id: string): Promise<SupportChat> => {
+  const data = await apiRequest<{ chat: SupportChat }>(`/chat/guest/${id}`, {
+    auth: false,
+  });
+  return data.chat;
+};
+
+export const endGuestChatRequest = async (id: string): Promise<EndChatResult> => {
+  return apiRequest<EndChatResult>(`/chat/guest/${id}/end`, {
+    method: "POST",
+    auth: false,
+  });
+};
 
 export const listChatsRequest = async (): Promise<SupportChat[]> => {
   const data = await apiRequest<{ chats: SupportChat[] }>("/chat");
   return data.chats;
 };
 
-export const createChatRequest = async (
+export const createChatRequest = (
   message: string,
   locale: "en" | "de",
-): Promise<SupportChat> => {
-  const data = await apiRequest<{ chat: SupportChat }>("/chat", {
+): Promise<ChatTurnResult> =>
+  apiRequest<ChatTurnResult>("/chat", {
     method: "POST",
     json: { message, locale },
   });
-  return data.chat;
-};
 
-export const sendChatMessageRequest = async (
+export const sendChatMessageRequest = (
   id: string,
   message: string,
   locale: "en" | "de",
-): Promise<SupportChat> => {
-  const data = await apiRequest<{ chat: SupportChat }>(`/chat/${id}/messages`, {
+): Promise<ChatTurnResult> =>
+  apiRequest<ChatTurnResult>(`/chat/${id}/messages`, {
     method: "POST",
     json: { message, locale },
   });
-  return data.chat;
-};
 
+// Kept for backwards compatibility with older clients. The current UI relies
+// on automatic server-side escalation and does not expose this action.
 export const escalateChatRequest = async (id: string): Promise<SupportChat> => {
   const data = await apiRequest<{ chat: SupportChat }>(`/chat/${id}/escalate`, {
     method: "POST",
@@ -58,11 +76,10 @@ export const escalateChatRequest = async (id: string): Promise<SupportChat> => {
   return data.chat;
 };
 
-export const endChatRequest = async (id: string): Promise<SupportChat> => {
-  const data = await apiRequest<{ chat: SupportChat }>(`/chat/${id}/end`, {
+export const endChatRequest = async (id: string): Promise<EndChatResult> => {
+  return apiRequest<EndChatResult>(`/chat/${id}/end`, {
     method: "POST",
   });
-  return data.chat;
 };
 
 export const rateChatRequest = async (
@@ -77,11 +94,22 @@ export const rateChatRequest = async (
   return data.chat;
 };
 
+export interface StaffChatListOptions {
+  status?: ChatStatus;
+  scope?: "queue" | "all";
+  page?: number;
+  limit?: number;
+}
+
 export const listStaffChatsRequest = async (
-  status?: "open" | "active" | "ended",
+  options: StaffChatListOptions = {},
 ): Promise<{ chats: SupportChat[]; pagination: Pagination }> => {
-  const query = new URLSearchParams({ limit: "50" });
-  if (status) query.set("status", status);
+  const query = new URLSearchParams({
+    page: String(options.page ?? 1),
+    limit: String(options.limit ?? 50),
+    scope: options.scope ?? "queue",
+  });
+  if (options.status) query.set("status", options.status);
   return apiRequest<{ chats: SupportChat[]; pagination: Pagination }>(
     `/chat/staff/queue?${query.toString()}`,
   );

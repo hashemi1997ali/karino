@@ -43,3 +43,22 @@ export const logoutRequest = (): Promise<void> =>
     auth: false,
     retryAuth: false,
   });
+
+export const forgotPasswordRequest = (
+  email: string,
+  locale: "en" | "de",
+): Promise<void> =>
+  apiRequest<void>("/auth/forgot-password", {
+    method: "POST",
+    auth: false,
+    retryAuth: false,
+    json: { email, locale },
+  });
+
+export const resetPasswordRequest = (token: string, password: string): Promise<void> =>
+  apiRequest<void>("/auth/reset-password", {
+    method: "POST",
+    auth: false,
+    retryAuth: false,
+    json: { token, password },
+  });

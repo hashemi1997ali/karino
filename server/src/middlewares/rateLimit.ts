@@ -95,3 +95,25 @@ export const suggestionRateLimiter = rateLimit({
     message: "Too many suggestion requests. Please try again later",
   },
 });
+
+export const contactFormRateLimiter = rateLimit({
+  ...ipOptions,
+  identifier: "contact-form",
+  windowMs: getPositiveIntegerEnv("CONTACT_FORM_RATE_WINDOW_MS", 15 * 60 * 1000),
+  limit: getPositiveIntegerEnv("CONTACT_FORM_RATE_LIMIT", 5),
+  message: {
+    success: false,
+    message: "Too many contact messages. Please try again later",
+  },
+});
+
+export const passwordResetRateLimiter = rateLimit({
+  ...ipOptions,
+  identifier: "password-reset",
+  windowMs: getPositiveIntegerEnv("PASSWORD_RESET_RATE_WINDOW_MS", 15 * 60 * 1000),
+  limit: getPositiveIntegerEnv("PASSWORD_RESET_RATE_LIMIT", 5),
+  message: {
+    success: false,
+    message: "Too many password reset requests. Please try again later",
+  },
+});

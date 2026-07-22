@@ -1,21 +1,26 @@
 import { Router } from "express";
 
-import { authenticate, requireActiveSession, upload, validateByZod } from "#middlewares";
+import {
+  authenticate,
+  requireActiveSession,
+  requireCurrentStaff,
+  requireCurrentSuperAdmin,
+  upload,
+  validateByZod,
+} from "#middlewares";
 import {
   banAdminUser,
   deleteAdminTask,
   deleteAdminTaskAttachment,
   deleteAdminUser,
-  getAdminTaskById,
-  getAdminTasks,
   getAdminUserById,
   getAdminUsers,
+  getAdminUserTasks,
   unbanAdminUser,
   updateAdminRole,
   updateAdminTask,
   updateAdminUser,
 } from "#controllers";
-import { requireCurrentStaff, requireCurrentSuperAdmin } from "#middlewares";
 import {
   adminBanSchema,
   adminRoleSchema,
@@ -27,17 +32,23 @@ export const adminRouter = Router();
 
 adminRouter.use(authenticate, requireActiveSession, requireCurrentStaff);
 
-adminRouter.get("/tasks", getAdminTasks);
-adminRouter.delete("/tasks/:id/attachment", deleteAdminTaskAttachment);
+// Tasks are only exposed in the context of a selected user. There is no
+// administrator-wide "all tasks" endpoint.
+adminRouter.get("/users/:id/tasks", getAdminUserTasks);
+adminRouter.delete(
+  "/users/:userId/tasks/:taskId/attachment",
+  requireCurrentSuperAdmin,
+  deleteAdminTaskAttachment,
+);
 adminRouter
-  .route("/tasks/:id")
-  .get(getAdminTaskById)
+  .route("/users/:userId/tasks/:taskId")
   .patch(
+    requireCurrentSuperAdmin,
     upload.single("attachment"),
     validateByZod(adminUpdateTaskSchema),
     updateAdminTask,
   )
-  .delete(deleteAdminTask);
+  .delete(requireCurrentSuperAdmin, deleteAdminTask);
 
 adminRouter.get("/users", getAdminUsers);
 adminRouter.patch(

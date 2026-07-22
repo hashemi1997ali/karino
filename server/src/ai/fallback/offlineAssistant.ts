@@ -6,63 +6,46 @@
  * calls an LLM — every reply is a predefined, locale-aware string.
  *
  * Capabilities:
- *  - basic website explanation
+ *  - basic role-aware website guidance
  *  - basic account guidance
  *  - explain that AI is temporarily unavailable
- *  - offer contact / support options
+ *  - offer support options
  */
 
-import type {
-  AgentInput,
-  AssistantContext,
-  AssistantLocale,
-} from "../types.ts";
+import type { AgentInput, AssistantContext, AssistantLocale } from "../types.ts";
 import { resolveRoleTier } from "../policies/index.ts";
 
 const line = (locale: AssistantLocale, en: string, de: string): string =>
   locale === "de" ? de : en;
 
-/** Polite refusal for unsupported languages (always bilingual). */
-export const offlineUnsupportedLanguageReply = (): string =>
-  [
+/** Polite refusal for unsupported languages in the current website/chat locale. */
+export const offlineUnsupportedLanguageReply = (locale: AssistantLocale): string =>
+  line(
+    locale,
     "I'm sorry, I can only help in English or German. Please rephrase your message in one of these languages.",
     "Es tut mir leid, ich kann nur auf Englisch oder Deutsch helfen. Bitte formuliere deine Nachricht in einer dieser Sprachen.",
-  ].join("\n\n");
+  );
 
 /** Polite refusal for out-of-scope questions. */
 export const offlineOutOfScopeReply = (locale: AssistantLocale): string =>
   line(
     locale,
-    "I can only help with the Karino Task Manager — for example account, login, tasks, dashboard, profile, sessions, or support. Could you ask something about the website?",
-    "Ich kann nur beim Karino Task Manager helfen – zum Beispiel bei Konto, Anmeldung, Aufgaben, Dashboard, Profil, Sitzungen oder Support. Kannst du etwas zur Website fragen?",
-  );
-
-const websiteExplanation = (locale: AssistantLocale): string =>
-  line(
-    locale,
-    "Karino Task Manager lets you create, organise, and complete tasks with status, priority, and attachments. From the Account area you can manage your profile, password, and active sessions.",
-    "Mit dem Karino Task Manager kannst du Aufgaben mit Status, Priorität und Anhängen erstellen, organisieren und abschließen. Im Kontobereich verwaltest du Profil, Passwort und aktive Sitzungen.",
+    "I can only help with Karino Task Manager features, account access, account security, or support requests.",
+    "Ich kann nur bei Funktionen des Karino Task Managers, Kontozugriff, Kontosicherheit oder Supportanfragen helfen.",
   );
 
 const unavailableNotice = (locale: AssistantLocale): string =>
   line(
     locale,
-    "Our AI assistant is temporarily unavailable, so I'm giving you some general guidance instead.",
-    "Unser KI-Assistent ist vorübergehend nicht verfügbar, daher gebe ich dir stattdessen allgemeine Hinweise.",
-  );
-
-const contactOption = (locale: AssistantLocale): string =>
-  line(
-    locale,
-    "If you need more help, please visit the Contact page.",
-    "Wenn du weitere Hilfe brauchst, besuche bitte die Kontaktseite.",
+    "Our AI assistant is temporarily unavailable. I can still provide limited website, account, or support help.",
+    "Unser KI-Assistent ist vorübergehend nicht verfügbar. Ich kann weiterhin eingeschränkt bei Website-, Konto- oder Supportfragen helfen.",
   );
 
 const supportOption = (locale: AssistantLocale): string =>
   line(
     locale,
-    "You can also send this conversation to our human support team from the support button.",
-    "Du kannst diese Unterhaltung auch über die Support-Schaltfläche an unser Support-Team weiterleiten.",
+    "If this cannot be resolved here, the assistant will send the conversation to human support automatically.",
+    "Wenn sich das Problem hier nicht lösen lässt, leitet der Assistent die Unterhaltung automatisch an den menschlichen Support weiter.",
   );
 
 const accountGuidance = (context: AssistantContext): string => {
@@ -80,20 +63,46 @@ const accountGuidance = (context: AssistantContext): string => {
   return [
     line(
       locale,
-      "For account issues, please make sure you are using the correct email address and try resetting your password.",
-      "Bei Kontoproblemen stelle bitte sicher, dass du die richtige E-Mail-Adresse verwendest, und versuche, dein Passwort zurückzusetzen.",
+      "Describe the account-access problem here without sharing your password, recovery codes, or other secrets.",
+      "Beschreibe das Problem mit dem Kontozugriff hier, ohne Passwort, Wiederherstellungscodes oder andere Geheimnisse mitzuteilen.",
     ),
-    contactOption(locale),
+    supportOption(locale),
   ].join(" ");
+};
+
+const websiteGuidance = (context: AssistantContext): string => {
+  const locale = context.locale;
+  const tier = resolveRoleTier(context);
+
+  if (tier === "guest") {
+    return line(
+      locale,
+      "From Home you can register, sign in, open Contact, change the theme or language, and use Forgot password from the login page.",
+      "Auf der Startseite kannst du dich registrieren oder anmelden, Kontakt öffnen, Design oder Sprache wechseln und auf der Anmeldeseite Passwort vergessen verwenden.",
+    );
+  }
+
+  const personal = line(
+    locale,
+    "Use Dashboard for progress and upcoming work, My tasks to manage your tasks, and Account for profile, password, and active sessions.",
+    "Nutze die Übersicht für Fortschritt und anstehende Aufgaben, Meine Aufgaben zur Aufgabenverwaltung und Konto für Profil, Passwort und aktive Sitzungen.",
+  );
+
+  if (tier === "user") return personal;
+
+  const staff = line(
+    locale,
+    "Staff can also use Users, Support inbox, and Contact form inbox according to their permissions. User tasks are available from the related user profile.",
+    "Mitarbeitende können entsprechend ihren Berechtigungen außerdem Benutzer, Support und den Kontaktformular-Posteingang nutzen. Benutzeraufgaben sind im jeweiligen Benutzerprofil verfügbar.",
+  );
+  return `${personal} ${staff}`;
 };
 
 /**
  * Detects a coarse intent from the message so the offline assistant can pick
  * a relevant predefined reply. This is a keyword heuristic, not an LLM.
  */
-const detectOfflineIntent = (
-  message: string,
-): "account" | "support" | "website" => {
+const detectOfflineIntent = (message: string): "account" | "support" | "website" => {
   const lower = message.toLowerCase();
   if (
     /\b(account|konto|login|log in|anmeld|password|passwort|email|e-mail|ban|gesperrt|session|sitzung)\b/.test(
@@ -126,19 +135,15 @@ export const runOfflineAssistant = (input: AgentInput): string => {
   } else if (intent === "support") {
     parts.push(
       tier === "guest"
-        ? [
-            line(
-              locale,
-              "For personal support you need to sign in first.",
-              "Für persönlichen Support musst du dich zuerst anmelden.",
-            ),
-            contactOption(locale),
-          ].join(" ")
+        ? line(
+            locale,
+            "Describe the support issue here without sharing passwords or security codes.",
+            "Beschreibe das Supportproblem hier, ohne Passwörter oder Sicherheitscodes mitzuteilen.",
+          )
         : supportOption(locale),
     );
   } else {
-    parts.push(websiteExplanation(locale));
-    parts.push(tier === "guest" ? contactOption(locale) : supportOption(locale));
+    parts.push(websiteGuidance(context));
   }
 
   return parts.join("\n\n");

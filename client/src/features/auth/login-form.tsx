@@ -25,6 +25,7 @@ const copy = {
     hidePassword: "Hide password",
     showPassword: "Show password",
     submit: "Log in",
+    forgot: "Forgot password?",
     noAccount: "Don't have an account?",
     register: "Create one",
   },
@@ -37,6 +38,7 @@ const copy = {
     hidePassword: "Passwort ausblenden",
     showPassword: "Passwort anzeigen",
     submit: "Anmelden",
+    forgot: "Passwort vergessen?",
     noAccount: "Du hast noch kein Konto?",
     register: "Konto erstellen",
   },
@@ -112,6 +114,12 @@ export function LoginForm() {
             </button>
           </div>
         </Field>
+        <Link
+          href="/forgot-password"
+          className="-mt-2 justify-self-end text-xs font-bold text-[var(--primary)] hover:text-[var(--primary-dark)]"
+        >
+          {t.forgot}
+        </Link>
         <Button type="submit" size="lg" loading={isSubmitting} className="mt-1 w-full">
           <LogIn className="size-4" />
           {t.submit}

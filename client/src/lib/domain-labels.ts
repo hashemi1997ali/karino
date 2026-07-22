@@ -63,13 +63,23 @@ const taskPriorityLabels: Record<Locale, Record<TaskPriority, string>> = {
 
 const assistantAgentLabels: Record<Locale, Record<string, string>> = {
   en: {
-    "site-guide": "Site guide",
+    "site-guide": "AI assistant",
+    "website-help": "Site guide",
+    welcome: "AI assistant",
+    account: "Account assistant",
+    staff: "Staff assistant",
+    offline: "AI assistant",
     "account-helper": "Account assistant",
     "support-triage": "Support assistant",
     "staff-operations": "Staff assistant",
   },
   de: {
-    "site-guide": "Website-Hilfe",
+    "site-guide": "KI-Assistent",
+    "website-help": "Website-Hilfe",
+    welcome: "KI-Assistent",
+    account: "Konto-Assistent",
+    staff: "Team-Assistent",
+    offline: "KI-Assistent",
     "account-helper": "Konto-Assistent",
     "support-triage": "Support-Assistent",
     "staff-operations": "Team-Assistent",

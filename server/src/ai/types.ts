@@ -3,7 +3,7 @@
  *
  * The assistant is composed of five logical components:
  *  - Triage Router      (internal only, never replies to the user)
- *  - Website Help Agent  (general site / feature questions)
+ *  - Website Help Agent  (role-aware website and feature guidance)
  *  - Account Agent       (authenticated account actions)
  *  - Staff Agent         (admin / super_admin operations)
  *  - Offline Assistant   (no LLM, predefined responses only)
@@ -47,10 +47,24 @@ export interface AssistantContext {
 }
 
 /** Result returned by the orchestrator to the caller (chatController). */
+export type AssistantAction = "reply" | "escalate";
+
+export type EscalationReason =
+  | "account_banned"
+  | "account_access"
+  | "security"
+  | "human_requested"
+  | "permission"
+  | "unresolved";
+
 export interface AssistantResult {
   reply: string;
   agent: ReplyAgentId;
   provider: string;
+  action: AssistantAction;
+  escalationReason: EscalationReason | null;
+  requiresSuperAdmin: boolean;
+  locale: AssistantLocale;
 }
 
 /**

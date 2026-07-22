@@ -10,6 +10,7 @@ import {
   getRefreshTokenTtl,
   type RefreshTokenPayload,
   verifyRefreshToken,
+  normalizeIpAddress,
 } from "#utils";
 
 export interface IssuedRefreshToken {
@@ -45,7 +46,7 @@ const normalizeContext = (
   context: RefreshSessionContext,
 ): Required<RefreshSessionContext> => ({
   userAgent: context.userAgent?.trim().slice(0, 512) || null,
-  ipAddress: context.ipAddress?.trim().slice(0, 128) || null,
+  ipAddress: normalizeIpAddress(context.ipAddress) ?? null,
 });
 
 export const createRefreshSession = async (

@@ -1,10 +1,12 @@
 # Task Manager API
 
-REST API for the Task Manager platform, built with Express 5, TypeScript, MongoDB/Mongoose, Zod, JWT, bcrypt, cookies, Multer, and optional Cloudinary uploads.
+REST API for the Task Manager platform, built with Express 5, TypeScript, MongoDB/Mongoose, Zod, JWT, bcrypt, cookies, Multer, the official Brevo Node.js SDK, and optional Cloudinary uploads.
 
 ## Features
 
 - Registration, login, token refresh, logout, and profile management
+- Brevo SDK-powered password reset using hashed, expiring, single-use tokens
+- Public contact submissions and a staff inbox with email replies
 - Short-lived access tokens and database-backed refresh sessions with rotation
 - Active-session management and refresh-token replay detection
 - Personal task CRUD, filtering, search, pagination, summaries, and optional attachments
@@ -20,6 +22,7 @@ REST API for the Task Manager platform, built with Express 5, TypeScript, MongoD
 - npm
 - MongoDB locally or through MongoDB Atlas
 - Cloudinary only when file attachments are required
+- A Brevo account and verified transactional sender for outgoing email
 
 ## Setup
 
@@ -44,33 +47,40 @@ With the example configuration, the API is available at `http://localhost:4000`.
 
 See `server/.env.example` for the complete list.
 
-| Variable                      | Description                                                     |
-| ----------------------------- | --------------------------------------------------------------- |
-| `PORT`                        | Express port                                                    |
-| `MONGO_URI`                   | MongoDB connection URI                                          |
-| `ACCESS_JWT_SECRET`           | Secret used to sign access tokens                               |
-| `REFRESH_JWT_SECRET`          | Separate secret used to sign refresh tokens                     |
-| `ACCESS_TOKEN_TTL`            | Access-token lifetime in seconds                                |
-| `REFRESH_TOKEN_TTL`           | Absolute refresh-session lifetime in seconds                    |
-| `JWT_ISSUER`                  | JWT issuer                                                      |
-| `TRUST_PROXY_HOPS`            | Exact number of trusted proxy hops                              |
-| `SUPER_ADMIN_EMAIL`           | Existing account promoted to the initial super admin on startup |
-| `AI_PROVIDER`                 | `openrouter`, `openai`, `anthropic`, `gemini`, or `ollama`      |
-| `OPENROUTER_API_KEY`          | OpenRouter API key                                              |
-| `OPENROUTER_MODEL`            | OpenRouter model identifier                                     |
-| `OPENAI_API_KEY`              | OpenAI API key                                                  |
-| `OPENAI_MODEL`                | OpenAI model identifier                                         |
-| `ANTHROPIC_API_KEY`           | Anthropic API key                                               |
-| `ANTHROPIC_MODEL`             | Anthropic model identifier                                      |
-| `GEMINI_API_KEY`              | Gemini API key                                                  |
-| `GEMINI_MODEL`                | Gemini model identifier                                         |
-| `OLLAMA_BASE_URL`             | Ollama server URL                                               |
-| `OLLAMA_MODEL`                | Local Ollama model                                              |
-| `AI_TIMEOUT_MS`               | AI request timeout in milliseconds                              |
-| `SUPPORT_CHAT_RETENTION_DAYS` | Number of days ended chats remain in MongoDB                    |
-| `CLOUDINARY_*`                | Optional attachment-upload settings                             |
-| `AUTH_*`                      | Authentication rate-limit settings                              |
-| `CHAT_*`                      | Assistant and suggestion rate-limit settings                    |
+| Variable                                | Description                                                      |
+| --------------------------------------- | ---------------------------------------------------------------- |
+| `PORT`                                  | Express port                                                     |
+| `MONGO_URI`                             | MongoDB connection URI                                           |
+| `ACCESS_JWT_SECRET`                     | Secret used to sign access tokens                                |
+| `REFRESH_JWT_SECRET`                    | Separate secret used to sign refresh tokens                      |
+| `ACCESS_TOKEN_TTL`                      | Access-token lifetime in seconds                                 |
+| `REFRESH_TOKEN_TTL`                     | Absolute refresh-session lifetime in seconds                     |
+| `JWT_ISSUER`                            | JWT issuer                                                       |
+| `TRUST_PROXY_HOPS`                      | Exact number of trusted proxy hops                               |
+| `SUPER_ADMIN_EMAIL`                     | Existing account promoted to the initial super admin on startup  |
+| `AI_PROVIDER`                           | `openrouter`, `openai`, `anthropic`, `gemini`, or `ollama`       |
+| `OPENROUTER_API_KEY`                    | OpenRouter API key                                               |
+| `OPENROUTER_MODEL`                      | OpenRouter model identifier                                      |
+| `OPENAI_API_KEY`                        | OpenAI API key                                                   |
+| `OPENAI_MODEL`                          | OpenAI model identifier                                          |
+| `ANTHROPIC_API_KEY`                     | Anthropic API key                                                |
+| `ANTHROPIC_MODEL`                       | Anthropic model identifier                                       |
+| `GEMINI_API_KEY`                        | Gemini API key                                                   |
+| `GEMINI_MODEL`                          | Gemini model identifier                                          |
+| `OLLAMA_BASE_URL`                       | Ollama server URL                                                |
+| `OLLAMA_MODEL`                          | Local Ollama model                                               |
+| `AI_TIMEOUT_MS`                         | AI request timeout in milliseconds                               |
+| `SUPPORT_CHAT_RETENTION_DAYS`           | Number of days ended chats remain in MongoDB                     |
+| `ASSISTANT_CHAT_IDLE_TIMEOUT_MINUTES`   | Minutes to wait for a user reply before ending an AI-only chat   |
+| `ASSISTANT_CHAT_IDLE_SWEEP_INTERVAL_MS` | How often inactive AI-only chats are closed                      |
+| `CLOUDINARY_*`                          | Optional attachment-upload settings                              |
+| `AUTH_*`                                | Authentication rate-limit settings                               |
+| `CHAT_*`                                | Assistant and suggestion rate-limit settings                     |
+| `BREVO_API_KEY`                         | API key used by the official `@getbrevo/brevo` SDK               |
+| `BREVO_SENDER_EMAIL`                    | Transactional sender registered and verified in Brevo            |
+| `BREVO_SENDER_NAME`                     | Display name for outgoing email                                  |
+| `APP_URL`                               | Public client URL used in password-reset links                   |
+| `CONTACT_*`                             | Public contact details, social links, reply copy, and rate limit |
 
 Use `TRUST_PROXY_HOPS=0` when Express is directly exposed. Use `1` when Next.js is the only trusted proxy in front of Express. Set the exact number of trusted proxies in other deployments so the client IP cannot be spoofed.
 
@@ -111,6 +121,8 @@ Base path: `/auth`
 | -------- | --------------------------- | ----------------------- | ------------------------------------------------------ |
 | `POST`   | `/auth/register`            | Public                  | Create an account and session                          |
 | `POST`   | `/auth/login`               | Public                  | Sign in and create an independent session              |
+| `POST`   | `/auth/forgot-password`     | Public                  | Send a generic reset-link response and email if found  |
+| `POST`   | `/auth/reset-password`      | Public                  | Consume a reset token and choose a different password  |
 | `POST`   | `/auth/refresh`             | Refresh cookie          | Rotate the refresh token and return a new access token |
 | `POST`   | `/auth/logout`              | Optional refresh cookie | Revoke the current session and clear the cookie        |
 | `GET`    | `/auth/me`                  | Authenticated           | Return the current user                                |
@@ -238,13 +250,32 @@ Every admin route requires a valid access token, an active refresh session, and 
 | `POST`   | `/admin/users/:id/unban`      | Remove a ban and clear ban metadata               |
 | `DELETE` | `/admin/users/:id`            | Delete a manageable user and related data         |
 
+`GET /admin/users` orders results by role before pagination: super administrators first, administrators second, and regular users last. Within each role group, older accounts appear first.
+
+## Contact Form
+
+Base path: `/contact`
+
+Contact submissions store the visitor-supplied name, email address, message, locale, staff replies, and timestamps. They are intentionally independent of application user accounts. Staff replies are saved to MongoDB and emailed to the address entered by the visitor through the Brevo SDK.
+
+| Method | Route                        | Access | Description                                      |
+| ------ | ---------------------------- | ------ | ------------------------------------------------ |
+| `GET`  | `/contact/config`            | Public | Return configured public contact and social data |
+| `POST` | `/contact`                   | Public | Store a contact-form submission                  |
+| `GET`  | `/contact/admin`             | Staff  | List contact submissions and replies             |
+| `POST` | `/contact/admin/:id/replies` | Staff  | Save a reply and send it to the submitted email  |
+
+`BREVO_SENDER_EMAIL` must exactly match a verified sender in the Brevo account associated with `BREVO_API_KEY`. Restart the API after changing the Brevo configuration. Email-provider failures are logged with the Brevo status, request ID, and response details.
+
 ## AI and Support Chat
 
 Base path: `/chat`
 
-The guest assistant is not stored. Authenticated chats are stored in MongoDB. Ended chats receive an expiration date and are removed by MongoDB's TTL monitor after `SUPPORT_CHAT_RETENTION_DAYS`.
+Guest and authenticated conversations are created in MongoDB only after the user sends the first message. New conversations store a localized assistant welcome as their first message; existing conversations are never backfilled. AI-only conversations close automatically after `ASSISTANT_CHAT_IDLE_TIMEOUT_MINUTES` without a user reply. Conversations transferred to human support remain open until the user or assigned staff member ends them. Ended chats receive an expiration date and are removed by MongoDB's TTL monitor after `SUPPORT_CHAT_RETENTION_DAYS`.
 
 The chat locale is stored as `en` or `de`. AI responses, command replies, system messages, and suggested support replies use the relevant chat language.
+
+Guest and regular-user escalations are visible to both administrators and super administrators. An administrator's own support request, or a conversation transferred upward by an administrator, is restricted to super administrators. Super administrators can browse the complete paginated chat history from the support page.
 
 | Method | Route                         | Access         | Description                                     |
 | ------ | ----------------------------- | -------------- | ----------------------------------------------- |

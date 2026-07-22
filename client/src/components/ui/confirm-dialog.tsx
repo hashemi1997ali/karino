@@ -1,6 +1,6 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
+import { Button, type ButtonVariant } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { usePreferences } from "@/providers/preferences-provider";
 
@@ -10,6 +10,7 @@ export function ConfirmDialog({
   title,
   description,
   confirmLabel,
+  confirmVariant = "danger",
   loading,
   onConfirm,
 }: {
@@ -18,6 +19,7 @@ export function ConfirmDialog({
   title: string;
   description: string;
   confirmLabel?: string;
+  confirmVariant?: ButtonVariant;
   loading?: boolean;
   onConfirm: () => void | Promise<void>;
 }) {
@@ -39,7 +41,7 @@ export function ConfirmDialog({
         >
           {locale === "de" ? "Abbrechen" : "Cancel"}
         </Button>
-        <Button variant="danger" loading={loading} onClick={onConfirm}>
+        <Button variant={confirmVariant} loading={loading} onClick={onConfirm}>
           {resolvedConfirmLabel}
         </Button>
       </div>

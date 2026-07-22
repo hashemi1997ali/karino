@@ -3,7 +3,7 @@ import { model, Schema, type Types } from "mongoose";
 export const SUPPORT_CHAT_STATUSES = ["assistant", "open", "active", "ended"] as const;
 export type SupportChatStatus = (typeof SUPPORT_CHAT_STATUSES)[number];
 
-export const SUPPORT_CHAT_ORIGINS = ["user", "admin"] as const;
+export const SUPPORT_CHAT_ORIGINS = ["user", "admin", "guest"] as const;
 export type SupportChatOrigin = (typeof SUPPORT_CHAT_ORIGINS)[number];
 
 export const SUPPORT_CHAT_LOCALES = ["en", "de"] as const;
@@ -11,6 +11,16 @@ export type SupportChatLocale = (typeof SUPPORT_CHAT_LOCALES)[number];
 
 export const SUPPORT_MESSAGE_SENDERS = ["user", "ai", "staff", "system"] as const;
 export type SupportMessageSender = (typeof SUPPORT_MESSAGE_SENDERS)[number];
+
+export const SUPPORT_ESCALATION_REASONS = [
+  "account_banned",
+  "account_access",
+  "security",
+  "human_requested",
+  "permission",
+  "unresolved",
+] as const;
+export type SupportEscalationReason = (typeof SUPPORT_ESCALATION_REASONS)[number];
 
 export interface ISupportMessage {
   _id: Types.ObjectId;
@@ -26,7 +36,7 @@ export interface ISupportRating {
 }
 
 export interface ISupportChat {
-  user: Types.ObjectId;
+  user: Types.ObjectId | null;
   origin: SupportChatOrigin;
   locale: SupportChatLocale;
   subject: string;
@@ -34,9 +44,16 @@ export interface ISupportChat {
   assignedTo: Types.ObjectId | null;
   assignedToName: string | null;
   requiresSuperAdmin: boolean;
+  escalationReason: SupportEscalationReason | null;
   lastAgent: string | null;
+  guestId: string | null;
+  guestTokenHash?: string;
+  guestEmail: string | null;
+  guestIpAddress: string | null;
+  guestUserAgent: string | null;
   messages: ISupportMessage[];
   rating: ISupportRating | null;
+  assistantIdleExpiresAt: Date | null;
   endedAt: Date | null;
   expiresAt: Date | null;
   createdAt: Date;
@@ -75,7 +92,7 @@ const supportChatSchema = new Schema<ISupportChat>(
     user: {
       type: Schema.Types.ObjectId,
       ref: "User",
-      required: true,
+      default: null,
       index: true,
     },
     origin: {
@@ -118,9 +135,42 @@ const supportChatSchema = new Schema<ISupportChat>(
       required: true,
       default: false,
     },
+    escalationReason: {
+      type: String,
+      enum: SUPPORT_ESCALATION_REASONS,
+      default: null,
+    },
     lastAgent: {
       type: String,
       maxlength: 80,
+      default: null,
+    },
+    guestId: {
+      type: String,
+      maxlength: 80,
+      default: null,
+    },
+    guestTokenHash: {
+      type: String,
+      maxlength: 128,
+      select: false,
+      default: undefined,
+    },
+    guestEmail: {
+      type: String,
+      trim: true,
+      lowercase: true,
+      maxlength: 254,
+      default: null,
+    },
+    guestIpAddress: {
+      type: String,
+      maxlength: 128,
+      default: null,
+    },
+    guestUserAgent: {
+      type: String,
+      maxlength: 512,
       default: null,
     },
     messages: {
@@ -137,6 +187,11 @@ const supportChatSchema = new Schema<ISupportChat>(
       ),
       default: null,
     },
+    assistantIdleExpiresAt: {
+      type: Date,
+      default: null,
+      index: true,
+    },
     endedAt: {
       type: Date,
       default: null,
@@ -152,13 +207,29 @@ const supportChatSchema = new Schema<ISupportChat>(
   },
 );
 
-// Ended chats are kept for a configurable retention period and then removed
-// automatically by MongoDB's TTL monitor.
+supportChatSchema.pre("validate", function validateOwner() {
+  if (this.origin === "guest") {
+    if (this.user) this.invalidate("user", "Guest chats cannot have a user owner");
+    if (this.isNew && (!this.guestId || !this.guestTokenHash)) {
+      this.invalidate("guestId", "Guest identity is required");
+    }
+    return;
+  }
+
+  if (!this.user) this.invalidate("user", "Authenticated chats require a user owner");
+});
+
 supportChatSchema.index(
   { expiresAt: 1 },
   { expireAfterSeconds: 0, partialFilterExpression: { expiresAt: { $type: "date" } } },
 );
 supportChatSchema.index({ user: 1, updatedAt: -1 });
 supportChatSchema.index({ status: 1, requiresSuperAdmin: 1, updatedAt: -1 });
+supportChatSchema.index({ status: 1, assistantIdleExpiresAt: 1 });
+supportChatSchema.index(
+  { guestTokenHash: 1 },
+  { unique: true, partialFilterExpression: { guestTokenHash: { $type: "string" } } },
+);
+supportChatSchema.index({ guestId: 1, updatedAt: -1 });
 
 export const SupportChat = model<ISupportChat>("SupportChat", supportChatSchema);

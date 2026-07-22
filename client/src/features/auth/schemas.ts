@@ -88,11 +88,35 @@ export const createPasswordChangeSchema = (locale: Locale) => {
     });
 };
 
+export const createForgotPasswordSchema = (locale: Locale) => {
+  const t = copy[locale];
+  return z.object({ email: z.string().trim().pipe(z.email(t.invalidEmail)) });
+};
+
+export const createResetPasswordSchema = (locale: Locale) => {
+  const t = copy[locale];
+  return z
+    .object({
+      password: createStrongPasswordSchema(locale),
+      confirmPassword: z.string(),
+    })
+    .refine((values) => values.password === values.confirmPassword, {
+      path: ["confirmPassword"],
+      message: t.passwordMismatch,
+    });
+};
+
 export type LoginFormValues = z.infer<ReturnType<typeof createLoginSchema>>;
 export type RegisterFormValues = z.infer<ReturnType<typeof createRegisterSchema>>;
 export type ProfileFormValues = z.infer<ReturnType<typeof createProfileSchema>>;
 export type PasswordChangeFormValues = z.infer<
   ReturnType<typeof createPasswordChangeSchema>
+>;
+export type ForgotPasswordFormValues = z.infer<
+  ReturnType<typeof createForgotPasswordSchema>
+>;
+export type ResetPasswordFormValues = z.infer<
+  ReturnType<typeof createResetPasswordSchema>
 >;
 
 // English aliases keep existing imports compatible while feature forms migrate

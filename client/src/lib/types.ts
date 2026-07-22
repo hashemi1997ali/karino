@@ -104,20 +104,56 @@ export interface SupportRating {
   reason: string;
 }
 
+export type SupportEscalationReason =
+  | "account_banned"
+  | "account_access"
+  | "security"
+  | "human_requested"
+  | "permission"
+  | "unresolved";
+
 export interface SupportChat {
   id: string;
-  user: string | Pick<User, "id" | "firstName" | "lastName" | "email" | "roles" | "ban">;
-  origin: "user" | "admin";
+  user:
+    | string
+    | Pick<User, "id" | "firstName" | "lastName" | "email" | "roles" | "ban">
+    | null;
+  guest: { id: string | null; email: string | null; label: string } | null;
+  origin: "user" | "admin" | "guest";
   locale: "en" | "de";
   subject: string;
   status: ChatStatus;
   assignedTo: string | null;
   assignedToName: string | null;
   requiresSuperAdmin: boolean;
+  escalationReason: SupportEscalationReason | null;
   lastAgent: string | null;
   messages: ChatMessage[];
   rating: SupportRating | null;
+  assistantIdleExpiresAt: string | null;
   endedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ContactMessage {
+  id: string;
+  sender: "visitor" | "staff";
+  senderName: string;
+  content: string;
+  emailMessageId: string | null;
+  createdAt: string;
+}
+
+export interface ContactSubmission {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  locale: "en" | "de";
+  status: "open" | "answered";
+  messages: ContactMessage[];
+  lastRepliedAt: string | null;
   createdAt: string;
   updatedAt: string;
 }

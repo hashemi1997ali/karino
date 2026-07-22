@@ -2,6 +2,7 @@ import { Router } from "express";
 
 import {
   changePassword,
+  forgotPassword,
   getSessions,
   getMe,
   login,
@@ -10,6 +11,7 @@ import {
   logoutOtherSessions,
   refreshAccessToken,
   register,
+  resetPassword,
   revokeSession,
   updateMe,
 } from "#controllers";
@@ -17,6 +19,7 @@ import {
   authenticate,
   authenticateRefreshToken,
   loginRateLimiter,
+  passwordResetRateLimiter,
   refreshIpRateLimiter,
   refreshSessionRateLimiter,
   registerRateLimiter,
@@ -25,8 +28,10 @@ import {
 } from "#middlewares";
 import {
   changePasswordSchema,
+  forgotPasswordSchema,
   loginSchema,
   registerSchema,
+  resetPasswordSchema,
   updateProfileSchema,
 } from "#schemas";
 
@@ -44,6 +49,18 @@ authRouter.post(
   register,
 );
 authRouter.post("/login", loginRateLimiter, validateByZod(loginSchema), login);
+authRouter.post(
+  "/forgot-password",
+  passwordResetRateLimiter,
+  validateByZod(forgotPasswordSchema),
+  forgotPassword,
+);
+authRouter.post(
+  "/reset-password",
+  passwordResetRateLimiter,
+  validateByZod(resetPasswordSchema),
+  resetPassword,
+);
 authRouter.post(
   "/refresh",
   refreshIpRateLimiter,

@@ -3,7 +3,8 @@ import express from "express";
 
 import "#db";
 import { errorHandler, notFound, timeLogger } from "#middlewares";
-import { adminRouter, authRouter, chatRouter, taskRouter } from "#routers";
+import { adminRouter, authRouter, chatRouter, contactRouter, taskRouter } from "#routers";
+import { startAssistantChatLifecycle } from "#services";
 import { getNonNegativeIntegerEnv } from "#utils";
 
 const app = express();
@@ -32,9 +33,12 @@ app.use("/auth", authRouter);
 app.use("/tasks", taskRouter);
 app.use("/admin", adminRouter);
 app.use("/chat", chatRouter);
+app.use("/contact", contactRouter);
 
 app.use(notFound);
 app.use(errorHandler);
+
+startAssistantChatLifecycle();
 
 app.listen(port, () => {
   console.log(`Server is running at http://localhost:${port}`);

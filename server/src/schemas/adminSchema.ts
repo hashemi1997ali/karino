@@ -51,6 +51,8 @@ export const adminTaskQuerySchema = z
   })
   .strict();
 
+export const adminUserTaskQuerySchema = adminTaskQuerySchema.omit({ ownerId: true });
+
 export const adminUserQuerySchema = z
   .object({
     search: optionalSearchSchema,
@@ -93,4 +95,5 @@ export const adminBanSchema = z
 export const adminUpdateTaskSchema = updateTaskSchema;
 
 export type AdminTaskQuery = z.infer<typeof adminTaskQuerySchema>;
+export type AdminUserTaskQuery = z.infer<typeof adminUserTaskQuerySchema>;
 export type AdminUserQuery = z.infer<typeof adminUserQuerySchema>;

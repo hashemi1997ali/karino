@@ -13,6 +13,8 @@ task-manager-platform/
 ## Main Features
 
 - Public landing page, registration, and login
+- Public contact page with configurable social links and a staff email-reply inbox
+- Password-reset and contact-reply emails through the official Brevo Node.js SDK
 - English user interface by default, with the option to switch to German
 - Light, dark, and system themes; the default is `system`, and changes to the operating system theme are detected and applied in real time
 - Persistence of the selected language and theme for future visits
@@ -30,6 +32,7 @@ task-manager-platform/
 - npm
 - A local MongoDB instance or MongoDB Atlas
 - A Cloudinary account only if file attachment uploads are required
+- A Brevo account and verified transactional sender for password-reset and contact-reply emails
 
 ## Installation and Development
 
@@ -59,6 +62,10 @@ At minimum, configure the following values in `server/.env`:
 MONGO_URI=mongodb://127.0.0.1:27017/task-manager-api
 ACCESS_JWT_SECRET=replace_with_a_long_random_access_secret
 REFRESH_JWT_SECRET=replace_with_a_different_long_random_refresh_secret
+BREVO_API_KEY=replace_with_your_brevo_api_key
+BREVO_SENDER_EMAIL=verified-sender@example.com
+BREVO_SENDER_NAME=Karino
+APP_URL=http://localhost:3000
 ```
 
 Then start both applications simultaneously:
@@ -127,12 +134,21 @@ The complete list of environment variables is available in `server/.env.example`
 | `AI_PROVIDER` / keys | AI provider and provider-specific model/API key settings           |
 | `SUPPORT_CHAT_*`     | Chat retention configuration                                       |
 | `CHAT_*`             | Chat and AI-suggestion rate limits                                 |
+| `BREVO_API_KEY`      | Brevo API key used by the official `@getbrevo/brevo` SDK           |
+| `BREVO_SENDER_EMAIL` | Transactional sender registered and verified in Brevo              |
+| `BREVO_SENDER_NAME`  | Display name used for outgoing transactional emails                |
+| `APP_URL`            | Public client URL used to build password-reset links               |
+| `CONTACT_*`          | Contact details, social links, reply text, and contact rate limits |
 
 ### Client
 
 | Variable         | Description                                                                                                      |
 | ---------------- | ---------------------------------------------------------------------------------------------------------------- |
 | `API_SERVER_URL` | Internal API address used by the Next.js rewrite; this is server-only and must not use the `NEXT_PUBLIC_` prefix |
+
+### Transactional Email
+
+Password-reset links and staff replies to contact submissions are sent with the official `@getbrevo/brevo` SDK. `BREVO_SENDER_EMAIL` must exactly match a sender registered and verified in the same Brevo account as `BREVO_API_KEY`. Restart the API after changing any email-related environment variable. Provider errors are recorded in the server log; the forgot-password endpoint deliberately returns a generic response whether or not an account exists.
 
 ## Authentication Architecture
 
@@ -176,6 +192,9 @@ The account is promoted on the next server startup. Further admin promotions and
 | `/`                 | Public               | Project landing page                                    |
 | `/login`            | Public               | Login                                                   |
 | `/register`         | Public               | Create an account                                       |
+| `/contact`          | Public               | Contact details, social links, and contact form         |
+| `/forgot-password`  | Public               | Request a password-reset email                          |
+| `/reset-password`   | Public               | Choose a new password using the emailed token           |
 | `/dashboard`        | Authenticated user   | Task overview and statistics                            |
 | `/tasks`            | Authenticated user   | List, filter, create, and edit personal tasks           |
 | `/account`          | Authenticated user   | Profile, password changes, and session management       |
@@ -183,6 +202,7 @@ The account is promoted on the next server startup. Further admin promotions and
 | `/admin/users`      | Admin or super admin | Manage users and bans; role changes require super admin |
 | `/admin/users/[id]` | Admin or super admin | View a user profile, statistics, and their tasks        |
 | `/admin/support`    | Admin or super admin | Claim, reply to, transfer, and close support chats      |
+| `/admin/contact`    | Admin or super admin | Review contact-form submissions and reply by email      |
 
 When a guest selects “View my tasks” or its German equivalent, “Meine Aufgaben ansehen,” they are redirected to the login page. Staff navigation is displayed only for users who have the `admin` or `super_admin` role. A floating assistant is available across the application; guests receive general AI help, while authenticated users also receive persistent history and human-support escalation according to their role.
 

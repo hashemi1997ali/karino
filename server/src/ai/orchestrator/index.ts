@@ -1,13 +1,8 @@
 /**
  * Orchestrator.
  *
- * Wires the whole pipeline together:
- *
- *   inbound guardrails (via triage) → agent selection → agent run →
- *   outbound guardrail → result
- *
- * It is the single public entry point of the AI module and is consumed by the
- * backward-compatible `assistantService` facade.
+ * Wires inbound guardrails, language-safe agent routing, deterministic and
+ * agent-requested escalation, and outbound guardrails into one entry point.
  */
 
 import type {
@@ -15,6 +10,7 @@ import type {
   AssistantContext,
   AssistantHistoryMessage,
   AssistantResult,
+  EscalationReason,
   ReplyAgentId,
 } from "../types.ts";
 import { AGENTS } from "../agents/index.ts";
@@ -25,17 +21,58 @@ import {
   offlineUnsupportedLanguageReply,
   runOfflineAssistant,
 } from "../fallback/offlineAssistant.ts";
+import { isStronglyMixedLanguage } from "../language.ts";
 import { getConfiguredProviderName } from "../providers/index.ts";
 import { triage } from "./triage.ts";
 
-/**
- * Runs one assistant turn.
- *
- *  - Applies inbound language/scope guardrails through the triage router.
- *  - Selects and runs the target agent (or the Offline Assistant).
- *  - Applies the outbound guardrail to prevent hallucinated confirmations or
- *    leaked prompts before returning the reply.
- */
+interface EscalationDecision {
+  reason: EscalationReason;
+  requiresSuperAdmin: boolean;
+}
+
+const BANNED_PATTERN =
+  /\b(banned|blocked|locked|suspended|ban(?:ned)? account|gesperrt|gebannt|blockiert|konto(?: ist)? gesperrt)\b/i;
+const SECURITY_PATTERN =
+  /\b(hacked|unauthori[sz]ed|stolen account|suspicious session|security issue|gehackt|unbefugt|verdächtige sitzung|sicherheitsproblem)\b/i;
+const HUMAN_PATTERN =
+  /\b(human support|real person|support agent|live support|talk to (?:a )?human|menschlicher support|echter mensch|mitarbeiter|supportmitarbeiter)\b/i;
+const ACCESS_PATTERN =
+  /\b(cannot log in|can't log in|unable to log in|account access|login problem|komme nicht rein|kann mich nicht anmelden|anmeldeproblem|kontozugriff)\b/i;
+
+const deterministicEscalation = (message: string): EscalationDecision | null => {
+  if (BANNED_PATTERN.test(message)) {
+    return { reason: "account_banned", requiresSuperAdmin: true };
+  }
+  if (SECURITY_PATTERN.test(message)) {
+    return { reason: "security", requiresSuperAdmin: true };
+  }
+  if (HUMAN_PATTERN.test(message)) {
+    return { reason: "human_requested", requiresSuperAdmin: false };
+  }
+  if (ACCESS_PATTERN.test(message)) {
+    return { reason: "account_access", requiresSuperAdmin: false };
+  }
+  return null;
+};
+
+const ESCALATION_MARKER =
+  /^\s*\[ESCALATE:(account_banned|account_access|security|human_requested|permission|unresolved)\]\s*/i;
+
+const parseEscalationMarker = (
+  reply: string,
+): { reply: string; decision: EscalationDecision | null } => {
+  const match = reply.match(ESCALATION_MARKER);
+  if (!match) return { reply, decision: null };
+  const reason = match[1]?.toLowerCase() as EscalationReason;
+  return {
+    reply: reply.replace(ESCALATION_MARKER, "").trim(),
+    decision: {
+      reason,
+      requiresSuperAdmin: reason === "account_banned" || reason === "security",
+    },
+  };
+};
+
 export const runOrchestrator = async (
   message: string,
   history: AssistantHistoryMessage[],
@@ -44,9 +81,14 @@ export const runOrchestrator = async (
   const decision = triage(message, context);
   const input: AgentInput = { message, history, context };
 
-  // Guardrail rejections are answered by fixed offline replies.
   if (decision.wrongLanguage) {
-    return finalize(offlineUnsupportedLanguageReply(), "offline", OFFLINE_PROVIDER, context);
+    return finalize(
+      offlineUnsupportedLanguageReply(context.locale),
+      "offline",
+      OFFLINE_PROVIDER,
+      context,
+      null,
+    );
   }
   if (decision.outOfScope) {
     return finalize(
@@ -54,31 +96,56 @@ export const runOrchestrator = async (
       "offline",
       OFFLINE_PROVIDER,
       context,
+      null,
     );
   }
 
   const agent = AGENTS[decision.agent];
-
-  // No LLM agent for this id (shouldn't happen) → offline.
   if (!agent) {
-    return finalize(runOfflineAssistant(input), "offline", OFFLINE_PROVIDER, context);
+    return finalize(
+      runOfflineAssistant(input),
+      "offline",
+      OFFLINE_PROVIDER,
+      context,
+      deterministicEscalation(message),
+    );
   }
 
   const output = await agent.run(input);
   const provider = output.usedLlm ? getConfiguredProviderName() : OFFLINE_PROVIDER;
   const agentId: ReplyAgentId = output.usedLlm ? decision.agent : "offline";
+  const marked = parseEscalationMarker(output.reply);
+  const escalation = deterministicEscalation(message) ?? marked.decision;
 
-  return finalize(output.reply, agentId, provider, context);
+  return finalize(marked.reply, agentId, provider, context, escalation);
 };
 
-/** Applies the outbound guardrail and packages the final result. */
 const finalize = (
   reply: string,
   agent: ReplyAgentId,
   provider: string,
   context: AssistantContext,
+  escalation: EscalationDecision | null,
 ): AssistantResult => {
   const guard = outputGuardrail(reply, context);
-  const safeReply = guard.passed ? reply : (guard.replacement ?? reply);
-  return { reply: safeReply, agent, provider };
+  let safeReply = guard.passed ? reply : (guard.replacement ?? reply);
+
+  // A mixed bilingual answer is replaced with a locale-safe fallback instead
+  // of showing two languages in one bubble.
+  if (isStronglyMixedLanguage(safeReply)) {
+    safeReply =
+      context.locale === "de"
+        ? "Ich helfe dir auf Deutsch weiter. Beschreibe bitte kurz, was du im Karino Task Manager tun möchtest."
+        : "I’ll continue in English. Please briefly describe what you want to do in Karino Task Manager.";
+  }
+
+  return {
+    reply: safeReply,
+    agent,
+    provider,
+    action: escalation ? "escalate" : "reply",
+    escalationReason: escalation?.reason ?? null,
+    requiresSuperAdmin: escalation?.requiresSuperAdmin ?? false,
+    locale: context.locale,
+  };
 };

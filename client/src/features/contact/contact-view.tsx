@@ -1,0 +1,222 @@
+"use client";
+
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import {
+  AtSign,
+  BriefcaseBusiness,
+  Camera,
+  Code2,
+  Mail,
+  Send,
+  Users,
+} from "lucide-react";
+import { useMemo } from "react";
+import { useForm } from "react-hook-form";
+import { toast } from "sonner";
+import { z } from "zod";
+
+import { PublicHeader } from "@/components/marketing/public-header";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Field, Input, Textarea } from "@/components/ui/form-controls";
+import { createContactRequest, getContactConfigRequest } from "@/features/contact/api";
+import { getErrorMessage } from "@/lib/api-error";
+import { usePreferences } from "@/providers/preferences-provider";
+
+const copy = {
+  en: {
+    eyebrow: "Contact Karino",
+    title: "Let’s start a conversation.",
+    description:
+      "Send us your question or feedback. Our team will reply directly to the email address you provide.",
+    details: "Contact details",
+    socials: "Social networks",
+    email: "Email",
+    unavailable: "Not configured yet",
+    formTitle: "Send a message",
+    firstName: "First name",
+    lastName: "Last name",
+    message: "Your message",
+    messagePlaceholder: "How can we help?",
+    submit: "Send message",
+    success: "Your message was sent successfully.",
+    firstNameError: "Enter at least 2 characters.",
+    lastNameError: "Enter at least 2 characters.",
+    emailError: "Enter a valid email address.",
+    messageError: "Write at least 10 characters.",
+  },
+  de: {
+    eyebrow: "Karino kontaktieren",
+    title: "Lass uns ins Gespräch kommen.",
+    description:
+      "Sende uns deine Frage oder dein Feedback. Unser Team antwortet direkt an die angegebene E-Mail-Adresse.",
+    details: "Kontaktdaten",
+    socials: "Soziale Netzwerke",
+    email: "E-Mail",
+    unavailable: "Noch nicht konfiguriert",
+    formTitle: "Nachricht senden",
+    firstName: "Vorname",
+    lastName: "Nachname",
+    message: "Deine Nachricht",
+    messagePlaceholder: "Wie können wir helfen?",
+    submit: "Nachricht senden",
+    success: "Deine Nachricht wurde erfolgreich gesendet.",
+    firstNameError: "Gib mindestens 2 Zeichen ein.",
+    lastNameError: "Gib mindestens 2 Zeichen ein.",
+    emailError: "Gib eine gültige E-Mail-Adresse ein.",
+    messageError: "Schreibe mindestens 10 Zeichen.",
+  },
+} as const;
+
+const socialIcons = {
+  instagram: Camera,
+  linkedin: BriefcaseBusiness,
+  facebook: Users,
+  telegram: Send,
+  github: Code2,
+  x: AtSign,
+};
+
+export function ContactView() {
+  const { locale } = usePreferences();
+  const t = copy[locale];
+  const schema = useMemo(
+    () =>
+      z.object({
+        firstName: z.string().trim().min(2, t.firstNameError),
+        lastName: z.string().trim().min(2, t.lastNameError),
+        email: z.string().trim().pipe(z.email(t.emailError)),
+        message: z.string().trim().min(10, t.messageError).max(5000),
+      }),
+    [t],
+  );
+  type FormValues = z.infer<typeof schema>;
+  const configQuery = useQuery({
+    queryKey: ["contact", "config"],
+    queryFn: getContactConfigRequest,
+  });
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors },
+  } = useForm<FormValues>({ resolver: zodResolver(schema) });
+  const submitMutation = useMutation({
+    mutationFn: (values: FormValues) => createContactRequest({ ...values, locale }),
+    onSuccess: () => {
+      reset();
+      toast.success(t.success);
+    },
+    onError: (error) => toast.error(getErrorMessage(error, locale)),
+  });
+
+  return (
+    <div className="min-h-screen bg-[var(--background)]">
+      <PublicHeader />
+      <main className="paper-grid min-h-[calc(100vh-5rem)] px-4 py-12 sm:px-6 lg:px-8 lg:py-16">
+        <div className="mx-auto max-w-6xl">
+          <div className="max-w-3xl">
+            <p className="eyebrow text-[var(--primary)]">{t.eyebrow}</p>
+            <h1 className="mt-4 text-4xl font-black tracking-[-0.045em] sm:text-5xl">
+              {t.title}
+            </h1>
+            <p className="mt-4 max-w-2xl text-sm leading-7 text-[var(--muted)] sm:text-base">
+              {t.description}
+            </p>
+          </div>
+
+          <div className="mt-10 grid gap-6 lg:grid-cols-[.85fr_1.15fr]">
+            <div className="grid content-start gap-5">
+              <Card className="p-6">
+                <div className="flex items-center gap-3">
+                  <span className="grid size-11 place-items-center rounded-2xl bg-[var(--primary-soft)] text-[var(--primary)]">
+                    <Mail className="size-5" />
+                  </span>
+                  <div>
+                    <p className="text-xs font-black text-[var(--muted)] uppercase">
+                      {t.details}
+                    </p>
+                    {configQuery.data?.email ? (
+                      <a
+                        href={`mailto:${configQuery.data.email}`}
+                        className="break-all font-bold hover:text-[var(--primary)]"
+                      >
+                        {configQuery.data.email}
+                      </a>
+                    ) : (
+                      <p className="text-sm text-[var(--muted)]">{t.unavailable}</p>
+                    )}
+                  </div>
+                </div>
+              </Card>
+              <Card className="p-6">
+                <p className="text-sm font-black">{t.socials}</p>
+                <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-2">
+                  {(configQuery.data?.socials ?? []).map((social) => {
+                    const Icon = socialIcons[social.platform];
+                    return (
+                      <a
+                        key={social.platform}
+                        href={social.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="focus-ring flex items-center gap-3 rounded-2xl border p-3 font-bold capitalize transition hover:border-[var(--primary)] hover:text-[var(--primary)]"
+                      >
+                        <Icon className="size-5" />
+                        {social.platform}
+                      </a>
+                    );
+                  })}
+                </div>
+              </Card>
+            </div>
+
+            <Card className="p-5 sm:p-7">
+              <h2 className="text-2xl font-black">{t.formTitle}</h2>
+              <form
+                onSubmit={handleSubmit((values) => submitMutation.mutate(values))}
+                className="mt-6 grid gap-3"
+                noValidate
+              >
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <Field label={t.firstName} error={errors.firstName?.message}>
+                    <Input autoComplete="given-name" {...register("firstName")} />
+                  </Field>
+                  <Field label={t.lastName} error={errors.lastName?.message}>
+                    <Input autoComplete="family-name" {...register("lastName")} />
+                  </Field>
+                </div>
+                <Field label={t.email} error={errors.email?.message}>
+                  <Input
+                    type="email"
+                    dir="ltr"
+                    autoComplete="email"
+                    placeholder="you@example.com"
+                    {...register("email")}
+                  />
+                </Field>
+                <Field label={t.message} error={errors.message?.message} compact>
+                  <Textarea
+                    className="min-h-40"
+                    placeholder={t.messagePlaceholder}
+                    {...register("message")}
+                  />
+                </Field>
+                <Button
+                  type="submit"
+                  size="lg"
+                  loading={submitMutation.isPending}
+                  className="mt-2 w-full sm:w-fit"
+                >
+                  <Send className="size-4" />
+                  {t.submit}
+                </Button>
+              </form>
+            </Card>
+          </div>
+        </div>
+      </main>
+    </div>
+  );
+}

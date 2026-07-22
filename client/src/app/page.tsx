@@ -74,6 +74,7 @@ const copy = {
       "Finish with visible progress",
     ],
     footer: "Made for clearer days and quieter minds.",
+    contact: "Contact",
   },
   de: {
     heroEyebrow: "Entspannter Dinge erledigen",
@@ -128,6 +129,7 @@ const copy = {
       "Mit sichtbarem Fortschritt abschließen",
     ],
     footer: "Für klarere Tage und ruhigere Gedanken gemacht.",
+    contact: "Kontakt",
   },
 } as const;
 
@@ -352,7 +354,12 @@ export default function HomePage() {
       <footer className="border-t bg-[var(--surface)]">
         <div className="mx-auto flex max-w-[88rem] flex-col items-center justify-between gap-4 px-4 py-8 sm:flex-row sm:px-6 lg:px-8">
           <Logo />
-          <p className="text-sm text-[var(--muted)]">{t.footer}</p>
+          <div className="flex flex-col items-center gap-2 sm:items-start">
+            <p className="text-sm text-[var(--muted)]">{t.footer}</p>
+            <Link href="/contact" className="text-sm font-bold text-[var(--primary)]">
+              {t.contact}
+            </Link>
+          </div>
           <div className="flex items-center gap-2 text-xs font-bold text-[var(--muted)]">
             <Paperclip className="size-3.5" /> Karino 2026
           </div>

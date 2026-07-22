@@ -3,6 +3,7 @@ import mongoose, { type QueryFilter, type SortOrder } from "mongoose";
 
 import {
   RefreshSession,
+  PasswordReset,
   SupportChat,
   Task,
   type BanReason,
@@ -11,14 +12,23 @@ import {
   User,
 } from "#models";
 import { deleteAttachmentFromCloudinary, uploadAttachment } from "#middlewares";
-import { banUser, setAdministratorRole, unbanUser } from "#services";
+import {
+  banUser,
+  getLiveBanSessionIps,
+  setAdministratorRole,
+  unbanUser,
+} from "#services";
 import {
   AppError,
   applyTaskStatusTransition,
   canDeleteAccount,
   canManageBan,
 } from "#utils";
-import { adminTaskQuerySchema, adminUserQuerySchema } from "../schemas/adminSchema.ts";
+import {
+  adminTaskQuerySchema,
+  adminUserQuerySchema,
+  adminUserTaskQuerySchema,
+} from "../schemas/adminSchema.ts";
 
 const escapeRegExp = (value: string): string =>
   value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -39,16 +49,19 @@ const requireAdminId = (userId: string | undefined): string => {
   return userId;
 };
 
-const serializeUser = (user: {
-  _id: unknown;
-  firstName: string;
-  lastName: string;
-  email: string;
-  roles: string[];
-  createdAt: Date;
-  updatedAt: Date;
-  ban?: IUser["ban"];
-}) => ({
+const serializeUser = (
+  user: {
+    _id: unknown;
+    firstName: string;
+    lastName: string;
+    email: string;
+    roles: string[];
+    createdAt: Date;
+    updatedAt: Date;
+    ban?: IUser["ban"];
+  },
+  liveSessionIps?: string[],
+) => ({
   id: String(user._id),
   firstName: user.firstName,
   lastName: user.lastName,
@@ -56,7 +69,14 @@ const serializeUser = (user: {
   roles: user.roles,
   createdAt: user.createdAt,
   updatedAt: user.updatedAt,
-  ban: user.ban ?? null,
+  ban: user.ban
+    ? {
+        isBanned: user.ban.isBanned,
+        reason: user.ban.reason,
+        bannedAt: user.ban.bannedAt,
+        sessionIps: liveSessionIps ?? user.ban.sessionIps ?? [],
+      }
+    : null,
 });
 
 const createPagination = (total: number, page: number, limit: number) => ({
@@ -138,12 +158,45 @@ export const getAdminTasks: RequestHandler = async (request, response) => {
   });
 };
 
+export const getAdminUserTasks: RequestHandler = async (request, response) => {
+  const userId = validateObjectId(request.params.id, "user");
+  const query = adminUserTaskQuerySchema.parse(request.query);
+  const userExists = await User.exists({ _id: userId });
+  if (!userExists) throw new AppError("User not found", 404);
+
+  const filter: QueryFilter<ITask> = { owner: new mongoose.Types.ObjectId(userId) };
+  if (query.status) filter.status = query.status;
+  if (query.priority) filter.priority = query.priority;
+  if (query.search) {
+    const search = new RegExp(escapeRegExp(query.search), "i");
+    filter.$or = [{ title: search }, { description: search }];
+  }
+
+  const skip = (query.page - 1) * query.limit;
+  const order: SortOrder = query.order === "asc" ? 1 : -1;
+  const [tasks, total] = await Promise.all([
+    Task.find(filter)
+      .sort({ [query.sortBy]: order, _id: order })
+      .skip(skip)
+      .limit(query.limit),
+    Task.countDocuments(filter),
+  ]);
+
+  response.status(200).json({
+    success: true,
+    data: { tasks, pagination: createPagination(total, query.page, query.limit) },
+  });
+};
+
 export const getAdminTaskById: RequestHandler = async (request, response) => {
-  const taskId = validateObjectId(request.params.id, "task");
-  const task = await Task.findById(taskId).populate(
-    "owner",
-    "firstName lastName email roles",
-  );
+  const taskId = validateObjectId(request.params.taskId ?? request.params.id, "task");
+  const ownerId = request.params.userId
+    ? validateObjectId(request.params.userId, "user")
+    : undefined;
+  const task = await Task.findOne({
+    _id: taskId,
+    ...(ownerId && { owner: ownerId }),
+  }).populate("owner", "firstName lastName email roles");
 
   if (!task) {
     throw new AppError("Task not found", 404);
@@ -153,13 +206,14 @@ export const getAdminTaskById: RequestHandler = async (request, response) => {
 };
 
 export const updateAdminTask: RequestHandler = async (request, response) => {
-  const taskId = validateObjectId(request.params.id, "task");
+  const taskId = validateObjectId(request.params.taskId ?? request.params.id, "task");
+  const ownerId = validateObjectId(request.params.userId, "user");
 
   if (Object.keys(request.body).length === 0 && !request.file) {
     throw new AppError("At least one task field or an attachment must be provided", 400);
   }
 
-  const task = await Task.findById(taskId);
+  const task = await Task.findOne({ _id: taskId, owner: ownerId });
 
   if (!task) {
     throw new AppError("Task not found", 404);
@@ -201,8 +255,9 @@ export const updateAdminTask: RequestHandler = async (request, response) => {
 };
 
 export const deleteAdminTask: RequestHandler = async (request, response) => {
-  const taskId = validateObjectId(request.params.id, "task");
-  const task = await Task.findByIdAndDelete(taskId);
+  const taskId = validateObjectId(request.params.taskId ?? request.params.id, "task");
+  const ownerId = validateObjectId(request.params.userId, "user");
+  const task = await Task.findOneAndDelete({ _id: taskId, owner: ownerId });
 
   if (!task) {
     throw new AppError("Task not found", 404);
@@ -225,8 +280,9 @@ export const deleteAdminTask: RequestHandler = async (request, response) => {
 };
 
 export const deleteAdminTaskAttachment: RequestHandler = async (request, response) => {
-  const taskId = validateObjectId(request.params.id, "task");
-  const task = await Task.findById(taskId);
+  const taskId = validateObjectId(request.params.taskId ?? request.params.id, "task");
+  const ownerId = validateObjectId(request.params.userId, "user");
+  const task = await Task.findOne({ _id: taskId, owner: ownerId });
 
   if (!task) {
     throw new AppError("Task not found", 404);
@@ -278,14 +334,50 @@ export const getAdminUsers: RequestHandler = async (request, response) => {
 
   const skip = (query.page - 1) * query.limit;
   const [users, total] = await Promise.all([
-    User.find(filter).sort({ createdAt: -1, _id: -1 }).skip(skip).limit(query.limit),
+    User.aggregate([
+      { $match: filter },
+      {
+        $addFields: {
+          roleSortRank: {
+            $switch: {
+              branches: [
+                {
+                  case: { $in: ["super_admin", { $ifNull: ["$roles", []] }] },
+                  then: 0,
+                },
+                {
+                  case: { $in: ["admin", { $ifNull: ["$roles", []] }] },
+                  then: 1,
+                },
+              ],
+              default: 2,
+            },
+          },
+        },
+      },
+      { $sort: { roleSortRank: 1, createdAt: 1, _id: 1 } },
+      { $skip: skip },
+      { $limit: query.limit },
+      { $project: { roleSortRank: 0 } },
+    ]),
     User.countDocuments(filter),
   ]);
+
+  const liveIps = new Map<string, string[]>(
+    await Promise.all(
+      users
+        .filter((user) => user.ban?.isBanned)
+        .map(
+          async (user) =>
+            [String(user._id), await getLiveBanSessionIps(user._id)] as const,
+        ),
+    ),
+  );
 
   response.status(200).json({
     success: true,
     data: {
-      users: users.map(serializeUser),
+      users: users.map((user) => serializeUser(user, liveIps.get(String(user._id)))),
       pagination: createPagination(total, query.page, query.limit),
     },
   });
@@ -309,10 +401,14 @@ export const getAdminUserById: RequestHandler = async (request, response) => {
     }),
   ]);
 
+  const liveSessionIps = user.ban?.isBanned
+    ? await getLiveBanSessionIps(user._id)
+    : undefined;
+
   response.status(200).json({
     success: true,
     data: {
-      user: serializeUser(user),
+      user: serializeUser(user, liveSessionIps),
       stats: { taskCount, activeSessionCount },
     },
   });
@@ -338,6 +434,7 @@ export const updateAdminUser: RequestHandler = async (request, response) => {
     lastName?: string;
     email?: string;
   };
+  const emailChanged = email !== undefined && email !== user.email;
 
   if (email && email !== user.email) {
     const emailExists = await User.exists({
@@ -362,6 +459,7 @@ export const updateAdminUser: RequestHandler = async (request, response) => {
 
   try {
     await user.save();
+    if (emailChanged) await PasswordReset.deleteMany({ user: user._id });
   } catch (error) {
     if (
       typeof error === "object" &&
@@ -404,7 +502,7 @@ export const updateAdminRole: RequestHandler = async (request, response) => {
       ? "Administrator role enabled successfully"
       : "Administrator role removed successfully",
     data: {
-      user: serializeUser(result.user),
+      user: serializeUser(result.user, await getLiveBanSessionIps(result.user._id)),
       sessionsRevoked: result.sessionsRevoked,
     },
   });
@@ -492,6 +590,7 @@ export const deleteAdminUser: RequestHandler = async (request, response) => {
 
   const taskDeleteResult = await Task.deleteMany({ owner: user._id });
   await RefreshSession.deleteMany({ user: user._id });
+  await PasswordReset.deleteMany({ user: user._id });
   const chatDeleteResult = await SupportChat.deleteMany({ user: user._id });
   await User.deleteOne({ _id: user._id });
 

@@ -1,9 +1,10 @@
 import type { Request, RequestHandler, Response } from "express";
 import mongoose from "mongoose";
 
-import { User, type IUserBan } from "#models";
+import { PasswordReset, User, type IUserBan } from "#models";
 import {
   createRefreshSession,
+  findBannedUserBySessionIp,
   listActiveRefreshSessions,
   type RefreshSessionContext,
   revokeAllRefreshSessions,
@@ -92,20 +93,18 @@ export const register: RequestHandler = async (request, response) => {
     throw new AppError("An account with this email already exists", 409);
   }
 
-  // Block re-registration from an IP that belongs to a banned account.
-  const requestIp = request.ip ?? null;
-
-  if (requestIp) {
-    const bannedByIp = await User.findOne({
-      "ban.isBanned": true,
-      "ban.sessionIps": requestIp,
-    })
-      .select("ban")
-      .lean();
-
-    if (bannedByIp?.ban) {
-      throw createBannedError(bannedByIp.ban);
-    }
+  // A shared network can create false positives, but the product requirement
+  // intentionally blocks registration while any matching banned session
+  // document still exists. The session collection is the source of truth.
+  const bannedByIp = await findBannedUserBySessionIp(request.ip);
+  if (bannedByIp) {
+    const german = request.acceptsLanguages("de", "en") === "de";
+    throw new AppError(
+      german
+        ? "Die Registrierung ist über dieses Netzwerk vorübergehend nicht verfügbar."
+        : "Registration is temporarily unavailable from this network.",
+      403,
+    );
   }
 
   const user = await User.create({ firstName, lastName, email, password });
@@ -206,11 +205,13 @@ export const updateMe: RequestHandler = async (request, response) => {
   if (lastName !== undefined) {
     user.lastName = lastName;
   }
+  const emailChanged = email !== undefined && email !== user.email;
   if (email !== undefined) {
     user.email = email;
   }
 
   await user.save();
+  if (emailChanged) await PasswordReset.deleteMany({ user: user._id });
 
   response.status(200).json({
     success: true,
@@ -244,6 +245,7 @@ export const changePassword: RequestHandler = async (request, response) => {
 
   user.password = newPassword;
   await user.save();
+  await PasswordReset.deleteMany({ user: user._id });
 
   response.status(200).json({
     success: true,

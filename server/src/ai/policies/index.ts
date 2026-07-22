@@ -3,13 +3,12 @@
  *
  * Central source of truth for:
  *  - the effective role tier of a request (guest / user / admin / super_admin)
- *  - which knowledge topics an agent may explain to that tier
+ *  - which website features an agent may explain to that tier
  *  - which account / staff operations that tier may request
  *
  * Agents build their system prompts from these policies so the "principle of
  * least privilege" is enforced in one place. Actual privileged operations are
- * still validated by the backend services — this layer only shapes what the
- * assistant is *allowed to talk about*.
+ * still validated by the backend services.
  */
 
 import { isAdminRoles, isStaffRoles, isSuperAdminRoles } from "#utils";
@@ -30,57 +29,48 @@ export const isStaffTier = (tier: RoleTier): boolean =>
   tier === "admin" || tier === "super_admin";
 
 /**
- * Website-help topics each tier may be taught, expressed as short English
- * phrases embedded in the agent system prompt. Higher tiers inherit the
- * topics of lower tiers.
+ * Role-scoped website knowledge used by the Website Help Agent. Keep these
+ * facts aligned with the client routes and visible navigation.
  */
 const GUEST_HELP_TOPICS = [
-  "what Karino Task Manager is",
-  "how to register an account",
-  "how to log in",
-  "general product features",
-  "the contact page",
-  "light/dark themes",
-  "English and German language support",
+  "Home introduces Karino as a task manager and offers registration and sign-in",
+  "Guests can register, sign in, change the light/dark theme, and switch between English and German",
+  "Contact shows the configured email and social links and lets anyone submit a message without linking it to an account",
+  "Forgot password on the login page sends a time-limited reset link by email; the new password must differ from the current one",
+  "Guests can ask the chat assistant for general help, but their chat is not saved",
 ];
 
 const USER_HELP_TOPICS = [
-  "the dashboard",
-  "creating tasks",
-  "editing tasks",
-  "deleting tasks",
-  "task status",
-  "task priority",
-  "task attachments",
-  "the profile page",
-  "the password page",
-  "active-session management",
+  "Dashboard shows total, in-progress, completed, and overdue task counts, upcoming tasks, and overall progress",
+  "My tasks lets the user create, search, filter, edit, update the status of, and delete only their own tasks",
+  "A task supports title, description, status, priority, due date, and an optional JPG, PNG, WEBP, PDF, or TXT attachment up to 5 MB",
+  "Account lets the user edit their first name, last name, and email, change their password, and view or revoke active sessions",
+  "Active assistant chats are stored temporarily for context; after ending, only conversations that reached human support are retained",
 ];
 
 const ADMIN_HELP_TOPICS = [
-  "the admin dashboard",
-  "user management",
-  "task moderation",
-  "support chat management",
+  "Users lists user accounts and allows permitted staff to search, filter, open profiles, edit account details, ban, unban, or delete manageable users",
+  "A user's profile shows that user's information, task statistics, and task list; permitted staff can edit or delete tasks there",
+  "Support inbox lets eligible staff accept conversations, reply, use AI reply suggestions, end chats, and open the related user's profile or tasks",
+  "Contact form inbox lets staff review submitted visitor details and send replies to the visitor's entered email address",
+  "Admins can manage regular users but cannot manage administrators or super administrators",
 ];
 
 const SUPER_ADMIN_HELP_TOPICS = [
-  "administrator management",
-  "promoting a user to admin",
-  "demoting an admin",
+  "A super administrator can manage regular users and administrators, but cannot demote or ban a super administrator",
+  "Administrator access is granted or removed from the Edit user dialog and requires confirmation",
+  "A super administrator can handle support cases that require elevated access",
 ];
 
-/** Topics the assistant must never explain, regardless of tier. */
 const FORBIDDEN_HELP_TOPICS = [
-  "internal architecture",
-  "the database",
-  "internal APIs or source code",
-  "how security or authentication is implemented",
+  "pages or controls not included in the role-scoped feature list",
+  "features available only to a higher role",
+  "internal architecture, source code, database details, internal APIs, secrets, or security implementation",
 ];
 
 export const getAllowedHelpTopics = (tier: RoleTier): string[] => {
   const topics = [...GUEST_HELP_TOPICS];
-  if (tier === "user" || isStaffTier(tier)) topics.push(...USER_HELP_TOPICS);
+  if (tier !== "guest") topics.push(...USER_HELP_TOPICS);
   if (isStaffTier(tier)) topics.push(...ADMIN_HELP_TOPICS);
   if (tier === "super_admin") topics.push(...SUPER_ADMIN_HELP_TOPICS);
   return topics;
@@ -145,16 +135,14 @@ export const getStaffCapabilities = (tier: RoleTier): StaffCapabilities => {
 
 /**
  * Support-transfer policy.
- *  - Guests may only be transferred for an account/ban problem (handled by the
- *    Account Agent after verifying the email).
- *  - Authenticated regular users and admins may request support normally.
+ *  - Guests and authenticated regular users may be transferred to the shared
+ *    admin / super-admin support queue.
+ *  - Admin support requests go directly to super administrators.
  *  - Super admins manage support directly and have no escalation path.
  */
 export const canRequestSupportTransfer = (context: AssistantContext): boolean => {
   const tier = resolveRoleTier(context);
-  if (tier === "guest") return false;
-  if (tier === "super_admin") return false;
-  return true;
+  return tier !== "super_admin";
 };
 
 export { isStaffRoles };

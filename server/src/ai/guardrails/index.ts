@@ -337,6 +337,8 @@ const HALLUCINATED_ACTION_PATTERNS = [
   /\bi have (banned|unbanned|deleted|promoted|demoted|changed your password|reset your password)\b/i,
   /\bi(?:'ve)? (banned|unbanned|deleted|promoted|demoted) .+ for you\b/i,
   /\bich habe .+ (gesperrt|entsperrt|gelöscht|befördert|herabgestuft)\b/i,
+  /\b(i have|i've) (transferred|sent|forwarded) (this|the) (chat|conversation)\b/i,
+  /\bich habe (diesen|den) chat (übertragen|weitergeleitet)\b/i,
 ];
 
 const SECRET_PATTERNS = [

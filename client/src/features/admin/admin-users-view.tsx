@@ -3,17 +3,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as Switch from "@radix-ui/react-switch";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  Ban,
-  Edit3,
-  Eye,
-  RotateCcw,
-  Search,
-  ShieldCheck,
-  ShieldEllipsis,
-  Trash2,
-  UserRound,
-} from "lucide-react";
+import { Ban, Edit3, Eye, RotateCcw, Search, Trash2, UserRound } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
@@ -56,8 +46,7 @@ const copy = {
   en: {
     eyebrow: "Access and safety",
     title: "Users",
-    description:
-      "Open a profile to see its tasks, manage bans, and—when you are a super admin—change administrator access.",
+    description: "Open a profile to see its tasks and manage the user account.",
     search: "Search by name or email…",
     allRoles: "All roles",
     user: "Regular user",
@@ -80,6 +69,16 @@ const copy = {
     email: "Email",
     save: "Save changes",
     saved: "User details saved.",
+    adminAccess: "Administrator access",
+    adminAccessDescription: "Grant or remove administrator access for this user.",
+    promoteTitle: "Make this user an administrator?",
+    promoteDescription: (name: string) =>
+      `${name} will be able to access administrator tools and manage regular users.`,
+    promoteConfirm: "Make administrator",
+    demoteTitle: "Remove administrator access?",
+    demoteDescription: (name: string) =>
+      `${name} will return to a regular user and lose administrator access.`,
+    demoteConfirm: "Remove access",
     roleEnabled: "Administrator access enabled.",
     roleRemoved: "Administrator access removed.",
     deleted: "User and related data deleted.",
@@ -99,14 +98,13 @@ const copy = {
     page: "Page",
     users: "users",
     viewProfile: "Open profile and tasks",
-    adminToggle: "Administrator access",
     bannedReason: "Reason",
   },
   de: {
     eyebrow: "Zugriff und Sicherheit",
     title: "Benutzer",
     description:
-      "Öffne ein Profil, um Aufgaben zu sehen, Sperren zu verwalten und als Super-Admin Administratorrechte zu ändern.",
+      "Öffne ein Profil, um Aufgaben zu sehen und das Benutzerkonto zu verwalten.",
     search: "Nach Name oder E-Mail suchen…",
     allRoles: "Alle Rollen",
     user: "Standardbenutzer",
@@ -129,6 +127,17 @@ const copy = {
     email: "E-Mail",
     save: "Änderungen speichern",
     saved: "Benutzerdaten gespeichert.",
+    adminAccess: "Administratorrechte",
+    adminAccessDescription:
+      "Administratorrechte für diesen Benutzer vergeben oder entfernen.",
+    promoteTitle: "Diesen Benutzer zum Administrator machen?",
+    promoteDescription: (name: string) =>
+      `${name} erhält Zugriff auf Administratorwerkzeuge und kann Standardbenutzer verwalten.`,
+    promoteConfirm: "Zum Administrator machen",
+    demoteTitle: "Administratorrechte entfernen?",
+    demoteDescription: (name: string) =>
+      `${name} wird wieder Standardbenutzer und verliert den Administratorzugriff.`,
+    demoteConfirm: "Zugriff entfernen",
     roleEnabled: "Administratorrechte aktiviert.",
     roleRemoved: "Administratorrechte entfernt.",
     deleted: "Benutzer und zugehörige Daten gelöscht.",
@@ -148,7 +157,6 @@ const copy = {
     page: "Seite",
     users: "Benutzer",
     viewProfile: "Profil und Aufgaben öffnen",
-    adminToggle: "Administratorrechte",
     bannedReason: "Grund",
   },
 } as const;
@@ -156,17 +164,23 @@ const copy = {
 function EditUserDialog({
   user,
   loading,
+  canChangeAdminRole,
   onClose,
   onSave,
 }: {
   user: User | null;
   loading: boolean;
+  canChangeAdminRole: boolean;
   onClose: () => void;
-  onSave: (values: ProfileFormValues) => Promise<void>;
+  onSave: (values: ProfileFormValues, isAdmin: boolean | null) => Promise<void>;
 }) {
   const { locale } = usePreferences();
   const t = copy[locale];
   const schema = useMemo(() => createProfileSchema(locale), [locale]);
+  const [selectedAdminRole, setSelectedAdminRole] = useState(
+    () => user?.roles.includes("admin") ?? false,
+  );
+  const [pendingAdminRole, setPendingAdminRole] = useState<boolean | null>(null);
   const form = useForm<ProfileFormValues>({
     resolver: zodResolver(schema),
     defaultValues: { firstName: "", lastName: "", email: "" },
@@ -182,30 +196,77 @@ function EditUserDialog({
     }
   }, [user, form]);
 
+  const userIsAdmin = user?.roles.includes("admin") ?? false;
+  const userName = `${user?.firstName ?? ""} ${user?.lastName ?? ""}`.trim();
+  const submitChanges = async (values: ProfileFormValues) => {
+    const changedAdminRole =
+      canChangeAdminRole && selectedAdminRole !== userIsAdmin ? selectedAdminRole : null;
+    await onSave(values, changedAdminRole);
+  };
+
   return (
-    <Dialog
-      open={Boolean(user)}
-      onOpenChange={(open) => !open && onClose()}
-      title={t.edit}
-      description={t.editDescription}
-    >
-      <form className="space-y-2" onSubmit={form.handleSubmit(onSave)}>
-        <Field label={t.firstName} error={form.formState.errors.firstName?.message}>
-          <Input {...form.register("firstName")} autoComplete="off" />
-        </Field>
-        <Field label={t.lastName} error={form.formState.errors.lastName?.message}>
-          <Input {...form.register("lastName")} autoComplete="off" />
-        </Field>
-        <Field label={t.email} error={form.formState.errors.email?.message}>
-          <Input {...form.register("email")} type="email" autoComplete="off" />
-        </Field>
-        <div className="flex justify-end pt-2">
-          <Button type="submit" loading={loading}>
-            {t.save}
-          </Button>
-        </div>
-      </form>
-    </Dialog>
+    <>
+      <Dialog
+        open={Boolean(user)}
+        onOpenChange={(open) => !open && onClose()}
+        title={t.edit}
+        description={t.editDescription}
+      >
+        <form className="space-y-2" onSubmit={form.handleSubmit(submitChanges)}>
+          <Field label={t.firstName} error={form.formState.errors.firstName?.message}>
+            <Input {...form.register("firstName")} autoComplete="off" />
+          </Field>
+          <Field label={t.lastName} error={form.formState.errors.lastName?.message}>
+            <Input {...form.register("lastName")} autoComplete="off" />
+          </Field>
+          <Field label={t.email} error={form.formState.errors.email?.message}>
+            <Input {...form.register("email")} type="email" autoComplete="off" />
+          </Field>
+          {canChangeAdminRole && (
+            <div className="flex min-w-0 items-center justify-between gap-4 rounded-2xl border bg-[var(--surface-muted)] p-3">
+              <div className="min-w-0">
+                <p className="text-sm font-black">{t.adminAccess}</p>
+                <p className="mt-0.5 text-xs leading-5 text-[var(--muted)]">
+                  {t.adminAccessDescription}
+                </p>
+              </div>
+              <Switch.Root
+                checked={selectedAdminRole}
+                disabled={loading}
+                onCheckedChange={setPendingAdminRole}
+                aria-label={t.adminAccess}
+                className="focus-ring relative h-7 w-12 shrink-0 rounded-full bg-slate-300 transition data-[state=checked]:bg-[var(--primary)] disabled:opacity-50 dark:bg-slate-700"
+              >
+                <Switch.Thumb className="block size-6 translate-x-0.5 rounded-full bg-white shadow transition data-[state=checked]:translate-x-[1.375rem]" />
+              </Switch.Root>
+            </div>
+          )}
+          <div className="flex justify-end pt-2">
+            <Button type="submit" loading={loading}>
+              {t.save}
+            </Button>
+          </div>
+        </form>
+      </Dialog>
+
+      <ConfirmDialog
+        open={Boolean(user) && pendingAdminRole !== null}
+        onOpenChange={(open) => !open && setPendingAdminRole(null)}
+        title={pendingAdminRole ? t.promoteTitle : t.demoteTitle}
+        description={
+          pendingAdminRole
+            ? t.promoteDescription(userName)
+            : t.demoteDescription(userName)
+        }
+        confirmLabel={pendingAdminRole ? t.promoteConfirm : t.demoteConfirm}
+        confirmVariant={pendingAdminRole ? "primary" : "danger"}
+        onConfirm={() => {
+          if (pendingAdminRole === null) return;
+          setSelectedAdminRole(pendingAdminRole);
+          setPendingAdminRole(null);
+        }}
+      />
+    </>
   );
 }
 
@@ -291,23 +352,38 @@ export function AdminUsersView() {
     queryClient.invalidateQueries({ queryKey: ["admin", "users"] });
 
   const editMutation = useMutation({
-    mutationFn: ({ user, values }: { user: User; values: ProfileFormValues }) =>
-      updateUserRequest(getId(user), values),
+    mutationFn: async ({
+      user,
+      values,
+      isAdmin,
+    }: {
+      user: User;
+      values: ProfileFormValues;
+      isAdmin: boolean | null;
+    }) => {
+      let updated = await updateUserRequest(getId(user), values);
+      if (isAdmin !== null) {
+        updated = await setAdminRoleRequest(getId(user), isAdmin);
+      }
+      return updated;
+    },
     onSuccess: async (updated, variables) => {
       if (currentUser && getId(currentUser) === getId(variables.user))
         updateUser(updated);
       setEditingUser(null);
-      toast.success(t.saved);
-      await invalidate();
-    },
-    onError: (error) => toast.error(getErrorMessage(error, locale)),
-  });
-  const roleMutation = useMutation({
-    mutationFn: ({ user, isAdmin }: { user: User; isAdmin: boolean }) =>
-      setAdminRoleRequest(getId(user), isAdmin),
-    onSuccess: async (_user, variables) => {
-      toast.success(variables.isAdmin ? t.roleEnabled : t.roleRemoved);
-      await invalidate();
+      toast.success(
+        variables.isAdmin === null
+          ? t.saved
+          : variables.isAdmin
+            ? t.roleEnabled
+            : t.roleRemoved,
+      );
+      await Promise.all([
+        invalidate(),
+        queryClient.invalidateQueries({
+          queryKey: ["admin", "user", getId(updated)],
+        }),
+      ]);
     },
     onError: (error) => toast.error(getErrorMessage(error, locale)),
   });
@@ -342,6 +418,13 @@ export function AdminUsersView() {
 
   const users = usersQuery.data?.users ?? [];
   const pagination = usersQuery.data?.pagination;
+  const canChangeEditingUserRole = Boolean(
+    editingUser &&
+    currentUser &&
+    isSuperAdmin &&
+    getId(editingUser) !== getId(currentUser) &&
+    !editingUser.roles.includes("super_admin"),
+  );
   const formatDate = (value: string) =>
     new Intl.DateTimeFormat(intlLocale, { dateStyle: "medium" }).format(new Date(value));
 
@@ -413,114 +496,109 @@ export function AdminUsersView() {
               const mayManage = self || !targetStaff || isSuperAdmin;
               const mayBan = !self && !superAdmin && (!admin || isSuperAdmin);
               const roleLabel = superAdmin ? t.superAdmin : admin ? t.admin : t.user;
+              const roleEmoji = superAdmin ? "👑" : admin ? "🛡️" : "👤";
 
               return (
-                <article
-                  key={id}
-                  className="grid gap-4 p-4 lg:grid-cols-[minmax(16rem,1.5fr)_10rem_11rem_minmax(14rem,1fr)] lg:items-center lg:px-5"
-                >
-                  <div className="flex min-w-0 items-center gap-3">
-                    <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-[var(--primary-soft)] font-black text-[var(--primary-dark)]">
-                      {initials(user.firstName, user.lastName)}
-                    </span>
-                    <div className="min-w-0">
-                      <div className="flex flex-wrap items-center gap-2">
+                <article key={id} className="grid min-w-0 gap-3 p-4 xl:px-5">
+                  <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="flex min-w-0 items-start gap-3">
+                      <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-[var(--primary-soft)] font-black text-[var(--primary-dark)]">
+                        {initials(user.firstName, user.lastName)}
+                      </span>
+                      <div className="min-w-0 flex-1 pt-0.5">
                         <Link
                           href={`/admin/users/${id}`}
-                          className="focus-ring truncate rounded font-bold hover:text-[var(--primary)]"
+                          className="focus-ring min-w-0 max-w-full break-words rounded font-bold hover:text-[var(--primary)]"
                           title={t.viewProfile}
                         >
                           {user.firstName} {user.lastName}
                         </Link>
-                        {self && <Badge>{t.you}</Badge>}
-                        {user.ban?.isBanned && (
-                          <Badge className="border-rose-200 bg-rose-50 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300">
-                            {t.banned}
-                          </Badge>
-                        )}
-                      </div>
-                      <p className="truncate text-xs text-[var(--muted)]" dir="ltr">
-                        {user.email}
-                      </p>
-                      {user.ban?.isBanned && (
-                        <p className="mt-1 text-xs text-rose-600 dark:text-rose-300">
-                          {t.bannedReason}: {getBanReasonLabel(user.ban.reason, locale)}
+                        <p
+                          className="mt-1 min-w-0 max-w-full break-all text-xs text-[var(--muted)]"
+                          dir="ltr"
+                        >
+                          {user.email}
                         </p>
-                      )}
+                      </div>
                     </div>
-                  </div>
-
-                  <div className="flex items-center gap-2 text-sm text-[var(--muted)]">
-                    <UserRound className="size-4" />
-                    {formatDate(user.createdAt)}
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    {superAdmin ? (
-                      <ShieldEllipsis className="size-5 text-[var(--primary)]" />
-                    ) : (
-                      <Switch.Root
-                        checked={admin}
-                        disabled={!isSuperAdmin || self || roleMutation.isPending}
-                        onCheckedChange={(checked) =>
-                          roleMutation.mutate({ user, isAdmin: checked })
-                        }
-                        aria-label={t.adminToggle}
-                        className="focus-ring relative h-6 w-11 rounded-full bg-slate-200 transition data-[state=checked]:bg-[var(--primary)] disabled:opacity-50 dark:bg-slate-700"
+                    <div className="grid max-w-full shrink-0 grid-cols-4 self-end gap-1 sm:self-start">
+                      <Link
+                        href={`/admin/users/${id}`}
+                        className="focus-ring grid size-10 place-items-center rounded-full text-[var(--muted)] hover:bg-[var(--surface-muted)]"
+                        aria-label={t.viewProfile}
                       >
-                        <Switch.Thumb className="block size-5 translate-x-0.5 rounded-full bg-white shadow transition data-[state=checked]:translate-x-5" />
-                      </Switch.Root>
-                    )}
-                    <span className="text-xs font-bold text-[var(--muted)]">
-                      {roleLabel}
-                    </span>
-                  </div>
-
-                  <div className="flex flex-wrap justify-end gap-1">
-                    <Link
-                      href={`/admin/users/${id}`}
-                      className="focus-ring grid size-10 place-items-center rounded-full text-[var(--muted)] hover:bg-[var(--surface-muted)]"
-                      aria-label={t.viewProfile}
-                    >
-                      <Eye className="size-4" />
-                    </Link>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      disabled={!mayManage}
-                      onClick={() => setEditingUser(user)}
-                    >
-                      <Edit3 className="size-4" />
-                    </Button>
-                    {user.ban?.isBanned ? (
+                        <Eye className="size-4" />
+                      </Link>
                       <Button
-                        variant="secondary"
+                        variant="ghost"
                         size="icon"
-                        disabled={!mayBan}
-                        onClick={() => setUnbanningUser(user)}
+                        disabled={!mayManage}
+                        onClick={() => setEditingUser(user)}
                       >
-                        <RotateCcw className="size-4" />
+                        <Edit3 className="size-4" />
                       </Button>
-                    ) : (
+                      {user.ban?.isBanned ? (
+                        <Button
+                          variant="secondary"
+                          size="icon"
+                          disabled={!mayBan}
+                          onClick={() => setUnbanningUser(user)}
+                        >
+                          <RotateCcw className="size-4" />
+                        </Button>
+                      ) : (
+                        <Button
+                          variant="danger"
+                          size="icon"
+                          disabled={!mayBan}
+                          onClick={() => setBanningUser(user)}
+                        >
+                          <Ban className="size-4" />
+                        </Button>
+                      )}
                       <Button
                         variant="danger"
                         size="icon"
-                        disabled={!mayBan}
-                        onClick={() => setBanningUser(user)}
+                        disabled={!mayManage || self}
+                        onClick={() => setDeletingUser(user)}
                       >
-                        <Ban className="size-4" />
+                        <Trash2 className="size-4" />
                       </Button>
-                    )}
-                    <Button
-                      variant="danger"
-                      size="icon"
-                      disabled={!mayManage || self}
-                      onClick={() => setDeletingUser(user)}
-                    >
-                      <Trash2 className="size-4" />
-                    </Button>
-                    {targetStaff && (
-                      <ShieldCheck className="my-auto ml-1 size-4 text-[var(--primary)]" />
+                    </div>
+                  </div>
+
+                  <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2 border-t pt-3">
+                    <div className="flex min-w-0 items-center gap-2 text-sm text-[var(--muted)]">
+                      <UserRound className="size-4 shrink-0" />
+                      <span className="min-w-0 break-words">
+                        {formatDate(user.createdAt)}
+                      </span>
+                    </div>
+                    <div className="flex min-w-0 items-center gap-2">
+                      <span aria-hidden="true" className="text-lg leading-none">
+                        {roleEmoji}
+                      </span>
+                      <span className="min-w-0 text-xs font-bold break-words text-[var(--muted)]">
+                        {roleLabel}
+                      </span>
+                    </div>
+                    {(self || user.ban?.isBanned) && (
+                      <div className="flex w-full min-w-0 flex-wrap items-center gap-2 sm:w-auto">
+                        {self && <Badge>{t.you}</Badge>}
+                        {user.ban?.isBanned && (
+                          <>
+                            <Badge className="border-rose-200 bg-rose-50 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300">
+                              {t.banned}
+                            </Badge>
+                            <Badge className="max-w-full border-rose-200 bg-transparent text-rose-700 dark:text-rose-300">
+                              <span className="break-words">
+                                {t.bannedReason}:{" "}
+                                {getBanReasonLabel(user.ban.reason, locale)}
+                              </span>
+                            </Badge>
+                          </>
+                        )}
+                      </div>
                     )}
                   </div>
                 </article>
@@ -557,13 +635,15 @@ export function AdminUsersView() {
       )}
 
       <EditUserDialog
+        key={editingUser ? getId(editingUser) : "closed"}
         user={editingUser}
         loading={editMutation.isPending}
+        canChangeAdminRole={canChangeEditingUserRole}
         onClose={() => setEditingUser(null)}
-        onSave={(values) =>
+        onSave={(values, isAdmin) =>
           editingUser
             ? editMutation
-                .mutateAsync({ user: editingUser, values })
+                .mutateAsync({ user: editingUser, values, isAdmin })
                 .then(() => undefined)
             : Promise.resolve()
         }

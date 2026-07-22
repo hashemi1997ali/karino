@@ -85,3 +85,36 @@ export const unbanUserRequest = async (id: string): Promise<User> => {
 
 export const deleteUserRequest = (id: string): Promise<void> =>
   apiRequest<void>(`/admin/users/${id}`, { method: "DELETE" });
+
+export const getUserTasksRequest = async (
+  userId: string,
+): Promise<{ tasks: import("@/lib/types").Task[]; pagination: Pagination }> =>
+  apiRequest<{ tasks: import("@/lib/types").Task[]; pagination: Pagination }>(
+    `/admin/users/${userId}/tasks?page=1&limit=50`,
+  );
+
+export const updateUserTaskRequest = async (
+  userId: string,
+  taskId: string,
+  formData: FormData,
+): Promise<import("@/lib/types").Task> => {
+  const data = await apiRequest<{ task: import("@/lib/types").Task }>(
+    `/admin/users/${userId}/tasks/${taskId}`,
+    { method: "PATCH", body: formData },
+  );
+  return data.task;
+};
+
+export const deleteUserTaskRequest = (userId: string, taskId: string): Promise<void> =>
+  apiRequest<void>(`/admin/users/${userId}/tasks/${taskId}`, { method: "DELETE" });
+
+export const deleteUserTaskAttachmentRequest = async (
+  userId: string,
+  taskId: string,
+): Promise<import("@/lib/types").Task> => {
+  const data = await apiRequest<{ task: import("@/lib/types").Task }>(
+    `/admin/users/${userId}/tasks/${taskId}/attachment`,
+    { method: "DELETE" },
+  );
+  return data.task;
+};

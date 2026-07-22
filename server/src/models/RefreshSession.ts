@@ -87,6 +87,7 @@ const refreshSessionSchema = new Schema<IRefreshSession>(
 // expiresAt because TTL cleanup does not happen immediately.
 refreshSessionSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 refreshSessionSchema.index({ user: 1, revokedAt: 1 });
+refreshSessionSchema.index({ ipAddress: 1, user: 1 });
 
 export const RefreshSession = model<IRefreshSession>(
   "RefreshSession",

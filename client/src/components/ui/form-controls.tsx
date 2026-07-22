@@ -84,12 +84,14 @@ export function Field({
   error,
   hint,
   controlId,
+  compact = false,
   children,
 }: {
   label: string;
   error?: string;
   hint?: string;
   controlId?: string;
+  compact?: boolean;
   children: React.ReactNode;
 }) {
   const generatedId = useId();
@@ -97,7 +99,12 @@ export function Field({
   const descriptionId = error || hint ? `${resolvedControlId}-description` : undefined;
 
   return (
-    <div className="grid grid-rows-[auto_auto_1rem] gap-0.5 text-sm font-medium text-[var(--foreground)]">
+    <div
+      className={cn(
+        "grid gap-0.5 text-sm font-medium text-[var(--foreground)]",
+        compact ? "grid-rows-[auto_auto_auto]" : "grid-rows-[auto_auto_1rem]",
+      )}
+    >
       <label
         htmlFor={resolvedControlId}
         className={cn("transition-colors", error && "text-rose-600 dark:text-rose-300")}
@@ -113,7 +120,7 @@ export function Field({
       >
         <div className="relative">{children}</div>
       </FieldContext.Provider>
-      <div className="h-4 overflow-hidden px-1">
+      <div className={cn("overflow-hidden px-1", compact ? "min-h-0" : "h-4")}>
         {error ? (
           <span
             id={descriptionId}

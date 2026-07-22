@@ -5,8 +5,8 @@ import {
   CheckSquare2,
   Headphones,
   LayoutDashboard,
-  ListChecks,
   LogOut,
+  Mail,
   Menu,
   Plus,
   ShieldCheck,
@@ -31,9 +31,9 @@ const copy = {
     dashboard: "Dashboard",
     myTasks: "My tasks",
     account: "Account",
-    allTasks: "All tasks",
     users: "Users",
     support: "Support",
+    contactForm: "Contact form",
     logout: "Sign out",
     loggedOut: "You have been signed out.",
     logoutTitle: "Sign out of this device?",
@@ -54,9 +54,9 @@ const copy = {
     dashboard: "Übersicht",
     myTasks: "Meine Aufgaben",
     account: "Konto",
-    allTasks: "Alle Aufgaben",
     users: "Benutzer",
     support: "Support",
+    contactForm: "Kontaktformular",
     logout: "Abmelden",
     loggedOut: "Du wurdest abgemeldet.",
     logoutTitle: "Von diesem Gerät abmelden?",
@@ -93,9 +93,9 @@ export function AppShell({ children }: { children: ReactNode }) {
     { href: "/account", label: t.account, icon: UserRound },
   ];
   const adminLinks = [
-    { href: "/admin/tasks", label: t.allTasks, icon: ListChecks },
     { href: "/admin/users", label: t.users, icon: UsersRound },
     { href: "/admin/support", label: t.support, icon: Headphones },
+    { href: "/admin/contact", label: t.contactForm, icon: Mail },
   ];
   const links = isAdmin ? [...normalLinks, ...adminLinks] : normalLinks;
 

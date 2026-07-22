@@ -1,0 +1,77 @@
+import { cn } from "@/lib/utils";
+
+export function ChatMessageBubble({
+  id,
+  direction,
+  content,
+  name,
+  createdAt,
+}: {
+  id?: string;
+  direction: "incoming" | "outgoing" | "system";
+  content: string;
+  name?: string | null;
+  createdAt?: string | Date | null;
+}) {
+  if (direction === "system") {
+    return (
+      <div id={id} className="flex justify-center px-2">
+        <p
+          className="w-fit max-w-[95%] rounded-full bg-[var(--surface-muted)] px-3 py-1.5 text-center text-[11px] leading-4 text-[var(--muted)]"
+          dir="auto"
+        >
+          {content}
+        </p>
+      </div>
+    );
+  }
+
+  const time = createdAt
+    ? new Intl.DateTimeFormat(undefined, { hour: "2-digit", minute: "2-digit" }).format(
+        new Date(createdAt),
+      )
+    : null;
+
+  return (
+    <div
+      id={id}
+      className={cn("flex", direction === "outgoing" ? "justify-end" : "justify-start")}
+    >
+      <div
+        className={cn(
+          "w-fit max-w-[85%] px-3 py-2.5 text-sm leading-5 shadow-sm",
+          direction === "outgoing"
+            ? "rounded-2xl rounded-br-sm bg-[var(--primary)] text-white"
+            : "rounded-2xl rounded-bl-sm bg-[var(--surface-muted)] text-[var(--foreground)]",
+        )}
+      >
+        {name && (
+          <p
+            className={cn(
+              "mb-1 text-[10px] font-black tracking-wide uppercase",
+              direction === "outgoing" ? "text-white/70" : "text-[var(--primary)]",
+            )}
+          >
+            {name}
+          </p>
+        )}
+        <p
+          className="whitespace-pre-wrap break-words [overflow-wrap:anywhere]"
+          dir="auto"
+        >
+          {content}
+        </p>
+        {time && (
+          <p
+            className={cn(
+              "mt-1 text-right text-[9px] leading-none",
+              direction === "outgoing" ? "text-white/60" : "text-[var(--muted)]",
+            )}
+          >
+            {time}
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}

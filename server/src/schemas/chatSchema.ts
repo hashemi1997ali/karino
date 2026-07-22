@@ -18,6 +18,10 @@ export const guestAssistantSchema = z
       .optional()
       .default([]),
     locale: z.enum(["en", "de"]).optional().default("en"),
+    chatId: z
+      .string()
+      .regex(/^[a-f\d]{24}$/i)
+      .optional(),
   })
   .strict();
 
@@ -50,7 +54,8 @@ export const rateChatSchema = z
 
 export const supportQueueQuerySchema = z
   .object({
-    status: z.enum(["open", "active", "ended"]).optional(),
+    status: z.enum(["assistant", "open", "active", "ended"]).optional(),
+    scope: z.enum(["queue", "all"]).optional().default("queue"),
     page: z.coerce.number().int().min(1).optional().default(1),
     limit: z.coerce.number().int().min(1).max(100).optional().default(30),
   })

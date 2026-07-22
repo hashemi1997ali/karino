@@ -9,11 +9,7 @@
  * support chats, or explain anything to the user.
  */
 
-import type {
-  AssistantContext,
-  ReplyAgentId,
-  TriageDecision,
-} from "../types.ts";
+import type { AssistantContext, ReplyAgentId, TriageDecision } from "../types.ts";
 import { languageGuardrail, scopeGuardrail } from "../guardrails/index.ts";
 import { isStaffTier, resolveRoleTier } from "../policies/index.ts";
 
@@ -30,10 +26,7 @@ const ACCOUNT_PATTERN =
  * or out-of-scope message routes to the Offline Assistant, which returns the
  * appropriate predefined refusal (the triage router itself stays silent).
  */
-export const triage = (
-  message: string,
-  context: AssistantContext,
-): TriageDecision => {
+export const triage = (message: string, context: AssistantContext): TriageDecision => {
   // 1. Language guardrail — unsupported languages are refused offline.
   if (!languageGuardrail(message).passed) {
     return {
@@ -81,6 +74,6 @@ const pickAgent = (
     return "account";
   }
 
-  // Everything else is a general "how does the website work" question.
+  // Remaining in-scope messages are handled by the role-aware website guide.
   return "website-help";
 };

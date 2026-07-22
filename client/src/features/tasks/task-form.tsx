@@ -117,22 +117,26 @@ export function TaskForm({
   });
 
   return (
-    <form onSubmit={submit} className="grid gap-3" noValidate>
-      <Field label={t.title} error={errors.title?.message}>
+    <form onSubmit={submit} className="grid gap-2 pb-1" noValidate>
+      <Field compact label={t.title} error={errors.title?.message}>
         <Input placeholder={t.titlePlaceholder} autoFocus {...register("title")} />
       </Field>
-      <Field label={t.description} error={errors.description?.message}>
-        <Textarea placeholder={t.descriptionPlaceholder} {...register("description")} />
+      <Field compact label={t.description} error={errors.description?.message}>
+        <Textarea
+          placeholder={t.descriptionPlaceholder}
+          className="min-h-24"
+          {...register("description")}
+        />
       </Field>
-      <div className="grid gap-3 sm:grid-cols-2">
-        <Field label={t.status} error={errors.status?.message}>
+      <div className="grid gap-2 sm:grid-cols-2 sm:gap-3">
+        <Field compact label={t.status} error={errors.status?.message}>
           <Select {...register("status")}>
             <option value="todo">{t.todo}</option>
             <option value="in-progress">{t.inProgress}</option>
             <option value="done">{t.done}</option>
           </Select>
         </Field>
-        <Field label={t.priority} error={errors.priority?.message}>
+        <Field compact label={t.priority} error={errors.priority?.message}>
           <Select {...register("priority")}>
             <option value="low">{t.low}</option>
             <option value="medium">{t.medium}</option>
@@ -140,7 +144,7 @@ export function TaskForm({
           </Select>
         </Field>
       </div>
-      <Field label={t.dueDate} error={errors.dueDate?.message}>
+      <Field compact label={t.dueDate} error={errors.dueDate?.message}>
         <Input type="datetime-local" dir="ltr" {...register("dueDate")} />
       </Field>
 
@@ -172,13 +176,14 @@ export function TaskForm({
       )}
 
       <Field
+        compact
         label={task?.attachment ? t.replaceAttachment : t.optionalAttachment}
         hint={t.attachmentHint}
         controlId="task-attachment"
       >
         <label
           htmlFor="task-attachment"
-          className="focus-ring flex min-h-20 items-center justify-center gap-3 rounded-xl border border-dashed bg-[var(--surface-muted)] px-4 text-sm text-[var(--muted)] hover:border-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-500/10"
+          className="focus-ring flex min-h-16 items-center justify-center gap-3 rounded-2xl border border-dashed bg-[var(--surface-muted)] px-4 text-sm text-[var(--muted)] hover:border-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-500/10"
         >
           <FileUp className="size-5 text-indigo-500" />
           <span className="truncate" dir="auto">
@@ -199,8 +204,12 @@ export function TaskForm({
           {errors.root.message}
         </p>
       )}
-      <div className="mt-2 flex justify-end">
-        <Button type="submit" loading={loading} className="min-w-32">
+      <div className="flex justify-end pt-1 pb-1">
+        <Button
+          type="submit"
+          loading={loading}
+          className="w-full min-w-32 rounded-full sm:w-auto"
+        >
           {task ? t.save : t.create}
         </Button>
       </div>

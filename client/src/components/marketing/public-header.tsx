@@ -14,6 +14,7 @@ const copy = {
     features: "Features",
     workflow: "How it works",
     tasks: "My tasks",
+    contact: "Contact",
     dashboard: "My dashboard",
     login: "Log in",
     start: "Start free",
@@ -23,6 +24,7 @@ const copy = {
     features: "Funktionen",
     workflow: "So funktioniert's",
     tasks: "Meine Aufgaben",
+    contact: "Kontakt",
     dashboard: "Mein Dashboard",
     login: "Anmelden",
     start: "Kostenlos starten",
@@ -44,12 +46,15 @@ export function PublicHeader() {
           className="hidden items-center gap-8 text-sm font-bold text-[var(--muted)] md:flex"
           aria-label={t.navigation}
         >
-          <a href="#features" className="hover:text-[var(--primary)]">
+          <Link href="/#features" className="hover:text-[var(--primary)]">
             {t.features}
-          </a>
-          <a href="#workflow" className="hover:text-[var(--primary)]">
+          </Link>
+          <Link href="/#workflow" className="hover:text-[var(--primary)]">
             {t.workflow}
-          </a>
+          </Link>
+          <Link href="/contact" className="hover:text-[var(--primary)]">
+            {t.contact}
+          </Link>
           <Link
             href={authenticated ? "/tasks" : "/login?next=/tasks"}
             className="hover:text-[var(--primary)]"

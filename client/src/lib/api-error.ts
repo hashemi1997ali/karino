@@ -114,6 +114,18 @@ const germanApiMessages: Record<string, string> = {
     "Du hast keine Berechtigung, dieses Konto zu löschen.",
   "This user is not banned": "Dieser Benutzer ist nicht gesperrt.",
   "Administrator required": "Administratorrechte sind erforderlich.",
+  "New password must be different from your current password":
+    "Das neue Passwort muss sich vom aktuellen Passwort unterscheiden.",
+  "This password reset link is invalid or expired":
+    "Dieser Link zum Zurücksetzen des Passworts ist ungültig oder abgelaufen.",
+  "Email delivery is temporarily unavailable":
+    "Der E-Mail-Versand ist vorübergehend nicht verfügbar.",
+  "Email delivery failed": "Die E-Mail konnte nicht gesendet werden.",
+  "Contact message not found": "Die Kontaktnachricht wurde nicht gefunden.",
+  "Too many contact messages. Please try again later":
+    "Zu viele Kontaktnachrichten. Bitte versuche es später erneut.",
+  "Too many password reset requests. Please try again later":
+    "Zu viele Anfragen zum Zurücksetzen des Passworts. Bitte versuche es später erneut.",
 };
 
 export const getRuntimeLocale = (): Locale =>

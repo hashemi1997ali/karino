@@ -11,6 +11,7 @@
  */
 
 import {
+  detectMessageLocale,
   generateReplySuggestions,
   runOrchestrator,
   type AssistantContext,
@@ -20,6 +21,7 @@ import {
 } from "#ai";
 
 export type { AssistantHistoryMessage, AssistantContext, AssistantResult };
+export { detectMessageLocale };
 
 /** Agent identifier surfaced to callers (kept as an alias for compatibility). */
 export type AssistantAgent = ReplyAgentId;

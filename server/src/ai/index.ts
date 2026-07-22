@@ -10,9 +10,13 @@ export type {
   AssistantHistoryMessage,
   AssistantLocale,
   AssistantResult,
+  AssistantAction,
+  EscalationReason,
   ReplyAgentId,
   TriageDecision,
 } from "./types.ts";
 
 export { runOrchestrator } from "./orchestrator/index.ts";
 export { generateReplySuggestions } from "./support/replySuggestions.ts";
+
+export { detectMessageLocale } from "./language.ts";

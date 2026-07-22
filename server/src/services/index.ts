@@ -2,3 +2,5 @@ export * from "./banService.ts";
 export * from "./refreshSessionService.ts";
 export * from "./assistantService.ts";
 export * from "./roleService.ts";
+export * from "./chatLifecycleService.ts";
+export * from "./emailService.ts";

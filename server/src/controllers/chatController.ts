@@ -1,4 +1,6 @@
-import type { Request, RequestHandler } from "express";
+import { createHash, randomBytes, randomUUID } from "node:crypto";
+
+import type { Request, RequestHandler, Response } from "express";
 import mongoose, { type HydratedDocument, type QueryFilter } from "mongoose";
 
 import {
@@ -7,12 +9,21 @@ import {
   type ISupportChat,
   type IUser,
   type SupportChatLocale,
+  type SupportEscalationReason,
   User,
 } from "#models";
 import {
   banUser,
+  CHAT_WELCOME_SENDER,
+  chatWelcomeMessage,
+  clearAssistantIdleClose,
+  closeInactiveAssistantChats,
   createReplySuggestions,
+  detectMessageLocale,
+  hasReachedHumanSupport,
   runAssistant,
+  resolveSupportAudience,
+  scheduleAssistantIdleClose,
   setAdministratorRole,
   unbanUser,
   type AssistantHistoryMessage,
@@ -24,6 +35,7 @@ import {
   isAdminRoles,
   isStaffRoles,
   isSuperAdminRoles,
+  normalizeIpAddress,
 } from "#utils";
 import { supportQueueQuerySchema } from "#schemas";
 
@@ -107,51 +119,78 @@ const serializeMessage = (message: ISupportChat["messages"][number]) => ({
   createdAt: message.createdAt,
 });
 
-const serializeChat = (chat: HydratedDocument<ISupportChat>) => ({
-  id: String(chat._id),
-  user:
-    typeof chat.user === "object" && "email" in chat.user
+const serializeChat = (chat: HydratedDocument<ISupportChat>) => {
+  const populatedUser =
+    chat.user && typeof chat.user === "object" && "email" in chat.user
+      ? (chat.user as unknown as IUser & { _id: unknown })
+      : null;
+
+  return {
+    id: String(chat._id),
+    user: populatedUser
       ? {
-          id: String((chat.user as unknown as { _id: unknown })._id),
-          firstName: (chat.user as unknown as IUser).firstName,
-          lastName: (chat.user as unknown as IUser).lastName,
-          email: (chat.user as unknown as IUser).email,
-          roles: (chat.user as unknown as IUser).roles,
-          ban: (chat.user as unknown as IUser).ban ?? null,
+          id: String(populatedUser._id),
+          firstName: populatedUser.firstName,
+          lastName: populatedUser.lastName,
+          email: populatedUser.email,
+          roles: populatedUser.roles,
+          ban: populatedUser.ban ?? null,
         }
-      : String(chat.user),
-  origin: chat.origin,
-  locale: chat.locale,
-  subject: chat.subject,
-  status: chat.status,
-  assignedTo: chat.assignedTo ? String(chat.assignedTo) : null,
-  assignedToName: chat.assignedToName,
-  requiresSuperAdmin: chat.requiresSuperAdmin,
-  lastAgent: chat.lastAgent,
-  messages: chat.messages.map(serializeMessage),
-  rating: chat.rating,
-  endedAt: chat.endedAt,
-  createdAt: chat.createdAt,
-  updatedAt: chat.updatedAt,
-});
+      : chat.user
+        ? String(chat.user)
+        : null,
+    guest:
+      chat.origin === "guest"
+        ? { id: chat.guestId, email: chat.guestEmail, label: "Guest" }
+        : null,
+    origin: chat.origin,
+    locale: chat.locale,
+    subject: chat.subject,
+    status: chat.status,
+    assignedTo: chat.assignedTo ? String(chat.assignedTo) : null,
+    assignedToName: chat.assignedToName,
+    requiresSuperAdmin: chat.requiresSuperAdmin,
+    escalationReason: chat.escalationReason,
+    lastAgent: chat.lastAgent,
+    messages: chat.messages.map(serializeMessage),
+    rating: chat.rating,
+    assistantIdleExpiresAt: chat.assistantIdleExpiresAt ?? null,
+    endedAt: chat.endedAt,
+    createdAt: chat.createdAt,
+    updatedAt: chat.updatedAt,
+  };
+};
 
 const toAssistantHistory = (
   chat: HydratedDocument<ISupportChat>,
 ): AssistantHistoryMessage[] =>
   chat.messages
-    .filter((message) => message.sender === "user" || message.sender === "ai")
+    .filter(
+      (message) =>
+        (message.sender === "user" || message.sender === "ai") &&
+        message.senderName !== CHAT_WELCOME_SENDER,
+    )
     .map((message) => ({
       role: message.sender === "user" ? "user" : "assistant",
       content: message.content,
     }));
 
-const endChatDocument = async (chat: HydratedDocument<ISupportChat>): Promise<void> => {
+const endChatDocument = async (
+  chat: HydratedDocument<ISupportChat>,
+): Promise<boolean> => {
   const now = new Date();
-  const retentionDays = getPositiveIntegerEnv("SUPPORT_CHAT_RETENTION_DAYS", 90);
+  const deleteAfterEnd = !hasReachedHumanSupport(chat);
   chat.status = "ended";
+  chat.assistantIdleExpiresAt = null;
   chat.endedAt = now;
+  if (deleteAfterEnd) {
+    await chat.deleteOne();
+    return true;
+  }
+  const retentionDays = getPositiveIntegerEnv("SUPPORT_CHAT_RETENTION_DAYS", 90);
   chat.expiresAt = new Date(now.getTime() + retentionDays * 24 * 60 * 60 * 1000);
   await chat.save();
+  return false;
 };
 
 const parseStaffCommand = async (
@@ -255,53 +294,313 @@ const parseStaffCommand = async (
   );
 };
 
-export const guestAssistant: RequestHandler = async (request, response) => {
-  const { message, history, locale } = request.body as {
-    message: string;
-    history: AssistantHistoryMessage[];
-    locale: "en" | "de";
-  };
-  const result = await runAssistant(message, history, {
-    roles: [],
-    authenticated: false,
-    locale,
+const GUEST_SUPPORT_COOKIE_NAME = "guestSupportToken";
+const EMAIL_PATTERN = /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/i;
+
+const hashGuestToken = (token: string): string =>
+  createHash("sha256").update(token).digest("hex");
+
+const setGuestSupportCookie = (response: Response, token: string): void => {
+  const retentionDays = getPositiveIntegerEnv("SUPPORT_CHAT_RETENTION_DAYS", 90);
+  response.cookie(GUEST_SUPPORT_COOKIE_NAME, token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
+    maxAge: retentionDays * 24 * 60 * 60 * 1000,
   });
-  response.status(200).json({ success: true, data: result });
+};
+
+const getGuestToken = (request: Request): string | null => {
+  const token = request.cookies?.[GUEST_SUPPORT_COOKIE_NAME] as unknown;
+  return typeof token === "string" && token.length >= 32 ? token : null;
+};
+
+const resolveLocale = (message: string, fallback: SupportChatLocale): SupportChatLocale =>
+  detectMessageLocale(message, fallback).locale;
+
+const escalationReply = (
+  locale: SupportChatLocale,
+  reason: SupportEscalationReason,
+  requiresSuperAdmin: boolean,
+): string => {
+  if (requiresSuperAdmin && reason === "account_banned") {
+    return localized(
+      locale,
+      "I’ve sent your account-ban issue to a super administrator. You can continue writing here while you wait.",
+      "Ich habe dein Problem mit der Kontosperre an einen Super-Administrator weitergeleitet. Du kannst hier weiterschreiben, während du wartest.",
+    );
+  }
+  if (requiresSuperAdmin && reason === "security") {
+    return localized(
+      locale,
+      "I’ve sent this security issue to a super administrator. Please do not share your password or recovery codes.",
+      "Ich habe dieses Sicherheitsproblem an einen Super-Administrator weitergeleitet. Bitte teile weder dein Passwort noch Wiederherstellungscodes.",
+    );
+  }
+  return localized(
+    locale,
+    "I’ve sent this conversation to human support. You can continue writing here while you wait.",
+    "Ich habe diese Unterhaltung an den menschlichen Support weitergeleitet. Du kannst hier weiterschreiben, während du wartest.",
+  );
+};
+
+const applyAssistantTurn = (
+  chat: HydratedDocument<ISupportChat>,
+  assistant: Awaited<ReturnType<typeof runAssistant>>,
+  options: {
+    supportAudience?: "all-staff" | "super-admin";
+    allowEscalation?: boolean;
+  } = {},
+): boolean => {
+  const shouldEscalate =
+    assistant.action === "escalate" && options.allowEscalation !== false;
+  const reason = assistant.escalationReason ?? "unresolved";
+  const requiresSuperAdmin =
+    options.supportAudience === "super-admin" ||
+    (options.supportAudience === undefined && assistant.requiresSuperAdmin);
+
+  chat.lastAgent = assistant.agent;
+  chat.messages.push({
+    sender: "ai",
+    senderName: assistant.agent,
+    content: shouldEscalate
+      ? escalationReply(chat.locale, reason, requiresSuperAdmin)
+      : assistant.reply,
+    createdAt: new Date(),
+  } as ISupportChat["messages"][number]);
+
+  if (!shouldEscalate) {
+    scheduleAssistantIdleClose(chat);
+    return false;
+  }
+
+  chat.status = "open";
+  clearAssistantIdleClose(chat);
+  chat.assignedTo = null;
+  chat.assignedToName = null;
+  chat.escalationReason = reason;
+  chat.requiresSuperAdmin = requiresSuperAdmin;
+  chat.messages.push({
+    sender: "system",
+    senderName: null,
+    content: systemMessage(
+      chat.locale,
+      chat.requiresSuperAdmin ? "waiting-super" : "waiting-support",
+    ),
+    createdAt: new Date(),
+  } as ISupportChat["messages"][number]);
+  return true;
+};
+
+const escalationPayload = (chat: HydratedDocument<ISupportChat>, completed: boolean) => ({
+  requested: completed,
+  completed,
+  reason: completed ? chat.escalationReason : null,
+});
+
+const findGuestChat = async (
+  request: Request,
+  chatId: string,
+): Promise<HydratedDocument<ISupportChat>> => {
+  const token = getGuestToken(request);
+  if (!token) throw new AppError("Guest chat not found", 404);
+  const id = validateObjectId(chatId, "chat");
+  await closeInactiveAssistantChats({ _id: id, origin: "guest" });
+  const chat = await SupportChat.findOne({
+    _id: id,
+    origin: "guest",
+    guestTokenHash: hashGuestToken(token),
+  }).select("+guestTokenHash");
+  if (!chat) throw new AppError("Guest chat not found", 404);
+  return chat;
+};
+
+export const guestAssistant: RequestHandler = async (request, response) => {
+  const {
+    message,
+    locale: requestedLocale,
+    chatId,
+  } = request.body as {
+    message: string;
+    locale: SupportChatLocale;
+    chatId?: string;
+  };
+
+  let chat: HydratedDocument<ISupportChat> | null = null;
+  let token = getGuestToken(request);
+  if (chatId) {
+    if (!token) throw new AppError("Guest chat not found", 404);
+    const existingChatId = validateObjectId(chatId, "chat");
+    await closeInactiveAssistantChats({ _id: existingChatId, origin: "guest" });
+    chat = await SupportChat.findOne({
+      _id: existingChatId,
+      origin: "guest",
+      guestTokenHash: hashGuestToken(token),
+    }).select("+guestTokenHash");
+    if (!chat) throw new AppError("Guest chat not found", 404);
+    if (chat.status === "ended") throw new AppError("This chat has ended", 409);
+  }
+
+  const detectedLocale = resolveLocale(message, chat?.locale ?? requestedLocale);
+  const email = message.match(EMAIL_PATTERN)?.[0]?.toLowerCase() ?? null;
+  let isNew = false;
+
+  if (!chat) {
+    isNew = true;
+    token = randomBytes(32).toString("base64url");
+    chat = new SupportChat({
+      user: null,
+      origin: "guest",
+      guestId: randomUUID(),
+      guestTokenHash: hashGuestToken(token),
+      guestEmail: email,
+      guestIpAddress: normalizeIpAddress(request.ip),
+      guestUserAgent: request.get("user-agent")?.slice(0, 512) ?? null,
+      locale: detectedLocale,
+      subject: message.slice(0, 200),
+      status: "assistant",
+      messages: [
+        {
+          sender: "ai",
+          senderName: CHAT_WELCOME_SENDER,
+          content: chatWelcomeMessage(requestedLocale),
+          createdAt: new Date(),
+        },
+      ],
+    });
+  } else {
+    chat.locale = detectedLocale;
+    if (!chat.guestEmail && email) chat.guestEmail = email;
+  }
+
+  chat.messages.push({
+    sender: "user",
+    senderName: "Guest",
+    content: message,
+    createdAt: new Date(),
+  } as ISupportChat["messages"][number]);
+
+  let provider: string | null = null;
+  let escalated = false;
+  if (chat.status === "assistant") {
+    clearAssistantIdleClose(chat);
+    if (!isNew) await chat.save();
+    const assistant = await runAssistant(message, toAssistantHistory(chat).slice(0, -1), {
+      roles: [],
+      authenticated: false,
+      locale: detectedLocale,
+    });
+    escalated = applyAssistantTurn(chat, assistant, {
+      supportAudience: resolveSupportAudience([]),
+    });
+    provider = assistant.provider;
+  }
+
+  // The success response and transfer confirmation are only returned after the
+  // chat (including its open status) has been persisted successfully.
+  await chat.save();
+  if (isNew && token) setGuestSupportCookie(response, token);
+
+  response.status(isNew ? 201 : 200).json({
+    success: true,
+    data: {
+      chat: serializeChat(chat),
+      provider,
+      escalation: escalationPayload(chat, escalated),
+    },
+  });
+};
+
+export const getGuestChat: RequestHandler = async (request, response) => {
+  const chat = await findGuestChat(request, String(request.params.id));
+  response.status(200).json({ success: true, data: { chat: serializeChat(chat) } });
+};
+
+export const endGuestChat: RequestHandler = async (request, response) => {
+  const chat = await findGuestChat(request, String(request.params.id));
+  let deleted = false;
+  if (chat.status !== "ended") {
+    chat.messages.push({
+      sender: "system",
+      senderName: null,
+      content: systemMessage(chat.locale, "user-ended"),
+      createdAt: new Date(),
+    } as ISupportChat["messages"][number]);
+    deleted = await endChatDocument(chat);
+  } else if (!hasReachedHumanSupport(chat)) {
+    await chat.deleteOne();
+    deleted = true;
+  }
+  response
+    .status(200)
+    .json({ success: true, data: { chat: serializeChat(chat), deleted } });
 };
 
 export const createChat: RequestHandler = async (request, response) => {
   const user = await getCurrentUser(request);
-  const { message, locale } = request.body as { message: string; locale: "en" | "de" };
+  const { message, locale: requestedLocale } = request.body as {
+    message: string;
+    locale: SupportChatLocale;
+  };
+  const locale = resolveLocale(message, requestedLocale);
   const commandReply = await parseStaffCommand(message, user, locale);
   const assistant = commandReply
-    ? { reply: commandReply, agent: "staff-operations" as const, provider: "command" }
+    ? {
+        reply: commandReply,
+        agent: "staff" as const,
+        provider: "command",
+        action: "reply" as const,
+        escalationReason: null,
+        requiresSuperAdmin: false,
+        locale,
+      }
     : await runAssistant(message, [], {
         roles: user.roles,
         authenticated: true,
         locale,
       });
 
-  const chat = await SupportChat.create({
+  const chat = new SupportChat({
     user: user._id,
     origin: isAdminRoles(user.roles) && !isSuperAdminRoles(user.roles) ? "admin" : "user",
     locale,
     subject: message.slice(0, 200),
     status: "assistant",
-    lastAgent: assistant.agent,
     messages: [
-      { sender: "user", senderName: fullName(user), content: message },
-      { sender: "ai", senderName: assistant.agent, content: assistant.reply },
+      {
+        sender: "ai",
+        senderName: CHAT_WELCOME_SENDER,
+        content: chatWelcomeMessage(requestedLocale),
+        createdAt: new Date(),
+      },
+      {
+        sender: "user",
+        senderName: fullName(user),
+        content: message,
+        createdAt: new Date(),
+      },
     ],
   });
+  const escalated = applyAssistantTurn(chat, assistant, {
+    supportAudience: resolveSupportAudience(user.roles),
+    allowEscalation: !isSuperAdminRoles(user.roles),
+  });
+  await chat.save();
 
   response.status(201).json({
     success: true,
-    data: { chat: serializeChat(chat), provider: assistant.provider },
+    data: {
+      chat: serializeChat(chat),
+      provider: assistant.provider,
+      escalation: escalationPayload(chat, escalated),
+    },
   });
 };
 
 export const listOwnChats: RequestHandler = async (request, response) => {
   const user = await getCurrentUser(request);
+  await closeInactiveAssistantChats({ user: user._id });
   const chats = await SupportChat.find({ user: user._id })
     .sort({ updatedAt: -1 })
     .limit(50);
@@ -314,6 +613,7 @@ export const listOwnChats: RequestHandler = async (request, response) => {
 export const getOwnChat: RequestHandler = async (request, response) => {
   const user = await getCurrentUser(request);
   const chatId = validateObjectId(request.params.id, "chat");
+  await closeInactiveAssistantChats({ _id: chatId, user: user._id });
   const chat = await SupportChat.findOne({ _id: chatId, user: user._id });
   if (!chat) throw new AppError("Chat not found", 404);
   response.status(200).json({ success: true, data: { chat: serializeChat(chat) } });
@@ -322,11 +622,17 @@ export const getOwnChat: RequestHandler = async (request, response) => {
 export const sendOwnMessage: RequestHandler = async (request, response) => {
   const user = await getCurrentUser(request);
   const chatId = validateObjectId(request.params.id, "chat");
-  const { message, locale } = request.body as { message: string; locale: "en" | "de" };
+  const { message, locale: requestedLocale } = request.body as {
+    message: string;
+    locale: SupportChatLocale;
+  };
+  await closeInactiveAssistantChats({ _id: chatId, user: user._id });
   const chat = await SupportChat.findOne({ _id: chatId, user: user._id });
   if (!chat) throw new AppError("Chat not found", 404);
   if (chat.status === "ended") throw new AppError("This chat has ended", 409);
 
+  const locale = resolveLocale(message, chat.locale ?? requestedLocale);
+  chat.locale = locale;
   chat.messages.push({
     sender: "user",
     senderName: fullName(user),
@@ -335,30 +641,41 @@ export const sendOwnMessage: RequestHandler = async (request, response) => {
   } as ISupportChat["messages"][number]);
 
   let provider: string | null = null;
+  let escalated = false;
   if (chat.status === "assistant") {
-    chat.locale = locale;
+    clearAssistantIdleClose(chat);
+    await chat.save();
     const commandReply = await parseStaffCommand(message, user, locale);
     const assistant = commandReply
-      ? { reply: commandReply, agent: "staff-operations" as const, provider: "command" }
+      ? {
+          reply: commandReply,
+          agent: "staff" as const,
+          provider: "command",
+          action: "reply" as const,
+          escalationReason: null,
+          requiresSuperAdmin: false,
+          locale,
+        }
       : await runAssistant(message, toAssistantHistory(chat).slice(0, -1), {
           roles: user.roles,
           authenticated: true,
           locale,
         });
-    chat.lastAgent = assistant.agent;
-    chat.messages.push({
-      sender: "ai",
-      senderName: assistant.agent,
-      content: assistant.reply,
-      createdAt: new Date(),
-    } as ISupportChat["messages"][number]);
+    escalated = applyAssistantTurn(chat, assistant, {
+      supportAudience: resolveSupportAudience(user.roles),
+      allowEscalation: !isSuperAdminRoles(user.roles),
+    });
     provider = assistant.provider;
   }
 
   await chat.save();
   response.status(200).json({
     success: true,
-    data: { chat: serializeChat(chat), provider },
+    data: {
+      chat: serializeChat(chat),
+      provider,
+      escalation: escalationPayload(chat, escalated),
+    },
   });
 };
 
@@ -369,13 +686,17 @@ export const escalateOwnChat: RequestHandler = async (request, response) => {
   }
 
   const chatId = validateObjectId(request.params.id, "chat");
+  await closeInactiveAssistantChats({ _id: chatId, user: user._id });
   const chat = await SupportChat.findOne({ _id: chatId, user: user._id });
   if (!chat) throw new AppError("Chat not found", 404);
+  if (chat.status === "ended") throw new AppError("This chat has ended", 409);
   if (chat.status !== "assistant") {
     throw new AppError("This chat has already been sent to support", 409);
   }
 
   chat.status = "open";
+  clearAssistantIdleClose(chat);
+  chat.escalationReason = "human_requested";
   chat.requiresSuperAdmin = isAdminRoles(user.roles);
   chat.messages.push({
     sender: "system",
@@ -394,8 +715,10 @@ export const escalateOwnChat: RequestHandler = async (request, response) => {
 export const endOwnChat: RequestHandler = async (request, response) => {
   const user = await getCurrentUser(request);
   const chatId = validateObjectId(request.params.id, "chat");
+  await closeInactiveAssistantChats({ _id: chatId, user: user._id });
   const chat = await SupportChat.findOne({ _id: chatId, user: user._id });
   if (!chat) throw new AppError("Chat not found", 404);
+  let deleted = false;
   if (chat.status !== "ended") {
     chat.messages.push({
       sender: "system",
@@ -403,9 +726,14 @@ export const endOwnChat: RequestHandler = async (request, response) => {
       content: systemMessage(chat.locale, "user-ended"),
       createdAt: new Date(),
     } as ISupportChat["messages"][number]);
-    await endChatDocument(chat);
+    deleted = await endChatDocument(chat);
+  } else if (!hasReachedHumanSupport(chat)) {
+    await chat.deleteOne();
+    deleted = true;
   }
-  response.status(200).json({ success: true, data: { chat: serializeChat(chat) } });
+  response
+    .status(200)
+    .json({ success: true, data: { chat: serializeChat(chat), deleted } });
 };
 
 export const rateOwnChat: RequestHandler = async (request, response) => {
@@ -432,19 +760,27 @@ const ensureStaffMayHandle = (
 export const listStaffChats: RequestHandler = async (request, response) => {
   const staff = await getCurrentUser(request);
   if (!isStaffRoles(staff.roles)) throw new AppError("Administrator required", 403);
+  await closeInactiveAssistantChats();
   const query = supportQueueQuerySchema.parse(request.query);
-  const filter: QueryFilter<ISupportChat> = {
-    status: query.status ?? { $in: ["open", "active"] },
-  };
-  if (!isSuperAdminRoles(staff.roles)) {
+  const superAdmin = isSuperAdminRoles(staff.roles);
+  const filter: QueryFilter<ISupportChat> = {};
+  if (superAdmin) {
+    if (query.status) filter.status = query.status;
+    else if (query.scope !== "all") filter.status = { $in: ["open", "active"] };
+  } else {
+    filter.status = { $in: ["open", "active"] };
     filter.requiresSuperAdmin = false;
-    filter.origin = "user";
+    filter.origin = { $in: ["user", "guest"] };
   }
   const skip = (query.page - 1) * query.limit;
+  const sort: Record<string, 1 | -1> =
+    superAdmin && query.scope === "all"
+      ? { updatedAt: -1 }
+      : { status: 1, updatedAt: -1 };
   const [chats, total] = await Promise.all([
     SupportChat.find(filter)
       .populate("user", "firstName lastName email roles ban createdAt updatedAt")
-      .sort({ status: 1, updatedAt: -1 })
+      .sort(sort)
       .skip(skip)
       .limit(query.limit),
     SupportChat.countDocuments(filter),
@@ -473,7 +809,7 @@ export const claimStaffChat: RequestHandler = async (request, response) => {
 
   if (!isSuperAdminRoles(staff.roles)) {
     filter.requiresSuperAdmin = false;
-    filter.origin = "user";
+    filter.origin = { $in: ["user", "guest"] };
   }
 
   const pendingChat = await SupportChat.findOne(filter).select("locale").lean();
