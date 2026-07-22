@@ -119,7 +119,7 @@ const copy = {
   },
 } as const;
 
-export function TaskManager({ admin = false }: { admin?: boolean }) {
+export function TasksView({ admin = false }: { admin?: boolean }) {
   const queryClient = useQueryClient();
   const router = useRouter();
   const searchParams = useSearchParams();

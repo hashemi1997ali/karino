@@ -28,7 +28,7 @@ export const generateReplySuggestions = async (
 ): Promise<string[]> => {
   const language = context.locale === "de" ? "German" : "English";
   const systemPrompt = [
-    `You help a Karino Task Manager support agent. Reply in ${language}.`,
+    `You help a Karino support agent. Reply in ${language}.`,
     "Create exactly three short, professional support-agent reply suggestions for the latest user message.",
     "Put each suggestion on its own line without numbering or bullet characters.",
   ].join("\n");

@@ -76,7 +76,7 @@ export const openRouterProvider: ChatProvider = {
       request,
       {
         ...(process.env.APP_URL && { "HTTP-Referer": process.env.APP_URL }),
-        "X-OpenRouter-Title": process.env.AI_APP_NAME ?? "Karino Task Manager",
+        "X-OpenRouter-Title": process.env.AI_APP_NAME ?? "Karino",
       },
     );
   },

@@ -24,7 +24,7 @@ export interface RefreshTokenPayload extends JwtPayload {
   type: "refresh";
 }
 
-const getIssuer = (): string => process.env.JWT_ISSUER ?? "task-manager-api";
+const getIssuer = (): string => process.env.JWT_ISSUER ?? "karino-api";
 
 export const getAccessTokenTtl = (): number =>
   getPositiveIntegerEnv("ACCESS_TOKEN_TTL", 15 * 60);

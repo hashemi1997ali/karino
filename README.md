@@ -1,9 +1,9 @@
-# Task Manager Platform
+# Karino
 
-A full-stack task management platform with English as the default interface language, support for switching to German, and a left-to-right layout. The repository is organized as a monorepo using npm workspaces and contains two independent applications:
+Karino is a full-stack productivity platform with English as the default interface language, support for switching to German, and a left-to-right layout. The repository is organized as a monorepo using npm workspaces and contains two independent applications:
 
 ```text
-task-manager-platform/
+karino/
 ├── client/   # Next.js App Router, React, and Tailwind CSS
 ├── server/   # Express, TypeScript, MongoDB/Mongoose, and Zod
 ├── package.json
@@ -59,7 +59,7 @@ cp client/.env.example client/.env.local
 At minimum, configure the following values in `server/.env`:
 
 ```dotenv
-MONGO_URI=mongodb://127.0.0.1:27017/task-manager-api
+MONGO_URI=mongodb://127.0.0.1:27017/karino
 ACCESS_JWT_SECRET=replace_with_a_long_random_access_secret
 REFRESH_JWT_SECRET=replace_with_a_different_long_random_refresh_secret
 BREVO_API_KEY=replace_with_your_brevo_api_key

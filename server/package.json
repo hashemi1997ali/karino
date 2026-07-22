@@ -1,7 +1,7 @@
 {
-  "name": "@task-manager/server",
+  "name": "@karino/server",
   "version": "1.0.0",
-  "description": "A complete Task Manager REST API built with Express, TypeScript, MongoDB, Zod and JWT.",
+  "description": "The Karino REST API built with Express, TypeScript, MongoDB, Zod and JWT.",
   "private": true,
   "engines": {
     "node": ">=24.0.0"

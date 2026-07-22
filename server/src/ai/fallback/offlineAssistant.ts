@@ -30,8 +30,8 @@ export const offlineUnsupportedLanguageReply = (locale: AssistantLocale): string
 export const offlineOutOfScopeReply = (locale: AssistantLocale): string =>
   line(
     locale,
-    "I can only help with Karino Task Manager features, account access, account security, or support requests.",
-    "Ich kann nur bei Funktionen des Karino Task Managers, Kontozugriff, Kontosicherheit oder Supportanfragen helfen.",
+    "I can only help with Karino features, account access, account security, or support requests.",
+    "Ich kann nur bei Funktionen von Karino, Kontozugriff, Kontosicherheit oder Supportanfragen helfen.",
   );
 
 const unavailableNotice = (locale: AssistantLocale): string =>

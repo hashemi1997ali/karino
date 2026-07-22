@@ -135,8 +135,8 @@ const finalize = (
   if (isStronglyMixedLanguage(safeReply)) {
     safeReply =
       context.locale === "de"
-        ? "Ich helfe dir auf Deutsch weiter. Beschreibe bitte kurz, was du im Karino Task Manager tun möchtest."
-        : "I’ll continue in English. Please briefly describe what you want to do in Karino Task Manager.";
+        ? "Ich helfe dir auf Deutsch weiter. Beschreibe bitte kurz, was du in Karino tun möchtest."
+        : "I’ll continue in English. Please briefly describe what you want to do in Karino.";
   }
 
   return {

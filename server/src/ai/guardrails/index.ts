@@ -7,7 +7,7 @@
  * The four guardrail categories required by the specification:
  *
  *  1. Language  – only English and German are supported.
- *  2. Scope     – only Karino Task Manager topics are in scope.
+ *  2. Scope     – only Karino topics are in scope.
  *  3. Permission– the AI must never claim an action succeeded unless the
  *                 backend actually executed it (enforced via output check).
  *  4. Output    – no hallucinated confirmations, no leaked system prompts.
@@ -266,7 +266,7 @@ const OUT_OF_SCOPE_KEYWORDS = [
 /**
  * Scope guardrail — applied to the **inbound** user message.
  * Returns `passed: false` when the message is predominantly about topics
- * unrelated to the Karino Task Manager.
+ * unrelated to Karino.
  */
 export const scopeGuardrail = (message: string): GuardrailResult => {
   const lower = message.toLowerCase();

@@ -55,7 +55,7 @@ export const uploadAttachment = async (
   return new Promise((resolve, reject) => {
     const stream = cloudinary.uploader.upload_stream(
       {
-        folder: "task-manager/attachments",
+        folder: "karino/attachments",
         resource_type: "auto",
         use_filename: true,
         unique_filename: true,

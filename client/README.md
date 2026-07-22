@@ -1,6 +1,6 @@
-# Task Manager Client
+# Karino Client
 
-English-first, bilingual English/German client for the Task Manager platform,
+English-first, bilingual English/German client for Karino,
 built with Next.js App Router, TypeScript, Tailwind CSS, TanStack Query, React
 Hook Form and Zod.
 

@@ -33,7 +33,7 @@ export const isStaffTier = (tier: RoleTier): boolean =>
  * facts aligned with the client routes and visible navigation.
  */
 const GUEST_HELP_TOPICS = [
-  "Home introduces Karino as a task manager and offers registration and sign-in",
+  "Home introduces Karino as a productivity platform and offers registration and sign-in",
   "Guests can register, sign in, change the light/dark theme, and switch between English and German",
   "Contact shows the configured email and social links and lets anyone submit a message without linking it to an account",
   "Forgot password on the login page sends a time-limited reset link by email; the new password must differ from the current one",

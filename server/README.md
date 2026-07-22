@@ -1,6 +1,6 @@
-# Task Manager API
+# Karino API
 
-REST API for the Task Manager platform, built with Express 5, TypeScript, MongoDB/Mongoose, Zod, JWT, bcrypt, cookies, Multer, the official Brevo Node.js SDK, and optional Cloudinary uploads.
+REST API for Karino, built with Express 5, TypeScript, MongoDB/Mongoose, Zod, JWT, bcrypt, cookies, Multer, the official Brevo Node.js SDK, and optional Cloudinary uploads.
 
 ## Features
 

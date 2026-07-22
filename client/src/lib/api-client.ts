@@ -55,7 +55,7 @@ const runWithCrossTabLock = async (rejectedToken?: string | null): Promise<strin
     return performRefresh();
   }
 
-  return navigator.locks.request("task-manager-refresh", async () => {
+  return navigator.locks.request("karino-refresh", async () => {
     const currentToken = getAccessToken();
     if (currentToken && currentToken !== rejectedToken) return currentToken;
     return performRefresh();

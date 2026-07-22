@@ -4,7 +4,7 @@ type AuthEvent =
 
 type AuthEventListener = (event: AuthEvent) => void;
 
-const CHANNEL_NAME = "task-manager-auth";
+const CHANNEL_NAME = "karino-auth";
 const listeners = new Set<AuthEventListener>();
 let accessToken: string | null = null;
 let channel: BroadcastChannel | null = null;

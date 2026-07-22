@@ -25,7 +25,7 @@ app.use(timeLogger);
 app.get("/", (_request, response) => {
   response.status(200).json({
     success: true,
-    message: "Task Manager API is running",
+    message: "Karino API is running",
   });
 });
 

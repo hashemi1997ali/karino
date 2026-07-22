@@ -1,8 +1,8 @@
 {
-  "name": "task-manager-platform",
+  "name": "karino",
   "version": "1.0.0",
   "private": true,
-  "description": "A full-stack task manager with an Express API and a Next.js client.",
+  "description": "Karino is a full-stack productivity platform with an Express API and a Next.js client.",
   "engines": {
     "node": ">=24.0.0"
   },
