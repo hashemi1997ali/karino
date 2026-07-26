@@ -366,7 +366,7 @@ export function ChatWidget() {
           aria-label={t.open}
           title={t.open}
           className={cn(
-            "chat-launcher focus-ring fixed z-50 grid size-14 place-items-center rounded-full border border-white/20 bg-[var(--primary)] text-white shadow-[0_10px_30px_rgba(241,90,56,.35)] transition hover:-translate-y-1",
+            "chat-launcher focus-ring fixed z-40 grid size-14 place-items-center rounded-full border border-white/20 bg-[var(--primary)] text-[var(--on-primary)] shadow-lg transition hover:opacity-90",
             hasMobileNavigation && "chat-launcher-above-nav",
           )}
         >
@@ -375,14 +375,14 @@ export function ChatWidget() {
       )}
 
       {open && (
-        <section className="chat-panel surface-shadow fixed z-50 flex min-h-0 flex-col overflow-hidden rounded-[var(--container-radius)] border bg-[var(--surface)]">
-          <header className="flex shrink-0 items-center gap-3 border-b border-white/10 bg-[#171a18] p-4 text-white">
-            <span className="grid size-10 place-items-center rounded-xl bg-[var(--highlight)] text-[#171a18]">
+        <section className="chat-panel surface-shadow fixed z-40 flex min-h-0 flex-col overflow-hidden rounded-[var(--container-radius)] border bg-[var(--surface)]">
+          <header className="flex shrink-0 items-center gap-3 border-b border-white/10 bg-[var(--navigation)] p-4 text-white">
+            <span className="grid size-10 place-items-center rounded-xl bg-[var(--highlight)] text-[var(--on-highlight)]">
               <Bot className="size-5" />
             </span>
             <div className="min-w-0 flex-1">
               <h2 className="truncate font-black">{t.title}</h2>
-              <p className="truncate text-xs text-white/55">
+              <p className="truncate text-xs text-white/70">
                 {activeChat?.status === "active" && activeChat.assignedToName
                   ? t.active(firstNameOnly(activeChat.assignedToName))
                   : activeChat?.status === "open"
@@ -424,7 +424,7 @@ export function ChatWidget() {
               <button
                 type="button"
                 onClick={requestNewChat}
-                className="focus-ring grid size-9 place-items-center rounded-xl border bg-[var(--surface)]"
+                className="focus-ring grid size-11 place-items-center rounded-xl border bg-[var(--surface)]"
                 aria-label={t.newChat}
                 title={t.newChat}
               >
@@ -485,7 +485,7 @@ export function ChatWidget() {
                     key={score}
                     type="button"
                     onClick={() => setRating(score)}
-                    className="focus-ring rounded p-1"
+                    className="focus-ring grid size-11 place-items-center rounded-xl"
                     aria-label={`${score}`}
                   >
                     <Star

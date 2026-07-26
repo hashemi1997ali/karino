@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Dialog } from "@/components/ui/dialog";
 import { Input, Select } from "@/components/ui/form-controls";
+import { PageHeading } from "@/components/ui/page-heading";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui/states";
 import {
   createTaskRequest,
@@ -212,23 +213,13 @@ export function TasksView({ admin = false }: { admin?: boolean }) {
 
   return (
     <div>
-      <div className="relative overflow-hidden rounded-[var(--container-radius)] border bg-[#171a18] p-6 text-white sm:p-8">
-        <div className="paper-grid absolute inset-0 opacity-10" />
-        <span className="absolute -right-12 -top-16 size-56 rounded-full bg-[var(--primary)]/30 blur-3xl" />
-        <div className="relative">
-          <p className="eyebrow text-[var(--highlight)]">
-            {admin ? t.adminEyebrow : t.userEyebrow}
-          </p>
-          <h1 className="mt-3 text-3xl font-black tracking-[-0.04em] text-white sm:text-5xl">
-            {admin ? t.adminTitle : t.userTitle}
-          </h1>
-          <p className="mt-3 max-w-2xl text-sm leading-7 text-white/55">
-            {admin ? t.adminDescription : t.userDescription}
-          </p>
-        </div>
-      </div>
+      <PageHeading
+        eyebrow={admin ? t.adminEyebrow : t.userEyebrow}
+        title={admin ? t.adminTitle : t.userTitle}
+        description={admin ? t.adminDescription : t.userDescription}
+      />
 
-      <section className="mt-5 grid gap-3 rounded-[var(--container-radius)] border bg-[var(--surface)] p-3 shadow-[0_7px_0_color-mix(in_srgb,var(--foreground)_6%,transparent)] sm:grid-cols-2 xl:grid-cols-[minmax(14rem,1fr)_minmax(10rem,11rem)_minmax(10rem,11rem)_auto]">
+      <section className="mt-7 grid gap-3 rounded-[var(--container-radius)] border bg-[var(--surface)] p-3 shadow-sm sm:grid-cols-2 xl:grid-cols-[minmax(14rem,1fr)_minmax(10rem,11rem)_minmax(10rem,11rem)_auto]">
         <label className="relative min-w-0 sm:col-span-2 xl:col-span-1">
           <Search className="pointer-events-none absolute left-4 top-4 size-4 text-slate-400" />
           <Input

@@ -99,13 +99,13 @@ export function ResetPasswordForm() {
                     type={showPassword ? "text" : "password"}
                     dir="ltr"
                     autoComplete="new-password"
-                    className="pr-11"
+                    className="pr-12"
                     {...register(field)}
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword((value) => !value)}
-                    className="focus-ring absolute right-1.5 top-1.5 grid size-8 place-items-center rounded-lg text-slate-400"
+                    className="focus-ring absolute right-0.5 top-0.5 grid size-11 place-items-center rounded-xl text-slate-500 hover:bg-slate-100 dark:hover:bg-white/8"
                     aria-label={showPassword ? t.hide : t.show}
                   >
                     {showPassword ? (

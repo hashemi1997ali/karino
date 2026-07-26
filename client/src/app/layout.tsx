@@ -70,6 +70,9 @@ export default async function RootLayout({
         <script dangerouslySetInnerHTML={{ __html: createThemeScript(initialTheme) }} />
       </head>
       <body className="min-h-full">
+        <a className="skip-link focus-ring" href="#main-content">
+          {locale === "de" ? "Zum Inhalt springen" : "Skip to content"}
+        </a>
         <AppProviders initialLocale={locale} initialTheme={initialTheme}>
           {children}
         </AppProviders>

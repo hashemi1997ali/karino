@@ -190,7 +190,7 @@ export function StaffSupportView() {
   const formatLastMessage = (chat: SupportChat) => {
     const value = chat.messages.at(-1)?.createdAt ?? chat.updatedAt;
     return new Intl.DateTimeFormat(intlLocale, {
-      dateStyle: "short",
+      dateStyle: "medium",
       timeStyle: "short",
     }).format(new Date(value));
   };
@@ -381,12 +381,12 @@ export function StaffSupportView() {
                         </p>
                         <div className="mt-1 flex items-center justify-between gap-2">
                           <time
-                            className="truncate text-[10px] text-[var(--muted)]"
+                            className="truncate text-xs text-[var(--muted)]"
                             dateTime={chat.messages.at(-1)?.createdAt ?? chat.updatedAt}
                           >
                             {formatLastMessage(chat)}
                           </time>
-                          <span className="shrink-0 text-[10px] font-bold text-[var(--muted)]">
+                          <span className="shrink-0 text-xs font-bold text-[var(--muted)]">
                             {t.historyRole[ownerRole]}
                           </span>
                         </div>
@@ -428,7 +428,7 @@ export function StaffSupportView() {
                 </div>
               ) : (
                 <>
-                  <div className="flex flex-wrap items-center justify-between gap-3 border-b bg-[var(--surface-muted)] p-4">
+                  <div className="flex min-h-[4.75rem] shrink-0 flex-wrap items-center justify-between gap-3 border-b bg-[var(--surface-muted)] p-4">
                     <div className="flex items-center gap-3">
                       {chatUser && <UserAvatar user={chatUser} />}
                       <div>

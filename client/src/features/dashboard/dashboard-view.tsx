@@ -101,21 +101,21 @@ export function DashboardView() {
       value: summary.total,
       icon: ListTodo,
       color: "bg-white/10 text-white",
-      card: "bg-[#171a18] text-white border-[#171a18]",
+        card: "bg-[var(--navigation)] text-white border-[var(--navigation)]",
     },
     {
       label: t.inProgress,
       value: summary.inProgress,
       icon: Clock3,
       color: "bg-white/16 text-white",
-      card: "bg-[var(--primary)] text-white border-[var(--primary)]",
+      card: "bg-[var(--primary)] text-[var(--on-primary)] border-[var(--primary)]",
     },
     {
       label: t.done,
       value: summary.done,
       icon: CheckCircle2,
-      color: "bg-black/8 text-[#171a18]",
-      card: "bg-[var(--highlight)] text-[#171a18] border-[var(--highlight)]",
+      color: "bg-black/8 text-[var(--on-highlight)]",
+      card: "bg-[var(--highlight)] text-[var(--on-highlight)] border-[var(--highlight)]",
     },
     {
       label: t.overdue,
@@ -222,24 +222,24 @@ export function DashboardView() {
           )}
         </Card>
 
-        <Card className="overflow-hidden bg-[#171a18] p-6 text-white dark:bg-[#090b09]">
+        <Card className="overflow-hidden bg-[var(--navigation)] p-6 text-white">
           <h2 className="font-black text-white">{t.overall}</h2>
-          <p className="mt-1 text-sm text-white/45">{t.overallHint}</p>
+          <p className="mt-1 text-sm text-white/70">{t.overallHint}</p>
           <div
             className="relative mx-auto mt-8 grid size-44 place-items-center rounded-full bg-[conic-gradient(var(--highlight)_var(--progress),rgba(255,255,255,.1)_0)] p-4"
             style={{ "--progress": `${progress * 100}%` } as React.CSSProperties}
           >
-            <div className="grid size-full place-items-center rounded-full bg-[#171a18] text-center dark:bg-[#090b09]">
+            <div className="grid size-full place-items-center rounded-full bg-[var(--navigation)] text-center">
               <div>
                 <p className="text-3xl font-black text-white">
                   {formatPercent(progress, intlLocale)}
                 </p>
-                <p className="mt-1 text-xs text-white/45">{t.completed}</p>
+                <p className="mt-1 text-xs text-white/70">{t.completed}</p>
               </div>
             </div>
           </div>
           <div className="mt-7 grid grid-cols-3 gap-2 text-center text-xs">
-            <div className="rounded-xl bg-white/7 p-2.5 text-white/55">
+            <div className="rounded-xl bg-white/7 p-2.5 text-white/70">
               <b className="block text-base text-white">
                 {formatNumber(summary.todo, intlLocale)}
               </b>{" "}

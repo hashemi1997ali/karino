@@ -48,7 +48,7 @@ export function PreferencesControls({
   return (
     <details className={cn("group relative", className)}>
       <summary
-        className="focus-ring grid size-10 list-none place-items-center rounded-full border bg-[var(--surface)] text-[var(--muted)] shadow-sm transition hover:border-[var(--primary)] hover:text-[var(--primary)] [&::-webkit-details-marker]:hidden"
+        className="focus-ring grid size-11 list-none place-items-center rounded-full border bg-[var(--surface)] text-[var(--muted)] shadow-sm transition hover:border-[var(--primary)] hover:text-[var(--primary)] [&::-webkit-details-marker]:hidden"
         aria-label={t.open}
         title={t.title}
       >
@@ -56,7 +56,7 @@ export function PreferencesControls({
       </summary>
       <div
         className={cn(
-          "surface-shadow z-[70] rounded-[var(--container-radius)] border bg-[var(--surface)] p-3 text-[var(--foreground)]",
+          "surface-shadow z-[60] rounded-[var(--container-radius)] border bg-[var(--surface)] p-3 text-[var(--foreground)]",
           placement === "sidebar"
             ? "fixed inset-x-3 top-18 w-auto sm:right-auto sm:w-72"
             : "fixed inset-x-3 top-22 w-auto sm:absolute sm:inset-x-auto sm:end-0 sm:top-12 sm:w-72",
@@ -82,7 +82,7 @@ export function PreferencesControls({
               type="button"
               onClick={() => setLocale(value)}
               className={cn(
-                "focus-ring flex h-10 items-center justify-center rounded-xl px-3 text-sm font-bold transition",
+                "focus-ring flex h-11 items-center justify-center rounded-xl px-3 text-sm font-bold transition",
                 locale === value
                   ? "bg-[var(--surface)] text-[var(--primary)] shadow-sm"
                   : "text-[var(--muted)] hover:text-[var(--foreground)]",

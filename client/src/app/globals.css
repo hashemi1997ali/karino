@@ -7,12 +7,15 @@
   --surface: #fffdf7;
   --surface-muted: #e9e6dc;
   --surface-strong: #171a18;
+  --navigation: #171a18;
   --border: #d7d2c5;
-  --primary: #f15a38;
-  --primary-dark: #d94424;
+  --primary: #c84425;
+  --primary-dark: #a9341a;
+  --on-primary: #ffffff;
   --primary-soft: #ffe0d6;
   --highlight: #d8f56a;
   --highlight-soft: #eef9be;
+  --on-highlight: #171a18;
   --success: #087f68;
   --warning: #b96707;
   --danger: #cf3e56;
@@ -28,12 +31,15 @@
   --surface: #191d19;
   --surface-muted: #242a23;
   --surface-strong: #090b09;
+  --navigation: #171a18;
   --border: #353b33;
   --primary: #ff7655;
   --primary-dark: #f15a38;
+  --on-primary: #171a18;
   --primary-soft: #47271f;
   --highlight: #d8f56a;
   --highlight-soft: #30391f;
+  --on-highlight: #171a18;
   --success: #4fd5b1;
   --warning: #f4b84d;
   --danger: #ff8091;
@@ -122,6 +128,7 @@ input,
 textarea,
 select {
   -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
 }
 
 button:not(:disabled),
@@ -141,6 +148,24 @@ button:not(:disabled),
   box-shadow:
     0 0 0 2px var(--surface),
     0 0 0 4px var(--focus);
+}
+
+.skip-link {
+  position: fixed;
+  top: 0.75rem;
+  left: 0.75rem;
+  z-index: 120;
+  transform: translateY(-200%);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--foreground);
+  padding: 0.75rem 1rem;
+  font-weight: 800;
+  box-shadow: 0 8px 24px rgb(0 0 0 / 18%);
+}
+
+.skip-link:focus {
+  transform: translateY(0);
 }
 
 .surface-shadow {

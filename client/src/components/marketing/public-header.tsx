@@ -67,7 +67,7 @@ export function PublicHeader() {
           {authenticated ? (
             <Link
               href="/dashboard"
-              className={buttonClassName({ size: "sm", className: "h-10 px-4" })}
+              className={buttonClassName({ size: "sm", className: "h-11 px-4" })}
               aria-label={t.dashboard}
             >
               <LayoutDashboard className="size-4" />
@@ -80,14 +80,14 @@ export function PublicHeader() {
                 className={buttonClassName({
                   variant: "ghost",
                   size: "sm",
-                  className: "hidden h-10 px-4 sm:inline-flex",
+                  className: "hidden h-11 px-4 sm:inline-flex",
                 })}
               >
                 {t.login}
               </Link>
               <Link
                 href="/register"
-                className={buttonClassName({ size: "sm", className: "h-10 px-4" })}
+                className={buttonClassName({ size: "sm", className: "h-11 px-4" })}
                 aria-label={t.start}
               >
                 <span className="hidden min-[420px]:inline">{t.start}</span>

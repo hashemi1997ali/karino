@@ -21,7 +21,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
 
   if (status !== "authenticated") {
     return (
-      <main className="grid min-h-screen place-items-center">
+      <main id="main-content" tabIndex={-1} className="grid min-h-dvh place-items-center">
         <LoadingState
           label={
             locale === "de" ? "Deine Sitzung wird geprüft …" : "Checking your session …"

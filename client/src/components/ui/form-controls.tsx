@@ -12,7 +12,7 @@ import { CircleAlert } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const fieldClass =
-  "focus-ring block w-full rounded-2xl border bg-[var(--surface)] px-4 text-sm text-[var(--foreground)] placeholder:text-slate-400 focus:border-[var(--primary)] disabled:bg-[var(--surface-muted)]";
+  "focus-ring block w-full rounded-2xl border bg-[var(--surface)] px-4 text-base text-[var(--foreground)] placeholder:text-slate-500 focus:border-[var(--primary)] disabled:bg-[var(--surface-muted)] sm:text-sm";
 const invalidFieldClass =
   "border-rose-400 focus:border-rose-500 focus:shadow-[0_0_0_3px_rgba(244,63,94,.12)] dark:border-rose-400/80";
 
@@ -101,8 +101,8 @@ export function Field({
   return (
     <div
       className={cn(
-        "grid gap-0.5 text-sm font-medium text-[var(--foreground)]",
-        compact ? "grid-rows-[auto_auto_auto]" : "grid-rows-[auto_auto_1rem]",
+        "grid gap-1 text-sm font-medium text-[var(--foreground)]",
+        compact ? null : "pb-1",
       )}
     >
       <label
@@ -120,22 +120,21 @@ export function Field({
       >
         <div className="relative">{children}</div>
       </FieldContext.Provider>
-      <div className={cn("overflow-hidden px-1", compact ? "min-h-0" : "h-4")}>
+      <div className={cn("px-1", compact ? "min-h-0" : "min-h-5")}>
         {error ? (
           <span
             id={descriptionId}
-            className="flex h-4 items-center gap-1 text-[10px] leading-4 font-medium text-rose-600 dark:text-rose-300"
+            className="flex items-start gap-1 text-xs leading-5 font-medium text-rose-700 dark:text-rose-300"
             role="alert"
             title={error}
           >
             <CircleAlert className="size-3 shrink-0" aria-hidden="true" />
-            <span className="truncate">{error}</span>
+            <span>{error}</span>
           </span>
         ) : hint ? (
           <span
             id={descriptionId}
-            className="block h-4 truncate text-[10px] leading-4 font-normal text-[var(--muted)]"
-            title={hint}
+            className="block text-xs leading-5 font-normal text-[var(--muted)]"
           >
             {hint}
           </span>

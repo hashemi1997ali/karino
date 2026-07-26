@@ -813,11 +813,7 @@ export const listStaffChats: RequestHandler = async (request, response) => {
   const lastMessageTime = (chat: HydratedDocument<ISupportChat>): number =>
     chat.messages.at(-1)?.createdAt.getTime() ?? chat.updatedAt.getTime();
   const superSupportPriority = (chat: HydratedDocument<ISupportChat>): number =>
-    superAdmin &&
-    (chat.status === "open" || chat.status === "active") &&
-    chat.requiresSuperAdmin
-      ? 0
-      : 1;
+    chat.requiresSuperAdmin ? 0 : 1;
   const chats = allChats
     .sort(
       (left, right) =>

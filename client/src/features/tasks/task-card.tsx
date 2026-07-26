@@ -105,7 +105,7 @@ export function TaskCard({
     new Date(task.dueDate).getTime() < referenceTime;
 
   return (
-    <Card className="group relative flex min-h-72 flex-col overflow-hidden p-5 transition duration-300 hover:-translate-y-1 hover:border-[var(--primary)]/50 hover:shadow-[0_12px_0_color-mix(in_srgb,var(--foreground)_9%,transparent)]">
+    <Card className="group relative flex min-h-72 flex-col overflow-hidden p-5 transition-colors duration-200 hover:border-[var(--primary)]/50">
       <span
         className={cn(
           "absolute inset-y-0 left-0 w-1.5",
@@ -137,14 +137,14 @@ export function TaskCard({
         <div className="flex shrink-0 gap-1 opacity-100 transition sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
           <button
             onClick={onEdit}
-            className="focus-ring grid size-9 place-items-center rounded-full text-[var(--muted)] hover:bg-[var(--primary-soft)] hover:text-[var(--primary)]"
+            className="focus-ring grid size-11 place-items-center rounded-full text-[var(--muted)] hover:bg-[var(--primary-soft)] hover:text-[var(--primary)]"
             aria-label={`${t.edit}: ${task.title}`}
           >
             <Edit3 className="size-4" />
           </button>
           <button
             onClick={onDelete}
-            className="focus-ring grid size-9 place-items-center rounded-lg text-slate-500 hover:bg-rose-50 hover:text-rose-700 dark:hover:bg-rose-500/15 dark:hover:text-rose-300"
+            className="focus-ring grid size-11 place-items-center rounded-xl text-slate-500 hover:bg-rose-50 hover:text-rose-700 dark:hover:bg-rose-500/15 dark:hover:text-rose-300"
             aria-label={`${t.delete}: ${task.title}`}
           >
             <Trash2 className="size-4" />
@@ -161,7 +161,7 @@ export function TaskCard({
 
       {onStatusChange && (
         <div className="mt-4">
-          <div className="mb-1.5 flex items-center justify-between px-1 text-[10px] font-extrabold tracking-[.1em] text-[var(--muted)] uppercase">
+          <div className="mb-1.5 flex items-center justify-between px-1 text-xs font-extrabold tracking-[.08em] text-[var(--muted)] uppercase">
             <span>{t.quickStatus}</span>
             {statusUpdating && (
               <LoaderCircle className="size-3.5 animate-spin" aria-hidden="true" />
@@ -187,7 +187,7 @@ export function TaskCard({
                   aria-pressed={active}
                   aria-label={`${t.setStatus}: ${t.status[nextStatus]}`}
                   className={cn(
-                    "focus-ring flex min-w-0 items-center justify-center gap-1 rounded-lg px-1.5 py-2 text-[11px] font-bold transition disabled:cursor-default",
+                    "focus-ring flex min-h-11 min-w-0 items-center justify-center gap-1 rounded-xl px-1.5 py-2 text-xs font-bold transition disabled:cursor-default",
                     active
                       ? quickStatusClasses[nextStatus]
                       : "text-[var(--muted)] hover:bg-[var(--surface)] hover:text-[var(--foreground)]",
@@ -234,12 +234,12 @@ export function TaskCard({
         )}
         {showOwner && owner && (
           <div className="flex min-w-0 items-start gap-2">
-            <UserAvatar user={owner} className="size-8 text-[10px]" imageSizes="32px" />
+            <UserAvatar user={owner} className="size-8 text-xs" imageSizes="32px" />
             <div className="min-w-0">
               <p className="truncate font-bold text-[var(--foreground)]" dir="auto">
                 {owner.firstName} {owner.lastName}
               </p>
-              <p className="truncate text-[11px]" dir="ltr" title={owner.email}>
+              <p className="truncate text-xs" dir="ltr" title={owner.email}>
                 {owner.email}
               </p>
             </div>

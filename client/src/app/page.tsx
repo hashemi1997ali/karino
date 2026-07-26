@@ -140,9 +140,9 @@ export default function HomePage() {
   const t = copy[locale];
 
   return (
-    <div className="min-h-screen overflow-hidden">
+    <div className="min-h-dvh overflow-hidden">
       <PublicHeader />
-      <main>
+      <main id="main-content" tabIndex={-1}>
         <section className="paper-grid relative border-b">
           <div className="absolute inset-0 -z-10 bg-[linear-gradient(110deg,color-mix(in_srgb,var(--background)_96%,transparent)_45%,color-mix(in_srgb,var(--primary-soft)_70%,transparent))]" />
           <div className="mx-auto grid max-w-[88rem] items-center gap-14 px-4 py-16 sm:px-6 sm:py-24 lg:grid-cols-[1.04fr_.96fr] lg:px-8 lg:py-28">
@@ -153,7 +153,7 @@ export default function HomePage() {
               </span>
               <h1 className="text-balance mt-7 max-w-3xl text-5xl leading-[.94] font-black tracking-[-0.065em] text-[var(--foreground)] sm:text-7xl xl:text-[5.8rem]">
                 {t.heroTitle}{" "}
-                <span className="relative mt-2 inline-block rotate-[-1deg] rounded-[1.25rem] bg-[var(--highlight)] px-3 py-1 text-[#171a18] shadow-[0_8px_0_rgba(23,26,24,.16)]">
+                <span className="relative mt-2 inline-block rotate-[-1deg] rounded-[1.25rem] bg-[var(--highlight)] px-3 py-1 text-[var(--on-highlight)] shadow-sm">
                   {t.heroAccent}
                 </span>
               </h1>
@@ -184,14 +184,14 @@ export default function HomePage() {
 
             <div className="relative mx-auto w-full max-w-2xl lg:pl-8">
               <div className="absolute -right-8 -top-8 size-40 rotate-6 rounded-[2rem] bg-[var(--highlight)] opacity-70 blur-2xl" />
-              <div className="relative rotate-[1deg] rounded-[var(--container-radius)] border border-white/10 bg-[#171a18] p-4 text-white shadow-[0_32px_80px_rgba(23,26,24,.28)] sm:p-6">
+              <div className="relative rotate-[1deg] rounded-[var(--container-radius)] border border-white/10 bg-[var(--navigation)] p-4 text-white shadow-xl sm:p-6">
                 <div className="flex items-center justify-between border-b border-white/10 pb-5">
                   <div className="flex items-center gap-3">
                     <span className="grid size-10 place-items-center rounded-2xl bg-[var(--primary)]">
                       <CalendarCheck2 className="size-5" />
                     </span>
                     <div>
-                      <p className="text-[10px] font-extrabold tracking-[.18em] text-white/45 uppercase">
+                      <p className="text-xs font-extrabold tracking-[.14em] text-white/70 uppercase">
                         {t.live}
                       </p>
                       <p className="mt-0.5 text-sm font-bold">{t.today}</p>
@@ -206,7 +206,7 @@ export default function HomePage() {
 
                 <div className="mt-6 flex items-end justify-between gap-4">
                   <div>
-                    <p className="text-sm text-white/55">{t.focus}</p>
+                    <p className="text-sm text-white/70">{t.focus}</p>
                     <h2 className="mt-1 text-2xl font-black tracking-tight">
                       {t.focusCount}
                     </h2>
@@ -223,7 +223,7 @@ export default function HomePage() {
                       className="flex items-center gap-3 rounded-[1.25rem] border border-white/10 bg-white/[.045] p-3.5"
                     >
                       <span
-                        className={`grid size-9 shrink-0 place-items-center rounded-xl ${task.done ? "bg-[var(--highlight)] text-[#171a18]" : "bg-white/7 text-white/35"}`}
+                        className={`grid size-9 shrink-0 place-items-center rounded-xl ${task.done ? "bg-[var(--highlight)] text-[var(--on-highlight)]" : "bg-white/7 text-white/70"}`}
                       >
                         {task.done ? (
                           <CheckCircle2 className="size-5" />
@@ -233,7 +233,7 @@ export default function HomePage() {
                       </span>
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-bold">{task.title}</p>
-                        <p className="mt-1 text-xs text-white/40">{task.meta}</p>
+                        <p className="mt-1 text-xs text-white/70">{task.meta}</p>
                       </div>
                       <span className="size-2 rounded-full bg-[var(--primary)]" />
                     </div>
@@ -248,7 +248,7 @@ export default function HomePage() {
                     </p>
                     <p className="mt-1 text-xl font-black">{t.deepWorkTime}</p>
                   </div>
-                  <div className="rounded-[1.4rem] bg-[var(--highlight)] p-4 text-[#171a18]">
+                  <div className="rounded-[1.4rem] bg-[var(--highlight)] p-4 text-[var(--on-highlight)]">
                     <BarChart3 className="size-5" />
                     <p className="mt-5 text-xs font-semibold text-black/55">{t.weekly}</p>
                     <p className="mt-1 text-xl font-black">{t.weeklyValue}</p>
@@ -279,7 +279,7 @@ export default function HomePage() {
                 return (
                   <article
                     key={title}
-                    className={`group relative min-h-72 overflow-hidden rounded-[var(--container-radius)] border p-6 transition duration-300 hover:-translate-y-1 ${index === 0 ? "bg-[var(--highlight)] text-[#171a18]" : index === 1 ? "bg-[var(--surface)]" : "bg-[#171a18] text-white"}`}
+                    className={`group relative min-h-72 overflow-hidden rounded-[var(--container-radius)] border p-6 transition-colors duration-200 ${index === 0 ? "bg-[var(--highlight)] text-[var(--on-highlight)]" : index === 1 ? "bg-[var(--surface)]" : "bg-[var(--navigation)] text-white"}`}
                   >
                     <span
                       className={`grid size-12 place-items-center rounded-2xl border ${index === 0 ? "border-black/10 bg-black/5" : index === 2 ? "border-white/10 bg-white/8 text-[var(--highlight)]" : "bg-[var(--primary-soft)] text-[var(--primary)]"}`}
@@ -289,7 +289,7 @@ export default function HomePage() {
                     <div className="absolute inset-x-6 bottom-6">
                       <h3 className="text-xl font-black tracking-tight">{title}</h3>
                       <p
-                        className={`mt-2 text-sm leading-7 ${index === 0 ? "text-black/60" : index === 2 ? "text-white/55" : "text-[var(--muted)]"}`}
+                        className={`mt-2 text-sm leading-7 ${index === 0 ? "text-black/70" : index === 2 ? "text-white/70" : "text-[var(--muted)]"}`}
                       >
                         {description}
                       </p>
@@ -317,7 +317,7 @@ export default function HomePage() {
 
         <section id="workflow" className="pb-20 sm:pb-28">
           <div className="mx-auto max-w-[88rem] px-4 sm:px-6 lg:px-8">
-            <div className="paper-grid overflow-hidden rounded-[var(--container-radius)] border bg-[var(--primary)] p-6 text-white shadow-[0_12px_0_color-mix(in_srgb,var(--primary-dark)_70%,black)] sm:p-10 lg:p-14">
+            <div className="paper-grid overflow-hidden rounded-[var(--container-radius)] border bg-[var(--primary)] p-6 text-[var(--on-primary)] shadow-lg sm:p-10 lg:p-14">
               <div className="grid gap-12 lg:grid-cols-[.9fr_1.1fr] lg:items-center">
                 <div>
                   <span className="eyebrow text-white/65">
@@ -337,11 +337,11 @@ export default function HomePage() {
                       key={item}
                       className="flex items-center gap-4 rounded-[1.4rem] border border-white/15 bg-black/10 p-4 backdrop-blur"
                     >
-                      <span className="grid size-10 shrink-0 place-items-center rounded-full bg-[var(--highlight)] font-black text-[#171a18]">
+                      <span className="grid size-10 shrink-0 place-items-center rounded-full bg-[var(--highlight)] font-black text-[var(--on-highlight)]">
                         {index + 1}
                       </span>
                       <span className="font-bold">{item}</span>
-                      <ArrowRight className="ml-auto size-4 text-white/45" />
+                      <ArrowRight className="ml-auto size-4 text-white/70" />
                     </li>
                   ))}
                 </ol>

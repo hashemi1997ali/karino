@@ -137,8 +137,8 @@ export function AppShell({ children }: { children: ReactNode }) {
               className={cn(
                 "focus-ring flex h-12 items-center gap-3 rounded-2xl px-3.5 text-sm font-bold transition",
                 active
-                  ? "bg-[var(--primary)] text-white shadow-[0_5px_0_#8e2e18]"
-                  : "text-white/55 hover:bg-white/8 hover:text-white",
+                  ? "bg-[var(--primary)] text-[var(--on-primary)] shadow-sm"
+                  : "text-white/70 hover:bg-white/8 hover:text-white",
               )}
             >
               <Icon className="size-5" />
@@ -157,12 +157,12 @@ export function AppShell({ children }: { children: ReactNode }) {
             <p className="truncate text-sm font-bold text-white">
               {user?.firstName} {user?.lastName}
             </p>
-            <p className="truncate text-xs text-white/45">{user?.email}</p>
+            <p className="truncate text-xs text-white/70">{user?.email}</p>
           </div>
         </div>
         <Button
           variant="ghost"
-          className="w-full justify-start text-white/55 hover:bg-white/8 hover:text-white"
+          className="w-full justify-start text-white/70 hover:bg-white/8 hover:text-white"
           onClick={requestLogout}
         >
           <LogOut className="size-4" />
@@ -173,15 +173,15 @@ export function AppShell({ children }: { children: ReactNode }) {
   );
 
   return (
-    <div className="min-h-screen lg:grid lg:grid-cols-[19rem_minmax(0,1fr)]">
-      <aside className="fixed inset-y-3 left-3 z-30 hidden w-70 flex-col overflow-hidden rounded-[var(--container-radius)] border border-white/8 bg-[#171a18] shadow-[0_24px_60px_rgba(23,26,24,.22)] lg:flex">
+    <div className="min-h-dvh lg:grid lg:grid-cols-[19rem_minmax(0,1fr)]">
+      <aside className="fixed inset-y-3 left-3 z-30 hidden w-70 flex-col overflow-hidden rounded-[var(--container-radius)] border border-white/8 bg-[var(--navigation)] shadow-xl lg:flex">
         {desktopNav}
       </aside>
 
       <Dialog.Root open={mobileOpen} onOpenChange={setMobileOpen}>
         <Dialog.Portal>
-          <Dialog.Overlay className="fixed inset-0 z-50 bg-slate-950/55 backdrop-blur-sm lg:hidden" />
-          <Dialog.Content className="fixed inset-y-0 left-0 z-50 flex w-[min(86vw,20rem)] flex-col bg-[#171a18] text-white shadow-2xl outline-none lg:hidden">
+          <Dialog.Overlay className="fixed inset-0 z-[80] bg-slate-950/55 backdrop-blur-sm lg:hidden" />
+          <Dialog.Content className="fixed inset-y-0 left-0 z-[80] flex w-[min(86vw,20rem)] flex-col bg-[var(--navigation)] text-white shadow-2xl outline-none lg:hidden">
             <Dialog.Title className="sr-only">{t.more}</Dialog.Title>
             <Dialog.Description className="sr-only">
               {t.moreDescription}
@@ -190,12 +190,12 @@ export function AppShell({ children }: { children: ReactNode }) {
               <Logo inverse />
               <PreferencesControls placement="sidebar" />
             </div>
-            <div className="px-5 pb-5 text-sm leading-6 text-white/45">
+            <div className="px-5 pb-5 text-sm leading-6 text-white/70">
               {t.moreDescription}
             </div>
             {isAdmin && (
               <nav className="space-y-1 px-3 py-2" aria-label={t.adminTools}>
-                <p className="px-3 pb-2 text-[10px] font-extrabold tracking-[.14em] text-[var(--highlight)] uppercase">
+                <p className="px-3 pb-2 text-xs font-extrabold tracking-[.1em] text-[var(--highlight)] uppercase">
                   {t.adminTools}
                 </p>
                 {adminLinks.map(({ href, label, icon: Icon }) => {
@@ -209,8 +209,8 @@ export function AppShell({ children }: { children: ReactNode }) {
                       className={cn(
                         "focus-ring flex h-12 items-center gap-3 rounded-2xl px-3.5 text-sm font-bold transition",
                         active
-                          ? "bg-[var(--primary)] text-white"
-                          : "text-white/55 hover:bg-white/8 hover:text-white",
+                          ? "bg-[var(--primary)] text-[var(--on-primary)]"
+                          : "text-white/70 hover:bg-white/8 hover:text-white",
                       )}
                     >
                       <Icon className="size-5" />
@@ -228,12 +228,12 @@ export function AppShell({ children }: { children: ReactNode }) {
                   <p className="truncate text-sm font-bold text-white">
                     {user?.firstName} {user?.lastName}
                   </p>
-                  <p className="truncate text-xs text-white/45">{user?.email}</p>
+                  <p className="truncate text-xs text-white/70">{user?.email}</p>
                 </div>
               </div>
               <Button
                 variant="ghost"
-                className="w-full justify-start text-white/55 hover:bg-white/8 hover:text-white"
+                className="w-full justify-start text-white/70 hover:bg-white/8 hover:text-white"
                 onClick={requestLogout}
               >
                 <LogOut className="size-4" />
@@ -250,7 +250,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             <Logo compact />
           </div>
           <div className="hidden lg:block">
-            <p className="text-[10px] font-extrabold tracking-[.14em] text-[var(--primary)] uppercase">
+            <p className="text-xs font-extrabold tracking-[.1em] text-[var(--primary)] uppercase">
               {t.workspace}
             </p>
             <p className="text-sm font-bold text-[var(--foreground)]" dir="auto">
@@ -261,7 +261,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             href="/tasks?new=1"
             className={buttonClassName({
               size: "sm",
-              className: "h-10 shrink-0 px-3 sm:px-4",
+              className: "h-11 shrink-0 px-3 sm:px-4",
             })}
             aria-label={t.newTask}
           >
@@ -269,7 +269,11 @@ export function AppShell({ children }: { children: ReactNode }) {
             <span className="hidden sm:inline">{t.newTask}</span>
           </Link>
         </header>
-        <main className="mx-auto w-full min-w-0 max-w-[96rem] px-4 py-8 pb-24 sm:px-6 lg:px-8 lg:py-10">
+        <main
+          id="main-content"
+          tabIndex={-1}
+          className="mx-auto w-full min-w-0 max-w-[96rem] px-4 py-8 pb-24 sm:px-6 lg:px-8 lg:py-10"
+        >
           {children}
         </main>
       </div>
@@ -283,7 +287,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               href={href}
               aria-current={active ? "page" : undefined}
               className={cn(
-                "focus-ring grid min-w-0 flex-1 justify-items-center gap-1 rounded-2xl px-2 py-2 text-[11px] font-bold",
+                "focus-ring grid min-w-0 flex-1 justify-items-center gap-1 rounded-2xl px-2 py-2 text-xs font-bold",
                 active
                   ? "bg-[var(--primary-soft)] text-[var(--primary-dark)]"
                   : "text-[var(--muted)]",
@@ -306,7 +310,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           aria-label={t.more}
           aria-expanded={mobileOpen}
           className={cn(
-            "focus-ring grid min-w-0 flex-1 justify-items-center gap-1 rounded-2xl px-2 py-2 text-[11px] font-bold",
+            "focus-ring grid min-w-0 flex-1 justify-items-center gap-1 rounded-2xl px-2 py-2 text-xs font-bold",
             pathname.startsWith("/admin") || mobileOpen
               ? "bg-[var(--primary-soft)] text-[var(--primary-dark)]"
               : "text-[var(--muted)]",

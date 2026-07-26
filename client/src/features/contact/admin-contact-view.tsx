@@ -229,7 +229,7 @@ export function AdminContactView() {
                     {contact.email}
                   </p>
                   <div className="mt-1 flex items-center justify-between gap-2">
-                    <time className="truncate text-[10px] text-[var(--muted)]">
+                    <time className="truncate text-xs text-[var(--muted)]">
                       {formatLastMessage(contact)}
                     </time>
                   </div>
@@ -270,7 +270,7 @@ export function AdminContactView() {
               </div>
             ) : (
               <>
-                <div className="flex flex-wrap items-center justify-between gap-3 border-b bg-[var(--surface-muted)] p-4">
+                <div className="flex min-h-[4.75rem] shrink-0 flex-wrap items-center justify-between gap-3 border-b bg-[var(--surface-muted)] p-4">
                   <div className="flex min-w-0 items-center gap-3">
                     <UserAvatar
                       user={{
@@ -311,7 +311,7 @@ export function AdminContactView() {
                             }
                           />
                           {message.sender === "staff" && message.emailMessageId && (
-                            <p className="mt-1 flex justify-end gap-1 text-[10px] text-emerald-600">
+                            <p className="mt-1 flex justify-end gap-1 text-xs text-emerald-700 dark:text-emerald-300">
                               <MailCheck className="size-3" /> {t.delivery}
                             </p>
                           )}

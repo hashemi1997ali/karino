@@ -38,13 +38,13 @@ export function DateGroupedMessageList<T extends DatedItem>({
       {groups.map((group, groupIndex) => (
         <section key={group[0].id} className="flex flex-col gap-3">
           <div
-            className={`sticky top-3 z-10 flex justify-center ${
+            className={`sticky top-3 z-10 w-28 self-center whitespace-nowrap ${
               groupIndex === 0 ? "mb-3" : ""
             }`}
           >
             <time
               dateTime={group[0].createdAt}
-              className="w-24 rounded-full border bg-[var(--surface)] px-3 py-1 text-center text-[10px] font-bold text-[var(--muted)] shadow-sm"
+              className="block w-full rounded-full border bg-[var(--surface)] px-3 py-1 text-center text-xs font-bold text-[var(--muted)] shadow-sm"
             >
               {formatDate(group[0].createdAt)}
             </time>

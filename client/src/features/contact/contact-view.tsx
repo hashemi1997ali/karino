@@ -112,9 +112,13 @@ export function ContactView() {
   });
 
   return (
-    <div className="min-h-screen bg-[var(--background)]">
+    <div className="min-h-dvh bg-[var(--background)]">
       <PublicHeader />
-      <main className="paper-grid min-h-[calc(100vh-5rem)] px-4 py-12 sm:px-6 lg:px-8 lg:py-16">
+      <main
+        id="main-content"
+        tabIndex={-1}
+        className="paper-grid min-h-[calc(100dvh-5rem)] px-4 py-12 sm:px-6 lg:px-8 lg:py-16"
+      >
         <div className="mx-auto max-w-6xl">
           <div className="max-w-3xl">
             <p className="eyebrow text-[var(--primary)]">{t.eyebrow}</p>

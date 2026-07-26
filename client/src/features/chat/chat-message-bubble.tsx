@@ -20,7 +20,7 @@ export function ChatMessageBubble({
     return (
       <div id={id} className="flex justify-center px-2">
         <p
-          className="w-fit max-w-[95%] rounded-full bg-[var(--surface-muted)] px-3 py-1.5 text-center text-[11px] leading-4 text-[var(--muted)]"
+          className="w-fit max-w-[95%] rounded-full bg-[var(--surface-muted)] px-3 py-1.5 text-center text-xs leading-5 text-[var(--muted)]"
           dir="auto"
         >
           {content}
@@ -44,7 +44,7 @@ export function ChatMessageBubble({
         className={cn(
           "w-fit max-w-[85%] px-3 py-2.5 text-sm leading-5 shadow-sm",
           direction === "outgoing"
-            ? "rounded-2xl rounded-br-sm bg-[var(--primary)] text-white"
+            ? "rounded-2xl rounded-br-sm bg-[var(--primary)] text-[var(--on-primary)]"
             : "rounded-2xl rounded-bl-sm bg-[var(--surface-muted)] text-[var(--foreground)]",
         )}
       >
@@ -53,9 +53,9 @@ export function ChatMessageBubble({
             <Link
               href={nameHref}
               className={cn(
-                "mb-1 block w-fit rounded text-[10px] font-black tracking-wide uppercase transition-colors hover:opacity-80",
+                "mb-1 block w-fit rounded text-xs font-black tracking-wide uppercase transition-colors hover:opacity-80",
                 direction === "outgoing"
-                  ? "text-white/70"
+                  ? "text-current opacity-75"
                   : "text-[var(--primary)]",
               )}
             >
@@ -64,9 +64,9 @@ export function ChatMessageBubble({
           ) : (
             <p
               className={cn(
-                "mb-1 text-[10px] font-black tracking-wide uppercase",
+                "mb-1 text-xs font-black tracking-wide uppercase",
                 direction === "outgoing"
-                  ? "text-white/70"
+                  ? "text-current opacity-75"
                   : "text-[var(--primary)]",
               )}
             >
@@ -82,8 +82,8 @@ export function ChatMessageBubble({
         {time && (
           <p
             className={cn(
-              "mt-1 text-right text-[9px] leading-none",
-              direction === "outgoing" ? "text-white/60" : "text-[var(--muted)]",
+              "mt-1 text-right text-xs leading-none",
+              direction === "outgoing" ? "text-current opacity-70" : "text-[var(--muted)]",
             )}
           >
             {time}
