@@ -22,6 +22,7 @@ export interface User {
   lastName: string;
   email: string;
   roles: UserRole[];
+  profileImage: { url: string; publicId: string } | null;
   ban?: UserBan | null;
   createdAt: string;
   updatedAt: string;
@@ -29,12 +30,6 @@ export interface User {
 
 export type TaskStatus = "todo" | "in-progress" | "done";
 export type TaskPriority = "low" | "medium" | "high";
-
-export interface TaskAttachment {
-  url: string;
-  originalName: string;
-  resourceType: string;
-}
 
 export interface Task {
   id?: string;
@@ -45,8 +40,9 @@ export interface Task {
   priority: TaskPriority;
   dueDate: string | null;
   completedAt: string | null;
-  attachment: TaskAttachment | null;
-  owner: string | Pick<User, "id" | "firstName" | "lastName" | "email" | "roles">;
+  owner:
+    | string
+    | Pick<User, "id" | "firstName" | "lastName" | "email" | "roles" | "profileImage">;
   createdAt: string;
   updatedAt: string;
 }
@@ -94,6 +90,7 @@ export type ChatSender = "user" | "ai" | "staff" | "system";
 export interface ChatMessage {
   id: string;
   sender: ChatSender;
+  senderId: string | null;
   senderName: string | null;
   content: string;
   createdAt: string;
@@ -116,7 +113,10 @@ export interface SupportChat {
   id: string;
   user:
     | string
-    | Pick<User, "id" | "firstName" | "lastName" | "email" | "roles" | "ban">
+    | Pick<
+        User,
+        "id" | "firstName" | "lastName" | "email" | "roles" | "profileImage" | "ban"
+      >
     | null;
   guest: { id: string | null; email: string | null; label: string } | null;
   origin: "user" | "admin" | "guest";
@@ -140,6 +140,7 @@ export interface ContactMessage {
   id: string;
   sender: "visitor" | "staff";
   senderName: string;
+  senderId: string | null;
   content: string;
   emailMessageId: string | null;
   createdAt: string;

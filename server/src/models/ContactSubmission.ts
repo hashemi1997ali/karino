@@ -1,4 +1,4 @@
-import { model, Schema } from "mongoose";
+import { model, Schema, type Types } from "mongoose";
 
 export const CONTACT_STATUSES = ["open", "answered"] as const;
 export type ContactStatus = (typeof CONTACT_STATUSES)[number];
@@ -9,6 +9,7 @@ export type ContactMessageSender = (typeof CONTACT_MESSAGE_SENDERS)[number];
 export interface IContactMessage {
   sender: ContactMessageSender;
   senderName: string;
+  senderId: Types.ObjectId | null;
   content: string;
   emailMessageId: string | null;
   createdAt: Date;
@@ -30,6 +31,7 @@ const contactMessageSchema = new Schema<IContactMessage>(
   {
     sender: { type: String, enum: CONTACT_MESSAGE_SENDERS, required: true },
     senderName: { type: String, required: true, trim: true, maxlength: 120 },
+    senderId: { type: Schema.Types.ObjectId, ref: "User", default: null },
     content: { type: String, required: true, trim: true, maxlength: 5000 },
     emailMessageId: { type: String, maxlength: 300, default: null },
     createdAt: { type: Date, required: true, default: Date.now },

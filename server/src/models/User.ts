@@ -22,12 +22,18 @@ export interface IUserBan {
   sessionIps: string[];
 }
 
+export interface IUserProfileImage {
+  url: string;
+  publicId: string;
+}
+
 export interface IUser {
   firstName: string;
   lastName: string;
   email: string;
   password: string;
   roles: string[];
+  profileImage: IUserProfileImage | null;
   ban: IUserBan | null;
   createdAt: Date;
   updatedAt: Date;
@@ -66,6 +72,16 @@ const userSchema = new Schema<IUser>(
       type: [String],
       enum: USER_ROLES,
       default: ["user"],
+    },
+    profileImage: {
+      type: new Schema<IUserProfileImage>(
+        {
+          url: { type: String, required: true },
+          publicId: { type: String, required: true },
+        },
+        { _id: false },
+      ),
+      default: null,
     },
     ban: {
       type: new Schema<IUserBan>(

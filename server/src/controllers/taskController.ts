@@ -3,7 +3,6 @@ import mongoose from "mongoose";
 import type { RequestHandler } from "express";
 
 import { Task, User, type ITask } from "#models";
-import { deleteAttachmentFromCloudinary, uploadAttachment } from "#middlewares";
 import { AppError, applyTaskStatusTransition } from "#utils";
 import { taskQuerySchema } from "#schemas";
 
@@ -26,21 +25,6 @@ const validateTaskId = (id: unknown): string => {
   return id;
 };
 
-const createAttachment = async (file: Express.Multer.File | undefined) => {
-  if (!file) {
-    return undefined;
-  }
-
-  const result = await uploadAttachment(file);
-
-  return {
-    url: result.secure_url,
-    publicId: result.public_id,
-    originalName: file.originalname,
-    resourceType: result.resource_type,
-  };
-};
-
 export const createTask: RequestHandler = async (request, response) => {
   const owner = requireUserId(request.user?.userId);
   const ownerExists = await User.exists({ _id: owner });
@@ -49,31 +33,17 @@ export const createTask: RequestHandler = async (request, response) => {
     throw new AppError("User no longer exists", 401);
   }
 
-  const attachment = await createAttachment(request.file);
+  const task = await Task.create({
+    ...request.body,
+    owner,
+    completedAt: request.body.status === "done" ? new Date() : null,
+  });
 
-  try {
-    const task = await Task.create({
-      ...request.body,
-      owner,
-      ...(attachment && { attachment }),
-      completedAt: request.body.status === "done" ? new Date() : null,
-    });
-
-    response.status(201).json({
-      success: true,
-      message: "Task created successfully",
-      data: { task },
-    });
-  } catch (error) {
-    if (attachment) {
-      await deleteAttachmentFromCloudinary(
-        attachment.publicId,
-        attachment.resourceType,
-      ).catch(() => undefined);
-    }
-
-    throw error;
-  }
+  response.status(201).json({
+    success: true,
+    message: "Task created successfully",
+    data: { task },
+  });
 };
 
 export const getTasks: RequestHandler = async (request, response) => {
@@ -152,8 +122,8 @@ export const updateTask: RequestHandler = async (request, response) => {
   const owner = requireUserId(request.user?.userId);
   const taskId = validateTaskId(request.params.id);
 
-  if (Object.keys(request.body).length === 0 && !request.file) {
-    throw new AppError("At least one task field or an attachment must be provided", 400);
+  if (Object.keys(request.body).length === 0) {
+    throw new AppError("At least one task field must be provided", 400);
   }
 
   const task = await Task.findOne({ _id: taskId, owner });
@@ -162,40 +132,15 @@ export const updateTask: RequestHandler = async (request, response) => {
     throw new AppError("Task not found", 404);
   }
 
-  const newAttachment = await createAttachment(request.file);
-  const oldAttachment = task.attachment;
+  applyTaskStatusTransition(task, request.body.status);
+  Object.assign(task, request.body);
+  await task.save();
 
-  try {
-    applyTaskStatusTransition(task, request.body.status);
-    Object.assign(task, request.body);
-
-    if (newAttachment) {
-      task.attachment = newAttachment;
-    }
-
-    await task.save();
-
-    if (newAttachment && oldAttachment) {
-      await deleteAttachmentFromCloudinary(
-        oldAttachment.publicId,
-        oldAttachment.resourceType,
-      ).catch(() => undefined);
-    }
-
-    response.status(200).json({
-      success: true,
-      message: "Task updated successfully",
-      data: { task },
-    });
-  } catch (error) {
-    if (newAttachment) {
-      await deleteAttachmentFromCloudinary(
-        newAttachment.publicId,
-        newAttachment.resourceType,
-      ).catch(() => undefined);
-    }
-    throw error;
-  }
+  response.status(200).json({
+    success: true,
+    message: "Task updated successfully",
+    data: { task },
+  });
 };
 
 export const deleteTask: RequestHandler = async (request, response) => {
@@ -207,45 +152,9 @@ export const deleteTask: RequestHandler = async (request, response) => {
     throw new AppError("Task not found", 404);
   }
 
-  if (task.attachment) {
-    await deleteAttachmentFromCloudinary(
-      task.attachment.publicId,
-      task.attachment.resourceType,
-    ).catch(() => undefined);
-  }
-
   response.status(200).json({
     success: true,
     message: "Task deleted successfully",
-  });
-};
-
-export const deleteTaskAttachment: RequestHandler = async (request, response) => {
-  const owner = requireUserId(request.user?.userId);
-  const taskId = validateTaskId(request.params.id);
-  const task = await Task.findOne({ _id: taskId, owner });
-
-  if (!task) {
-    throw new AppError("Task not found", 404);
-  }
-
-  if (!task.attachment) {
-    throw new AppError("Task does not have an attachment", 404);
-  }
-
-  const attachment = task.attachment;
-  task.attachment = null;
-  await task.save();
-
-  await deleteAttachmentFromCloudinary(
-    attachment.publicId,
-    attachment.resourceType,
-  ).catch(() => undefined);
-
-  response.status(200).json({
-    success: true,
-    message: "Attachment deleted successfully",
-    data: { task },
   });
 };
 

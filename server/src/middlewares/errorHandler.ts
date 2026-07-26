@@ -55,7 +55,9 @@ export const errorHandler: ErrorRequestHandler = (
 
   if (error instanceof multer.MulterError) {
     const message =
-      error.code === "LIMIT_FILE_SIZE" ? "Attachment cannot exceed 5 MB" : error.message;
+      error.code === "LIMIT_FILE_SIZE"
+        ? "Profile image cannot exceed 5 MB"
+        : error.message;
 
     response.status(400).json({ success: false, message });
     return;

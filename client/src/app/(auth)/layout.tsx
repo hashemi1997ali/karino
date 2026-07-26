@@ -13,7 +13,7 @@ const copy = {
     eyebrow: "Task management without the clutter",
     title: "Start every day with a clear plan.",
     description:
-      "Tasks, priorities, attachments, and secure sessions—all together in one fast, simple workspace.",
+      "Tasks, priorities, profile images, and secure sessions—all together in one fast, simple workspace.",
     qualities: ["Secure", "Fast", "Responsive"],
   },
   de: {
@@ -50,7 +50,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
           {children}
         </div>
       </section>
-      <aside className="relative m-3 hidden overflow-hidden rounded-[2.4rem] bg-[#171a18] p-14 text-white lg:flex lg:flex-col lg:justify-end">
+      <aside className="relative m-3 hidden overflow-hidden rounded-[var(--container-radius)] bg-[#171a18] p-14 text-white lg:flex lg:flex-col lg:justify-end">
         <div className="paper-grid absolute inset-0 opacity-10" />
         <div className="absolute -left-24 -top-24 size-96 rounded-full bg-[var(--primary)]/35 blur-3xl" />
         <div className="absolute -bottom-32 -right-24 size-96 rounded-full bg-[var(--highlight)]/15 blur-3xl" />

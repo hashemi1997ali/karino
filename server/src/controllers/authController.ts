@@ -3,6 +3,10 @@ import mongoose from "mongoose";
 
 import { PasswordReset, User, type IUserBan } from "#models";
 import {
+  deleteProfileImageFromCloudinary,
+  uploadProfileImage,
+} from "#middlewares";
+import {
   createRefreshSession,
   findBannedUserBySessionIp,
   listActiveRefreshSessions,
@@ -27,6 +31,7 @@ const serializeUser = (user: {
   lastName: string;
   email: string;
   roles: string[];
+  profileImage?: { url: string; publicId: string } | null;
   createdAt: Date;
   updatedAt: Date;
 }) => ({
@@ -35,6 +40,7 @@ const serializeUser = (user: {
   lastName: user.lastName,
   email: user.email,
   roles: user.roles,
+  profileImage: user.profileImage ?? null,
   createdAt: user.createdAt,
   updatedAt: user.updatedAt,
 });
@@ -186,8 +192,7 @@ export const updateMe: RequestHandler = async (request, response) => {
     throw new AppError("User not found", 404);
   }
 
-  const { firstName, lastName, email } = request.body;
-
+  const { firstName, lastName, email, removeProfileImage } = request.body;
   if (email !== undefined && email !== user.email) {
     const emailAlreadyExists = await User.exists({
       _id: { $ne: user._id },
@@ -198,6 +203,11 @@ export const updateMe: RequestHandler = async (request, response) => {
       throw new AppError("An account with this email already exists", 409);
     }
   }
+
+  const uploadedImage = request.file
+    ? await uploadProfileImage(request.file)
+    : null;
+  const previousImage = user.profileImage;
 
   if (firstName !== undefined) {
     user.firstName = firstName;
@@ -210,7 +220,30 @@ export const updateMe: RequestHandler = async (request, response) => {
     user.email = email;
   }
 
-  await user.save();
+  if (uploadedImage) {
+    user.profileImage = {
+      url: uploadedImage.secure_url,
+      publicId: uploadedImage.public_id,
+    };
+  } else if (removeProfileImage) {
+    user.profileImage = null;
+  }
+
+  try {
+    await user.save();
+  } catch (error) {
+    if (uploadedImage) {
+      await deleteProfileImageFromCloudinary(uploadedImage.public_id).catch(
+        () => undefined,
+      );
+    }
+    throw error;
+  }
+  if ((uploadedImage || removeProfileImage) && previousImage) {
+    await deleteProfileImageFromCloudinary(previousImage.publicId).catch(
+      () => undefined,
+    );
+  }
   if (emailChanged) await PasswordReset.deleteMany({ user: user._id });
 
   response.status(200).json({

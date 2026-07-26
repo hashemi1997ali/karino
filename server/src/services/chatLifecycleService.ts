@@ -11,8 +11,8 @@ export const resolveSupportAudience = (roles: readonly string[]): SupportAudienc
 
 export const chatWelcomeMessage = (locale: SupportChatLocale): string =>
   locale === "de"
-    ? "Hallo! 👋 Ich bin der Karino-Assistent. Wie kann ich dir heute helfen?"
-    : "Hello! 👋 I'm the Karino assistant. How can I help you today?";
+    ? "Hallo! 👋 Ich bin der AI Assistant. Wie kann ich dir heute helfen?"
+    : "Hello! 👋 I'm the AI Assistant. How can I help you today?";
 
 export const assistantIdleSystemMessage = (locale: SupportChatLocale): string =>
   locale === "de"

@@ -184,7 +184,7 @@ export default function HomePage() {
 
             <div className="relative mx-auto w-full max-w-2xl lg:pl-8">
               <div className="absolute -right-8 -top-8 size-40 rotate-6 rounded-[2rem] bg-[var(--highlight)] opacity-70 blur-2xl" />
-              <div className="relative rotate-[1deg] rounded-[2.2rem] border border-white/10 bg-[#171a18] p-4 text-white shadow-[0_32px_80px_rgba(23,26,24,.28)] sm:p-6">
+              <div className="relative rotate-[1deg] rounded-[var(--container-radius)] border border-white/10 bg-[#171a18] p-4 text-white shadow-[0_32px_80px_rgba(23,26,24,.28)] sm:p-6">
                 <div className="flex items-center justify-between border-b border-white/10 pb-5">
                   <div className="flex items-center gap-3">
                     <span className="grid size-10 place-items-center rounded-2xl bg-[var(--primary)]">
@@ -279,7 +279,7 @@ export default function HomePage() {
                 return (
                   <article
                     key={title}
-                    className={`group relative min-h-72 overflow-hidden rounded-[2rem] border p-6 transition duration-300 hover:-translate-y-1 ${index === 0 ? "bg-[var(--highlight)] text-[#171a18]" : index === 1 ? "bg-[var(--surface)]" : "bg-[#171a18] text-white"}`}
+                    className={`group relative min-h-72 overflow-hidden rounded-[var(--container-radius)] border p-6 transition duration-300 hover:-translate-y-1 ${index === 0 ? "bg-[var(--highlight)] text-[#171a18]" : index === 1 ? "bg-[var(--surface)]" : "bg-[#171a18] text-white"}`}
                   >
                     <span
                       className={`grid size-12 place-items-center rounded-2xl border ${index === 0 ? "border-black/10 bg-black/5" : index === 2 ? "border-white/10 bg-white/8 text-[var(--highlight)]" : "bg-[var(--primary-soft)] text-[var(--primary)]"}`}
@@ -317,7 +317,7 @@ export default function HomePage() {
 
         <section id="workflow" className="pb-20 sm:pb-28">
           <div className="mx-auto max-w-[88rem] px-4 sm:px-6 lg:px-8">
-            <div className="paper-grid overflow-hidden rounded-[2.4rem] border bg-[var(--primary)] p-6 text-white shadow-[0_12px_0_color-mix(in_srgb,var(--primary-dark)_70%,black)] sm:p-10 lg:p-14">
+            <div className="paper-grid overflow-hidden rounded-[var(--container-radius)] border bg-[var(--primary)] p-6 text-white shadow-[0_12px_0_color-mix(in_srgb,var(--primary-dark)_70%,black)] sm:p-10 lg:p-14">
               <div className="grid gap-12 lg:grid-cols-[.9fr_1.1fr] lg:items-center">
                 <div>
                   <span className="eyebrow text-white/65">

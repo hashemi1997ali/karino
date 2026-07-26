@@ -32,21 +32,26 @@ import {
   type ChatTurnResult,
 } from "@/features/chat/api";
 import { ChatMessageBubble } from "@/features/chat/chat-message-bubble";
+import { DateGroupedMessageList } from "@/features/chat/date-grouped-message-list";
 import { getErrorMessage } from "@/lib/api-error";
-import { getAssistantAgentLabel } from "@/lib/domain-labels";
-import type { SupportChat } from "@/lib/types";
+import {
+  getAssistantAgentLabel,
+  getLocalizedSupportSystemMessage,
+  isInternalSupportTransferMessage,
+} from "@/lib/domain-labels";
+import type { ChatMessage, SupportChat } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { usePreferences } from "@/providers/preferences-provider";
 
 const copy = {
   en: {
-    title: "Karino assistant",
+    title: "AI Assistant",
     subtitle: "AI first, human support when needed",
     open: "Open assistant",
     close: "Close assistant",
     newChat: "New chat",
     history: "Chat history",
-    welcome: "Hello! 👋 I'm the Karino assistant. How can I help you today?",
+    welcome: "Hello! 👋 I'm the AI Assistant. How can I help you today?",
     placeholder: "Write a message…",
     staffPlaceholder: "Ask a question or use /ban, /unban, /user…",
     send: "Send",
@@ -70,19 +75,19 @@ const copy = {
     rated: "Thanks for your feedback.",
     escalationDone: "The conversation was sent to support.",
     endedDone: "The chat was ended.",
-    assistant: "AI assistant",
+    assistant: "AI Assistant",
     openStatus: "Support queue",
     activeStatus: "Human support",
     endedStatus: "Ended",
   },
   de: {
-    title: "Karino-Assistent",
+    title: "AI Assistant",
     subtitle: "Zuerst KI, bei Bedarf menschlicher Support",
     open: "Assistent öffnen",
     close: "Assistent schließen",
     newChat: "Neuer Chat",
     history: "Chatverlauf",
-    welcome: "Hallo! 👋 Ich bin der Karino-Assistent. Wie kann ich dir heute helfen?",
+    welcome: "Hallo! 👋 Ich bin der AI Assistant. Wie kann ich dir heute helfen?",
     placeholder: "Nachricht schreiben…",
     staffPlaceholder: "Frage stellen oder /ban, /unban, /user verwenden…",
     send: "Senden",
@@ -106,7 +111,7 @@ const copy = {
     rated: "Danke für dein Feedback.",
     escalationDone: "Die Unterhaltung wurde an den Support gesendet.",
     endedDone: "Der Chat wurde beendet.",
-    assistant: "KI-Assistent",
+    assistant: "AI Assistant",
     openStatus: "Support-Warteschlange",
     activeStatus: "Menschlicher Support",
     endedStatus: "Beendet",
@@ -125,7 +130,7 @@ const statusLabel = (
 
 export function ChatWidget() {
   const pathname = usePathname();
-  const { locale } = usePreferences();
+  const { locale, intlLocale } = usePreferences();
   const t = copy[locale];
   const { status, isAdmin } = useAuth();
   const queryClient = useQueryClient();
@@ -134,12 +139,20 @@ export function ChatWidget() {
   const [pendingUserMessage, setPendingUserMessage] = useState<{
     content: string;
     createdAt: string;
+    previousMatchingMessages: number;
   } | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [guestChat, setGuestChat] = useState<SupportChat | null>(null);
+  const firstNameOnly = (name: string | null | undefined) =>
+    name?.trim().split(/\s+/)[0] ?? "";
+  const formatMessageDate = (value: string) =>
+    new Intl.DateTimeFormat(intlLocale, { dateStyle: "medium" }).format(
+      new Date(value),
+    );
   const [endIntent, setEndIntent] = useState<"end" | "new" | null>(null);
   const [rating, setRating] = useState(5);
   const [ratingReason, setRatingReason] = useState("");
+  const [welcomeCreatedAt] = useState(() => new Date().toISOString());
   const endRef = useRef<HTMLDivElement>(null);
 
   const chatsQuery = useQuery({
@@ -274,12 +287,55 @@ export function ChatWidget() {
   const submitMessage = () => {
     const message = input.trim();
     if (!message || disabledInput || sendMutation.isPending) return;
-    setPendingUserMessage({ content: message, createdAt: new Date().toISOString() });
+    setPendingUserMessage({
+      content: message,
+      createdAt: new Date().toISOString(),
+      previousMatchingMessages: messages.filter(
+        (item) => item.sender === "user" && item.content === message,
+      ).length,
+    });
     setInput("");
     sendMutation.mutate(message);
   };
 
   const messages = activeChat?.messages ?? [];
+  const visibleMessages = messages.filter(
+    (message) =>
+      message.sender !== "system" ||
+      !isInternalSupportTransferMessage(message.content),
+  );
+  const pendingMessagePersisted =
+    pendingUserMessage !== null &&
+    messages.filter(
+      (message) =>
+        message.sender === "user" && message.content === pendingUserMessage.content,
+    ).length > pendingUserMessage.previousMatchingMessages;
+  const displayMessages: ChatMessage[] = [
+    ...(activeChat
+      ? visibleMessages
+      : [
+          {
+            id: "chat-welcome-message",
+            sender: "ai" as const,
+            senderId: null,
+            senderName: t.assistant,
+            content: t.welcome,
+            createdAt: welcomeCreatedAt,
+          },
+        ]),
+    ...(pendingUserMessage && !pendingMessagePersisted
+      ? [
+          {
+            id: "pending-user-message",
+            sender: "user" as const,
+            senderId: null,
+            senderName: null,
+            content: pendingUserMessage.content,
+            createdAt: pendingUserMessage.createdAt,
+          },
+        ]
+      : []),
+  ];
   const disabledInput = activeChat?.status === "ended";
   const canEnd = Boolean(activeChat && activeChat.status !== "ended");
   const hasMobileNavigation = ["/dashboard", "/tasks", "/account", "/admin"].some(
@@ -319,16 +375,16 @@ export function ChatWidget() {
       )}
 
       {open && (
-        <section className="chat-panel surface-shadow fixed z-50 flex min-h-0 flex-col overflow-hidden rounded-[1.7rem] border bg-[var(--surface)]">
-          <header className="flex shrink-0 items-center gap-3 bg-[#171a18] px-4 py-3 text-white">
+        <section className="chat-panel surface-shadow fixed z-50 flex min-h-0 flex-col overflow-hidden rounded-[var(--container-radius)] border bg-[var(--surface)]">
+          <header className="flex shrink-0 items-center gap-3 border-b border-white/10 bg-[#171a18] p-4 text-white">
             <span className="grid size-10 place-items-center rounded-xl bg-[var(--highlight)] text-[#171a18]">
               <Bot className="size-5" />
             </span>
             <div className="min-w-0 flex-1">
-              <h2 className="truncate text-sm font-black">{t.title}</h2>
-              <p className="truncate text-[11px] text-white/55">
+              <h2 className="truncate font-black">{t.title}</h2>
+              <p className="truncate text-xs text-white/55">
                 {activeChat?.status === "active" && activeChat.assignedToName
-                  ? t.active(activeChat.assignedToName)
+                  ? t.active(firstNameOnly(activeChat.assignedToName))
                   : activeChat?.status === "open"
                     ? t.waiting
                     : t.subtitle}
@@ -336,7 +392,7 @@ export function ChatWidget() {
             </div>
             <button
               type="button"
-              className="focus-ring grid size-9 place-items-center rounded-full hover:bg-white/10"
+              className="focus-ring grid size-10 place-items-center rounded-full transition-colors hover:bg-white/10"
               onClick={() => setOpen(false)}
               aria-label={t.close}
               title={t.close}
@@ -377,16 +433,35 @@ export function ChatWidget() {
             </div>
           )}
 
-          <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain p-4">
-            {!activeChat && (
-              <ChatMessageBubble
-                id="chat-welcome-message"
-                direction="incoming"
-                content={t.welcome}
-                name={t.assistant}
-              />
-            )}
-
+          <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overscroll-contain px-4 pb-4">
+            <DateGroupedMessageList
+              items={displayMessages}
+              formatDate={formatMessageDate}
+              renderItem={(message) => (
+                <ChatMessageBubble
+                  direction={
+                    message.sender === "user"
+                      ? "outgoing"
+                      : message.sender === "system"
+                        ? "system"
+                        : "incoming"
+                  }
+                  content={
+                    message.sender === "system"
+                      ? getLocalizedSupportSystemMessage(message.content, locale)
+                      : message.content
+                  }
+                  createdAt={message.createdAt}
+                  name={
+                    message.sender === "ai" && message.senderName
+                      ? getAssistantAgentLabel(message.senderName, locale)
+                      : message.sender === "staff"
+                        ? firstNameOnly(message.senderName)
+                        : null
+                  }
+                />
+              )}
+            />
             {!activeChat && status === "anonymous" && (
               <p className="rounded-xl bg-[var(--surface-muted)] p-3 text-xs leading-5 text-[var(--muted)]">
                 {t.signIn}{" "}
@@ -394,35 +469,6 @@ export function ChatWidget() {
                   {t.signInAction}
                 </Link>
               </p>
-            )}
-
-            {messages.map((message) => (
-              <ChatMessageBubble
-                key={message.id}
-                direction={
-                  message.sender === "user"
-                    ? "outgoing"
-                    : message.sender === "system"
-                      ? "system"
-                      : "incoming"
-                }
-                content={message.content}
-                createdAt={message.createdAt}
-                name={
-                  message.sender === "ai" && message.senderName
-                    ? getAssistantAgentLabel(message.senderName, locale)
-                    : message.sender === "staff"
-                      ? message.senderName
-                      : null
-                }
-              />
-            ))}
-            {pendingUserMessage && (
-              <ChatMessageBubble
-                direction="outgoing"
-                content={pendingUserMessage.content}
-                createdAt={pendingUserMessage.createdAt}
-              />
             )}
             {sendMutation.isPending && (
               <ChatMessageBubble direction="incoming" content="•••" />
@@ -509,7 +555,7 @@ export function ChatWidget() {
                 placeholder={
                   disabledInput ? t.ended : isAdmin ? t.staffPlaceholder : t.placeholder
                 }
-                className="h-11 min-w-0"
+                className="min-w-0"
                 dir="auto"
               />
               <Button
@@ -517,7 +563,7 @@ export function ChatWidget() {
                 disabled={disabledInput}
                 loading={sendMutation.isPending}
                 onClick={submitMessage}
-                className="size-11 shrink-0 rounded-full"
+                className="size-12 shrink-0 rounded-full"
                 aria-label={t.send}
                 title={t.send}
               >

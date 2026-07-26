@@ -8,8 +8,6 @@ const allowedMimeTypes = new Set([
   "image/jpeg",
   "image/png",
   "image/webp",
-  "application/pdf",
-  "text/plain",
 ]);
 
 const isCloudinaryConfigured = (): boolean =>
@@ -27,13 +25,13 @@ if (isCloudinaryConfigured()) {
   });
 }
 
-export const upload = multer({
+export const profileImageUpload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: MAX_FILE_SIZE, files: 1 },
   fileFilter: (_request, file, callback) => {
     if (!allowedMimeTypes.has(file.mimetype)) {
       callback(
-        new AppError("Only JPG, PNG, WEBP, PDF and TXT attachments are allowed", 400),
+        new AppError("Only JPG, PNG and WEBP profile images are allowed", 400),
       );
       return;
     }
@@ -42,12 +40,12 @@ export const upload = multer({
   },
 });
 
-export const uploadAttachment = async (
+export const uploadProfileImage = async (
   file: Express.Multer.File,
 ): Promise<UploadApiResponse> => {
   if (!isCloudinaryConfigured()) {
     throw new AppError(
-      "Attachment upload is unavailable because Cloudinary is not configured",
+      "Profile image upload is unavailable because Cloudinary is not configured",
       503,
     );
   }
@@ -55,14 +53,17 @@ export const uploadAttachment = async (
   return new Promise((resolve, reject) => {
     const stream = cloudinary.uploader.upload_stream(
       {
-        folder: "karino/attachments",
-        resource_type: "auto",
-        use_filename: true,
+        folder: "karino/profile-images",
+        resource_type: "image",
         unique_filename: true,
+        transformation: [
+          { width: 512, height: 512, crop: "fill", gravity: "face" },
+          { quality: "auto", fetch_format: "auto" },
+        ],
       },
       (error, result) => {
         if (error || !result) {
-          reject(new AppError("Attachment upload failed", 502, error));
+          reject(new AppError("Profile image upload failed", 502, error));
           return;
         }
 
@@ -74,16 +75,15 @@ export const uploadAttachment = async (
   });
 };
 
-export const deleteAttachmentFromCloudinary = async (
+export const deleteProfileImageFromCloudinary = async (
   publicId: string,
-  resourceType = "image",
 ): Promise<void> => {
   if (!isCloudinaryConfigured()) {
     return;
   }
 
   await cloudinary.uploader.destroy(publicId, {
-    resource_type: resourceType,
+    resource_type: "image",
     invalidate: true,
   });
 };

@@ -66,7 +66,7 @@ export function ForgotPasswordForm() {
       <p className="eyebrow text-[var(--primary)]">{t.eyebrow}</p>
       <h1 className="mt-3 text-4xl font-black tracking-[-0.04em]">{t.title}</h1>
       {sent ? (
-        <div className="mt-7 rounded-[1.5rem] border bg-[var(--surface)] p-6">
+        <div className="mt-7 rounded-[var(--container-radius)] border bg-[var(--surface)] p-6">
           <Mail className="size-8 text-[var(--primary)]" />
           <h2 className="mt-4 text-xl font-black">{t.sentTitle}</h2>
           <p className="mt-2 text-sm leading-7 text-[var(--muted)]">{t.sent}</p>

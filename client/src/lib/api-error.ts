@@ -41,9 +41,8 @@ const germanApiMessages: Record<string, string> = {
   "Invalid session ID": "Die Sitzungs-ID ist ungültig.",
   "Invalid access token": "Deine Anmeldung ist ungültig.",
   "User no longer exists": "Das Benutzerkonto existiert nicht mehr.",
-  "At least one task field or an attachment must be provided":
-    "Ändere mindestens ein Aufgabenfeld oder füge einen Anhang hinzu.",
-  "Task does not have an attachment": "Diese Aufgabe hat keinen Anhang.",
+  "At least one task field must be provided":
+    "Ändere mindestens ein Aufgabenfeld.",
   "Active session not found": "Die aktive Sitzung wurde nicht gefunden.",
   "Refresh authentication is required": "Bitte melde dich erneut an.",
   "Invalid refresh session": "Die Sitzung ist ungültig.",
@@ -58,12 +57,13 @@ const germanApiMessages: Record<string, string> = {
   "Validation failed": "Bitte überprüfe deine Eingaben.",
   "A record with this value already exists":
     "Ein Eintrag mit diesem Wert existiert bereits.",
-  "Attachment cannot exceed 5 MB": "Der Anhang darf höchstens 5 MB groß sein.",
-  "Only JPG, PNG, WEBP, PDF and TXT attachments are allowed":
-    "Als Anhang sind nur JPG-, PNG-, WEBP-, PDF- und TXT-Dateien erlaubt.",
-  "Attachment upload is unavailable because Cloudinary is not configured":
-    "Dateiuploads sind derzeit nicht verfügbar.",
-  "Attachment upload failed": "Der Anhang konnte nicht hochgeladen werden.",
+  "Profile image cannot exceed 5 MB":
+    "Das Profilbild darf höchstens 5 MB groß sein.",
+  "Only JPG, PNG and WEBP profile images are allowed":
+    "Nur JPG-, PNG- und WEBP-Profilbilder sind erlaubt.",
+  "Profile image upload is unavailable because Cloudinary is not configured":
+    "Profilbild-Uploads sind derzeit nicht verfügbar.",
+  "Profile image upload failed": "Das Profilbild konnte nicht hochgeladen werden.",
   "Too many registration attempts. Please try again later":
     "Zu viele Registrierungsversuche. Bitte versuche es später erneut.",
   "Too many failed login attempts. Please try again later":

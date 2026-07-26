@@ -21,12 +21,14 @@ import {
   createReplySuggestions,
   detectMessageLocale,
   hasReachedHumanSupport,
+  improveStaffDraft,
   runAssistant,
   resolveSupportAudience,
   scheduleAssistantIdleClose,
   setAdministratorRole,
   unbanUser,
   type AssistantHistoryMessage,
+  type SupportTranscriptMessage,
 } from "#services";
 import {
   AppError,
@@ -67,6 +69,8 @@ const getCurrentUser = async (request: Request): Promise<HydratedDocument<IUser>
 const fullName = (user: Pick<IUser, "firstName" | "lastName">): string =>
   `${user.firstName} ${user.lastName}`.trim();
 
+const supportName = (user: Pick<IUser, "firstName">): string => user.firstName.trim();
+
 const localized = (locale: SupportChatLocale, english: string, german: string): string =>
   locale === "de" ? german : english;
 
@@ -78,29 +82,34 @@ const systemMessage = (
     | "user-ended"
     | "accepted"
     | "transferred"
+    | "staff-left"
     | "staff-ended",
   staffName = "",
 ): string => {
   const messages = {
     "waiting-super": {
-      en: "This chat is waiting for a super administrator.",
-      de: "Dieser Chat wartet auf einen Super-Administrator.",
+      en: "This chat is waiting for a Super Support Agent.",
+      de: "Dieser Chat wartet auf einen Super-Support-Agenten.",
     },
     "waiting-support": {
-      en: "This chat is waiting for a support administrator.",
-      de: "Dieser Chat wartet auf einen Support-Administrator.",
+      en: "This chat is waiting for a Human Support Agent.",
+      de: "Dieser Chat wartet auf einen Human-Support-Agenten.",
     },
     "user-ended": {
       en: "The user ended this chat.",
       de: "Der Benutzer hat diesen Chat beendet.",
     },
     accepted: {
-      en: `${staffName} accepted this support chat.`,
-      de: `${staffName} hat diesen Support-Chat angenommen.`,
+      en: `${staffName} joined this support chat.`,
+      de: `${staffName} ist diesem Support-Chat beigetreten.`,
     },
     transferred: {
-      en: `${staffName} transferred this chat to a super administrator.`,
-      de: `${staffName} hat diesen Chat an einen Super-Administrator übertragen.`,
+      en: `${staffName} transferred this chat to a Super Support Agent.`,
+      de: `${staffName} hat diesen Chat an einen Super-Support-Agenten übertragen.`,
+    },
+    "staff-left": {
+      en: `${staffName} left this support chat.`,
+      de: `${staffName} hat diesen Support-Chat verlassen.`,
     },
     "staff-ended": {
       en: `${staffName} ended this support chat.`,
@@ -114,6 +123,7 @@ const systemMessage = (
 const serializeMessage = (message: ISupportChat["messages"][number]) => ({
   id: String(message._id),
   sender: message.sender,
+  senderId: message.senderId ? String(message.senderId) : null,
   senderName: message.senderName,
   content: message.content,
   createdAt: message.createdAt,
@@ -134,6 +144,7 @@ const serializeChat = (chat: HydratedDocument<ISupportChat>) => {
           lastName: populatedUser.lastName,
           email: populatedUser.email,
           roles: populatedUser.roles,
+          profileImage: populatedUser.profileImage ?? null,
           ban: populatedUser.ban ?? null,
         }
       : chat.user
@@ -327,15 +338,15 @@ const escalationReply = (
   if (requiresSuperAdmin && reason === "account_banned") {
     return localized(
       locale,
-      "I’ve sent your account-ban issue to a super administrator. You can continue writing here while you wait.",
-      "Ich habe dein Problem mit der Kontosperre an einen Super-Administrator weitergeleitet. Du kannst hier weiterschreiben, während du wartest.",
+      "I’ve sent your account-ban issue to a Super Support Agent. You can continue writing here while you wait.",
+      "Ich habe dein Problem mit der Kontosperre an einen Super-Support-Agenten weitergeleitet. Du kannst hier weiterschreiben, während du wartest.",
     );
   }
   if (requiresSuperAdmin && reason === "security") {
     return localized(
       locale,
-      "I’ve sent this security issue to a super administrator. Please do not share your password or recovery codes.",
-      "Ich habe dieses Sicherheitsproblem an einen Super-Administrator weitergeleitet. Bitte teile weder dein Passwort noch Wiederherstellungscodes.",
+      "I’ve sent this security issue to a Super Support Agent. Please do not share your password or recovery codes.",
+      "Ich habe dieses Sicherheitsproblem an einen Super-Support-Agenten weitergeleitet. Bitte teile weder dein Passwort noch Wiederherstellungscodes.",
     );
   }
   return localized(
@@ -576,7 +587,8 @@ export const createChat: RequestHandler = async (request, response) => {
       },
       {
         sender: "user",
-        senderName: fullName(user),
+        senderId: user._id,
+        senderName: supportName(user),
         content: message,
         createdAt: new Date(),
       },
@@ -635,7 +647,8 @@ export const sendOwnMessage: RequestHandler = async (request, response) => {
   chat.locale = locale;
   chat.messages.push({
     sender: "user",
-    senderName: fullName(user),
+    senderId: user._id,
+    senderName: supportName(user),
     content: message,
     createdAt: new Date(),
   } as ISupportChat["messages"][number]);
@@ -682,7 +695,7 @@ export const sendOwnMessage: RequestHandler = async (request, response) => {
 export const escalateOwnChat: RequestHandler = async (request, response) => {
   const user = await getCurrentUser(request);
   if (isSuperAdminRoles(user.roles)) {
-    throw new AppError("Super administrators manage support directly", 400);
+    throw new AppError("Super Support Agents manage these requests directly", 400);
   }
 
   const chatId = validateObjectId(request.params.id, "chat");
@@ -753,7 +766,7 @@ const ensureStaffMayHandle = (
   staff: HydratedDocument<IUser>,
 ): void => {
   if (chat.requiresSuperAdmin && !isSuperAdminRoles(staff.roles)) {
-    throw new AppError("This chat requires a super administrator", 403);
+    throw new AppError("This chat requires a Super Support Agent", 403);
   }
 };
 
@@ -766,25 +779,53 @@ export const listStaffChats: RequestHandler = async (request, response) => {
   const filter: QueryFilter<ISupportChat> = {};
   if (superAdmin) {
     if (query.status) filter.status = query.status;
-    else if (query.scope !== "all") filter.status = { $in: ["open", "active"] };
+    else {
+      filter.$or = [
+        { status: { $in: ["open", "active"] } },
+        { assignedTo: { $ne: null } },
+        { "staffParticipants.0": { $exists: true } },
+        { escalationReason: { $ne: null } },
+      ];
+    }
   } else {
-    filter.status = { $in: ["open", "active"] };
-    filter.requiresSuperAdmin = false;
-    filter.origin = { $in: ["user", "guest"] };
+    filter.$or = [
+      {
+        status: "open",
+        assignedTo: null,
+        requiresSuperAdmin: false,
+        origin: { $in: ["user", "guest"] },
+      },
+      { staffParticipants: staff._id },
+      { assignedTo: staff._id },
+    ];
   }
-  const skip = (query.page - 1) * query.limit;
-  const sort: Record<string, 1 | -1> =
-    superAdmin && query.scope === "all"
-      ? { updatedAt: -1 }
-      : { status: 1, updatedAt: -1 };
-  const [chats, total] = await Promise.all([
+  const [allChats, total] = await Promise.all([
     SupportChat.find(filter)
-      .populate("user", "firstName lastName email roles ban createdAt updatedAt")
-      .sort(sort)
-      .skip(skip)
-      .limit(query.limit),
+      .populate("user", "firstName lastName email roles profileImage ban createdAt updatedAt"),
     SupportChat.countDocuments(filter),
   ]);
+  const statusRank: Record<ISupportChat["status"], number> = {
+    open: 0,
+    active: 1,
+    ended: 2,
+    assistant: 3,
+  };
+  const lastMessageTime = (chat: HydratedDocument<ISupportChat>): number =>
+    chat.messages.at(-1)?.createdAt.getTime() ?? chat.updatedAt.getTime();
+  const superSupportPriority = (chat: HydratedDocument<ISupportChat>): number =>
+    superAdmin &&
+    (chat.status === "open" || chat.status === "active") &&
+    chat.requiresSuperAdmin
+      ? 0
+      : 1;
+  const chats = allChats
+    .sort(
+      (left, right) =>
+        statusRank[left.status] - statusRank[right.status] ||
+        superSupportPriority(left) - superSupportPriority(right) ||
+        lastMessageTime(right) - lastMessageTime(left),
+    )
+    .slice((query.page - 1) * query.limit, query.page * query.limit);
   response.status(200).json({
     success: true,
     data: {
@@ -804,46 +845,87 @@ export const listStaffChats: RequestHandler = async (request, response) => {
 export const claimStaffChat: RequestHandler = async (request, response) => {
   const staff = await getCurrentUser(request);
   const chatId = validateObjectId(request.params.id, "chat");
-  const staffName = fullName(staff);
-  const filter: QueryFilter<ISupportChat> = { _id: chatId, status: "open" };
+  const staffName = supportName(staff);
+  const superAdmin = isSuperAdminRoles(staff.roles);
+  const pendingChat = await SupportChat.findById(chatId)
+    .select("locale status assignedTo assignedToName requiresSuperAdmin origin")
+    .lean();
+  if (!pendingChat) throw new AppError("Chat not found", 404);
 
-  if (!isSuperAdminRoles(staff.roles)) {
+  const takingOver =
+    superAdmin &&
+    pendingChat.status === "active" &&
+    String(pendingChat.assignedTo ?? "") !== String(staff._id);
+  if (pendingChat.status !== "open" && !takingOver) {
+    throw new AppError("This chat is unavailable or has already been joined", 409);
+  }
+
+  const filter: QueryFilter<ISupportChat> = takingOver
+    ? {
+        _id: chatId,
+        status: "active",
+        assignedTo: pendingChat.assignedTo,
+      }
+    : { _id: chatId, status: "open" };
+  if (!superAdmin) {
     filter.requiresSuperAdmin = false;
     filter.origin = { $in: ["user", "guest"] };
   }
 
-  const pendingChat = await SupportChat.findOne(filter).select("locale").lean();
-
-  // The update remains atomic, so two staff members cannot accept the same chat.
-  const chat = pendingChat
-    ? await SupportChat.findOneAndUpdate(
-        filter,
+  const transitionMessages = takingOver
+    ? [
         {
-          $set: {
-            status: "active",
-            assignedTo: staff._id,
-            assignedToName: staffName,
-          },
-          $push: {
-            messages: {
+          sender: "system",
+          senderName: null,
+          content: systemMessage(
+            pendingChat.locale,
+            "staff-left",
+            pendingChat.assignedToName ?? "Support",
+          ),
+          createdAt: new Date(),
+        },
+        {
+          sender: "system",
+          senderName: null,
+          content: systemMessage(pendingChat.locale, "accepted", staffName),
+          createdAt: new Date(),
+        },
+      ]
+    : [
+        {
               sender: "system",
               senderName: null,
               content: systemMessage(pendingChat.locale, "accepted", staffName),
               createdAt: new Date(),
-            },
-          },
         },
-        { new: true, runValidators: true },
-      )
-    : null;
+      ];
+  const chat = await SupportChat.findOneAndUpdate(
+    filter,
+    {
+      $set: {
+        status: "active",
+        assignedTo: staff._id,
+        assignedToName: staffName,
+        ...(takingOver && { requiresSuperAdmin: true }),
+      },
+      $addToSet: {
+        staffParticipants: {
+          $each:
+            takingOver && pendingChat.assignedTo
+              ? [staff._id, pendingChat.assignedTo]
+              : [staff._id],
+        },
+      },
+      $push: { messages: { $each: transitionMessages } },
+    },
+    { new: true, runValidators: true },
+  );
 
   if (!chat) {
-    const existing = await SupportChat.exists({ _id: chatId });
-    if (!existing) throw new AppError("Chat not found", 404);
-    throw new AppError("This chat is unavailable or has already been claimed", 409);
+    throw new AppError("The chat assignment changed before you could join", 409);
   }
 
-  await chat.populate("user", "firstName lastName email roles ban createdAt updatedAt");
+  await chat.populate("user", "firstName lastName email roles profileImage ban createdAt updatedAt");
   response.status(200).json({ success: true, data: { chat: serializeChat(chat) } });
 };
 
@@ -865,34 +947,56 @@ export const sendStaffMessage: RequestHandler = async (request, response) => {
   requireAssignedStaff(chat, staff);
   chat.messages.push({
     sender: "staff",
-    senderName: fullName(staff),
+    senderId: staff._id,
+    senderName: supportName(staff),
     content: (request.body as { message: string }).message,
     createdAt: new Date(),
   } as ISupportChat["messages"][number]);
+  if (!chat.staffParticipants.some((id) => String(id) === String(staff._id))) {
+    chat.staffParticipants.push(staff._id);
+  }
   await chat.save();
-  await chat.populate("user", "firstName lastName email roles ban createdAt updatedAt");
+  await chat.populate("user", "firstName lastName email roles profileImage ban createdAt updatedAt");
   response.status(200).json({ success: true, data: { chat: serializeChat(chat) } });
 };
 
 export const transferStaffChat: RequestHandler = async (request, response) => {
   const staff = await getCurrentUser(request);
   if (isSuperAdminRoles(staff.roles)) {
-    throw new AppError("A super administrator cannot transfer a chat upward", 400);
+    throw new AppError("A Super Support Agent cannot transfer this chat upward", 400);
   }
   const chatId = validateObjectId(request.params.id, "chat");
   const chat = await SupportChat.findById(chatId);
   if (!chat) throw new AppError("Chat not found", 404);
   requireAssignedStaff(chat, staff);
+  if (!chat.staffParticipants.some((id) => String(id) === String(staff._id))) {
+    chat.staffParticipants.push(staff._id);
+  }
   chat.status = "open";
   chat.assignedTo = null;
   chat.assignedToName = null;
   chat.requiresSuperAdmin = true;
-  chat.messages.push({
-    sender: "system",
-    senderName: null,
-    content: systemMessage(chat.locale, "transferred", fullName(staff)),
-    createdAt: new Date(),
-  } as ISupportChat["messages"][number]);
+  const staffName = supportName(staff);
+  chat.messages.push(
+    {
+      sender: "system",
+      senderName: null,
+      content: systemMessage(chat.locale, "staff-left", staffName),
+      createdAt: new Date(),
+    } as ISupportChat["messages"][number],
+    {
+      sender: "system",
+      senderName: null,
+      content: systemMessage(chat.locale, "transferred", staffName),
+      createdAt: new Date(),
+    } as ISupportChat["messages"][number],
+    {
+      sender: "system",
+      senderName: null,
+      content: systemMessage(chat.locale, "waiting-super"),
+      createdAt: new Date(),
+    } as ISupportChat["messages"][number],
+  );
   await chat.save();
   response.status(200).json({ success: true, data: { chat: serializeChat(chat) } });
 };
@@ -906,11 +1010,11 @@ export const endStaffChat: RequestHandler = async (request, response) => {
   chat.messages.push({
     sender: "system",
     senderName: null,
-    content: systemMessage(chat.locale, "staff-ended", fullName(staff)),
+    content: systemMessage(chat.locale, "staff-ended", supportName(staff)),
     createdAt: new Date(),
   } as ISupportChat["messages"][number]);
   await endChatDocument(chat);
-  await chat.populate("user", "firstName lastName email roles ban createdAt updatedAt");
+  await chat.populate("user", "firstName lastName email roles profileImage ban createdAt updatedAt");
   response.status(200).json({ success: true, data: { chat: serializeChat(chat) } });
 };
 
@@ -919,17 +1023,49 @@ export const getStaffSuggestions: RequestHandler = async (request, response) => 
   const chatId = validateObjectId(request.params.id, "chat");
   const chat = await SupportChat.findById(chatId);
   if (!chat) throw new AppError("Chat not found", 404);
-  ensureStaffMayHandle(chat, staff);
-  const transcript: AssistantHistoryMessage[] = chat.messages
-    .filter((message) => message.sender === "user" || message.sender === "staff")
-    .map((message) => ({
-      role: message.sender === "user" ? "user" : "assistant",
-      content: message.content,
-    }));
+  requireAssignedStaff(chat, staff);
+  await chat.populate("user", "roles");
+  const transcript: SupportTranscriptMessage[] = chat.messages.map((message) => ({
+    sender: message.sender,
+    senderName: message.senderName,
+    content: message.content,
+  }));
+  const customer = chat.user ? (chat.user as unknown as Pick<IUser, "roles">) : null;
   const suggestions = await createReplySuggestions(transcript, {
     roles: staff.roles,
     authenticated: true,
     locale: chat.locale,
+    staffName: supportName(staff),
+    staffRole: isSuperAdminRoles(staff.roles) ? "super_admin" : "admin",
+    customerRoles: customer?.roles ?? [],
   });
   response.status(200).json({ success: true, data: { suggestions } });
+};
+
+export const rewriteStaffMessage: RequestHandler = async (request, response) => {
+  const staff = await getCurrentUser(request);
+  const chatId = validateObjectId(request.params.id, "chat");
+  const chat = await SupportChat.findById(chatId);
+  if (!chat) throw new AppError("Chat not found", 404);
+  requireAssignedStaff(chat, staff);
+  await chat.populate("user", "roles");
+  const transcript: SupportTranscriptMessage[] = chat.messages.map((item) => ({
+    sender: item.sender,
+    senderName: item.senderName,
+    content: item.content,
+  }));
+  const customer = chat.user ? (chat.user as unknown as Pick<IUser, "roles">) : null;
+  const message = await improveStaffDraft(
+    (request.body as { message: string }).message,
+    transcript,
+    {
+      roles: staff.roles,
+      authenticated: true,
+      locale: chat.locale,
+      staffName: supportName(staff),
+      staffRole: isSuperAdminRoles(staff.roles) ? "super_admin" : "admin",
+      customerRoles: customer?.roles ?? [],
+    },
+  );
+  response.status(200).json({ success: true, data: { message } });
 };

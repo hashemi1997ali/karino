@@ -17,6 +17,13 @@ export type {
 } from "./types.ts";
 
 export { runOrchestrator } from "./orchestrator/index.ts";
-export { generateReplySuggestions } from "./support/replySuggestions.ts";
+export {
+  generateReplySuggestions,
+  generateEmailReplySuggestions,
+  rewriteEmailDraft,
+  rewriteStaffDraft,
+  type StaffWritingContext,
+  type SupportTranscriptMessage,
+} from "./support/replySuggestions.ts";
 
 export { detectMessageLocale } from "./language.ts";

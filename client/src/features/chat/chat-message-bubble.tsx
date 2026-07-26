@@ -1,16 +1,19 @@
 import { cn } from "@/lib/utils";
+import Link from "next/link";
 
 export function ChatMessageBubble({
   id,
   direction,
   content,
   name,
+  nameHref,
   createdAt,
 }: {
   id?: string;
   direction: "incoming" | "outgoing" | "system";
   content: string;
   name?: string | null;
+  nameHref?: string | null;
   createdAt?: string | Date | null;
 }) {
   if (direction === "system") {
@@ -45,16 +48,31 @@ export function ChatMessageBubble({
             : "rounded-2xl rounded-bl-sm bg-[var(--surface-muted)] text-[var(--foreground)]",
         )}
       >
-        {name && (
-          <p
-            className={cn(
-              "mb-1 text-[10px] font-black tracking-wide uppercase",
-              direction === "outgoing" ? "text-white/70" : "text-[var(--primary)]",
-            )}
-          >
-            {name}
-          </p>
-        )}
+        {name &&
+          (nameHref ? (
+            <Link
+              href={nameHref}
+              className={cn(
+                "mb-1 block w-fit rounded text-[10px] font-black tracking-wide uppercase transition-colors hover:opacity-80",
+                direction === "outgoing"
+                  ? "text-white/70"
+                  : "text-[var(--primary)]",
+              )}
+            >
+              {name}
+            </Link>
+          ) : (
+            <p
+              className={cn(
+                "mb-1 text-[10px] font-black tracking-wide uppercase",
+                direction === "outgoing"
+                  ? "text-white/70"
+                  : "text-[var(--primary)]",
+              )}
+            >
+              {name}
+            </p>
+          ))}
         <p
           className="whitespace-pre-wrap break-words [overflow-wrap:anywhere]"
           dir="auto"

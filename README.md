@@ -1,222 +1,271 @@
-# Karino
+# ✅ Karino
 
-Karino is a full-stack productivity platform with English as the default interface language, support for switching to German, and a left-to-right layout. The repository is organized as a monorepo using npm workspaces and contains two independent applications:
+A full-stack task-management platform built with **Next.js, Express, TypeScript, MongoDB, and configurable AI providers**.
+
+Karino combines personal task planning, secure account management, role-based administration, and persistent support chat in one bilingual web application.
+
+---
+
+## 📖 Project Overview
+
+Karino gives users a private workspace for creating, organizing, filtering, and completing tasks. Administrators can manage users and support conversations, while the built-in assistant provides contextual help and can transfer conversations to human staff when needed.
+
+The repository is an npm workspace containing the web client and API:
 
 ```text
-karino/
-├── client/   # Next.js App Router, React, and Tailwind CSS
-├── server/   # Express, TypeScript, MongoDB/Mongoose, and Zod
+task-manager/
+├── client/   # Next.js application
+├── server/   # Express REST API
 ├── package.json
-└── package-lock.json
+└── README.md
 ```
 
-## Main Features
+---
 
-- Public landing page, registration, and login
-- Public contact page with configurable social links and a staff email-reply inbox
-- Password-reset and contact-reply emails through the official Brevo Node.js SDK
-- English user interface by default, with the option to switch to German
-- Light, dark, and system themes; the default is `system`, and changes to the operating system theme are detected and applied in real time
-- Persistence of the selected language and theme for future visits
-- Dashboard, personal task management, and account management
-- Create and edit tasks in a modal, with filtering, search, pagination, and file attachments
-- Change first name, last name, email address, and password
-- View active devices and sessions, and log out from the current session, other sessions, or all sessions
-- Admin panel for viewing and managing all tasks and users
-- Add or remove the admin role while invalidating the user’s existing sessions
-- Refresh token rotation, refresh token reuse detection, and rate limiting
+## ✨ Features
 
-## Requirements
+### 📋 Task Management
 
-- Node.js version `24` or later
+- Create, edit, delete, search, filter, sort, and paginate tasks
+- Track `todo`, `in-progress`, and `done` statuses
+- Assign low, medium, or high priority
+- Set deadlines and view overdue-task statistics
+- Upload JPG, PNG, or WEBP profile images through Cloudinary
+- View personal and administrative dashboards
+
+### 🔐 Authentication and Security
+
+- Registration, login, logout, and password reset
+- Short-lived JWT access tokens held in memory
+- Rotating refresh tokens stored in HTTP-only cookies
+- Refresh-token reuse detection and session-family revocation
+- Active-device and session management
+- Request validation with Zod and centralized error handling
+- Dedicated rate limits for authentication and chat routes
+
+### 👥 Roles and Administration
+
+- `user`: manages personal tasks, profile, sessions, and chat history
+- `admin`: manages regular users, tasks, bans, and support requests
+- `super_admin`: manages administrators and escalated support requests
+- Immediate session revocation after bans, deletion, or role changes
+- Configurable initial super administrator
+
+### 💬 Assistant and Support Chat
+
+- Guest and authenticated conversations
+- Persistent chat history for signed-in users
+- English and German responses
+- Human-support escalation, claiming, transfer, rating, and closure
+- Context-aware reply suggestions for administrators
+- Draft rewriting that improves a staff message without answering it
+- OpenAI, OpenRouter, Anthropic, Gemini, and Ollama provider support
+
+### ✉️ Contact and Email
+
+- Public contact form
+- Administrative inbox with stored reply history
+- Password-reset and contact-reply email through Brevo
+- Configurable public contact and social information
+
+---
+
+## 🛠️ Technology Stack
+
+### Client
+
+- Next.js 16 and React 19
+- TypeScript
+- Tailwind CSS
+- TanStack Query
+- React Hook Form and Zod
+- Radix UI and Lucide icons
+
+### Server
+
+- Node.js 24 and Express 5
+- TypeScript
+- MongoDB and Mongoose
+- JWT and bcrypt
+- Zod
+- Multer and Cloudinary
+- Brevo transactional email
+
+---
+
+## 🚀 Getting Started
+
+### Prerequisites
+
+- Node.js `24` or later
 - npm
-- A local MongoDB instance or MongoDB Atlas
-- A Cloudinary account only if file attachment uploads are required
-- A Brevo account and verified transactional sender for password-reset and contact-reply emails
+- MongoDB locally or through MongoDB Atlas
+- An AI provider, or a local Ollama installation
+- A Brevo account for transactional email
+- A Cloudinary account for profile image uploads
 
-## Installation and Development
-
-Install the dependencies for both workspaces from the repository root:
+### Installation
 
 ```bash
+git clone <repository-url>
+cd task-manager
 npm install
 ```
 
-Create the environment files:
-
-```powershell
-Copy-Item server/.env.example server/.env
-Copy-Item client/.env.example client/.env.local
-```
-
-On Linux/macOS:
+Create local environment files:
 
 ```bash
 cp server/.env.example server/.env
 cp client/.env.example client/.env.local
 ```
 
-At minimum, configure the following values in `server/.env`:
+On Windows PowerShell:
 
-```dotenv
+```powershell
+Copy-Item server/.env.example server/.env
+Copy-Item client/.env.example client/.env.local
+```
+
+At minimum, configure the database and authentication secrets in `server/.env`:
+
+```env
+NODE_ENV=development
+PORT=4000
 MONGO_URI=mongodb://127.0.0.1:27017/karino
+
 ACCESS_JWT_SECRET=replace_with_a_long_random_access_secret
 REFRESH_JWT_SECRET=replace_with_a_different_long_random_refresh_secret
-BREVO_API_KEY=replace_with_your_brevo_api_key
-BREVO_SENDER_EMAIL=verified-sender@example.com
-BREVO_SENDER_NAME=Karino
+
 APP_URL=http://localhost:3000
 ```
 
-Then start both applications simultaneously:
+Select one assistant provider. For example, a local Ollama setup can use:
+
+```env
+AI_PROVIDER=ollama
+OLLAMA_BASE_URL=http://localhost:11434/v1
+OLLAMA_MODEL=qwen3:8b
+```
+
+The complete configuration, including provider keys, Brevo, Cloudinary, rate limits, retention, and contact details, is documented inline in `server/.env.example`.
+
+### Run the Project
+
+Start the client and API together:
 
 ```bash
 npm run dev
 ```
 
-- Client: `http://localhost:3000`
-- API: `http://localhost:4000`
+- Web application: `http://localhost:3000`
+- REST API: `http://localhost:4000`
 
-The client rewrites `/api/*` requests to the address specified by `API_SERVER_URL`. Its default value is `http://127.0.0.1:4000`. As a result, the browser communicates through a single origin, and the refresh cookie is sent through the same path.
+The browser sends `/api/*` requests through the Next.js same-origin rewrite. `API_SERVER_URL` in `client/.env.local` controls the internal API destination.
 
-## Root Scripts
+---
 
-| Command                | Purpose                                        |
-| ---------------------- | ---------------------------------------------- |
-| `npm run dev`          | Start the server and client simultaneously     |
-| `npm run dev:server`   | Start the API in watch mode                    |
-| `npm run dev:client`   | Start Next.js in development mode              |
-| `npm run typecheck`    | Run TypeScript checks for both workspaces      |
-| `npm run lint`         | Run ESLint for the client                      |
-| `npm run format`       | Format files with Prettier                     |
-| `npm run format:check` | Check whether file formatting is consistent    |
-| `npm run build`        | Create production builds for server and client |
-| `npm run start:server` | Build and start the production API             |
-| `npm run start:client` | Start the production Next.js build             |
+## 📜 Available Scripts
 
-To run the production version, first create the builds and then start the server and client in two separate terminals or processes:
+| Command                | Description                                     |
+| ---------------------- | ----------------------------------------------- |
+| `npm run dev`          | Start the client and server in development mode |
+| `npm run dev:client`   | Start only the Next.js client                   |
+| `npm run dev:server`   | Start only the Express API                      |
+| `npm run typecheck`    | Type-check both workspaces                      |
+| `npm run lint`         | Run the client ESLint configuration             |
+| `npm run format`       | Format the repository with Prettier             |
+| `npm run format:check` | Check formatting without changing files         |
+| `npm run build`        | Build the client and server                     |
+| `npm run start:client` | Start the production client build               |
+| `npm run start:server` | Build and start the production API              |
+
+For production:
 
 ```bash
 npm run build
 ```
 
-First terminal:
-
-```bash
-npm run start:server
-```
-
-Second terminal:
+Then run the client and server in separate processes:
 
 ```bash
 npm run start:client
+npm run start:server
 ```
 
-## Environment Variables
+---
 
-### Server
+## 🛣️ Main Routes
 
-The complete list of environment variables is available in `server/.env.example`. The most important variables are:
+### Web Application
 
-| Variable             | Description                                                        |
-| -------------------- | ------------------------------------------------------------------ |
-| `PORT`               | Express port; set to `4000` in the example file                    |
-| `MONGO_URI`          | MongoDB connection URI                                             |
-| `ACCESS_JWT_SECRET`  | Secret used to sign access tokens                                  |
-| `REFRESH_JWT_SECRET` | Separate secret used to sign refresh tokens                        |
-| `ACCESS_TOKEN_TTL`   | Access token lifetime in seconds; defaults to `900`                |
-| `REFRESH_TOKEN_TTL`  | Absolute refresh session lifetime in seconds; defaults to `604800` |
-| `JWT_ISSUER`         | JWT issuer                                                         |
-| `TRUST_PROXY_HOPS`   | Exact number of trusted proxy hops                                 |
-| `AUTH_*`             | Rate limit windows and limits for authentication routes            |
-| `CLOUDINARY_*`       | Optional configuration for file uploads                            |
-| `SUPER_ADMIN_EMAIL`  | Existing account promoted to the initial `super_admin` on startup  |
-| `AI_PROVIDER` / keys | AI provider and provider-specific model/API key settings           |
-| `SUPPORT_CHAT_*`     | Chat retention configuration                                       |
-| `CHAT_*`             | Chat and AI-suggestion rate limits                                 |
-| `BREVO_API_KEY`      | Brevo API key used by the official `@getbrevo/brevo` SDK           |
-| `BREVO_SENDER_EMAIL` | Transactional sender registered and verified in Brevo              |
-| `BREVO_SENDER_NAME`  | Display name used for outgoing transactional emails                |
-| `APP_URL`            | Public client URL used to build password-reset links               |
-| `CONTACT_*`          | Contact details, social links, reply text, and contact rate limits |
+| Route            | Access        | Description                          |
+| ---------------- | ------------- | ------------------------------------ |
+| `/`              | Public        | Landing page                         |
+| `/login`         | Public        | Sign in                              |
+| `/register`      | Public        | Create an account                    |
+| `/contact`       | Public        | Contact form and public information  |
+| `/dashboard`     | Authenticated | Task summary                         |
+| `/tasks`         | Authenticated | Personal task management             |
+| `/account`       | Authenticated | Profile, password, and sessions      |
+| `/admin/tasks`   | Staff         | Manage all tasks                     |
+| `/admin/users`   | Staff         | Manage users, roles, and bans        |
+| `/admin/support` | Staff         | Handle support conversations         |
+| `/admin/contact` | Staff         | Review and reply to contact messages |
 
-### Client
+### API
 
-| Variable         | Description                                                                                                      |
-| ---------------- | ---------------------------------------------------------------------------------------------------------------- |
-| `API_SERVER_URL` | Internal API address used by the Next.js rewrite; this is server-only and must not use the `NEXT_PUBLIC_` prefix |
+| Base Path  | Purpose                                                 |
+| ---------- | ------------------------------------------------------- |
+| `/auth`    | Authentication, profile, password, and sessions         |
+| `/tasks`   | Personal task CRUD, filters, and summaries |
+| `/admin`   | Administrative task and user management                 |
+| `/chat`    | Assistant conversations and staff support               |
+| `/contact` | Public submissions and staff replies                    |
 
-### Transactional Email
+Protected API requests use:
 
-Password-reset links and staff replies to contact submissions are sent with the official `@getbrevo/brevo` SDK. `BREVO_SENDER_EMAIL` must exactly match a sender registered and verified in the same Brevo account as `BREVO_API_KEY`. Restart the API after changing any email-related environment variable. Provider errors are recorded in the server log; the forgot-password endpoint deliberately returns a generic response whether or not an account exists.
-
-## Authentication Architecture
-
-After registration or login, the API generates two credentials:
-
-1. The `accessToken` is returned in the JSON response and is stored only in client memory. It is therefore not stored in `localStorage` or in a cookie that can be accessed through JavaScript.
-2. The `refreshToken` is stored in a cookie using the `HttpOnly` and `SameSite=Lax` options. In production, the cookie also uses the `Secure` option.
-
-The client sends the access token using the following header:
-
-```text
+```http
 Authorization: Bearer ACCESS_TOKEN
 ```
 
-After a page reload, the client uses the refresh cookie to request a new access token. Refresh operations use a single-flight mechanism so that two simultaneous requests do not consume the same single-use refresh token.
+Successful responses generally follow:
 
-Each login creates a separate document in the refresh sessions collection. Only a hash of the refresh token’s random identifier is stored in the database. Every successful refresh rotates the token. Reusing an old token is detected as a replay attack, and the entire related session family is invalidated. Session expiration is absolute and is not extended by refresh operations.
+```json
+{
+  "success": true,
+  "data": {}
+}
+```
 
-Access tokens are short-lived and inherently stateless. However, all protected routes verify not only the token signature but also that the session is active and that the user still exists in the database. As a result, logging out, logging out from all devices, deleting a user, or changing a user’s role immediately revokes access for the affected session without waiting for the access token to expire.
+Errors generally follow:
 
-## Roles
+```json
+{
+  "success": false,
+  "message": "Request failed"
+}
+```
 
-- `user`: Manage only their own profile, sessions, tasks, and chat history.
-- `admin`: Manage regular users, ban or unban regular users, access all tasks, and handle regular-user support conversations.
-- `super_admin`: All staff capabilities, plus promotion or demotion of admins, management of admin accounts, and support cases escalated by admins.
+---
 
-All `/admin/*` and staff-support routes re-read the current role from MongoDB. Role changes revoke the affected user’s active refresh sessions. An admin cannot manage another admin or a super admin, and nobody can ban or demote a super admin through the application.
+## 👑 Initial Super Administrator
 
-To bootstrap the first super administrator, register the account normally and set its email in `server/.env`:
+Register the account normally, then set its email in `server/.env`:
 
-```dotenv
+```env
 SUPER_ADMIN_EMAIL=owner@example.com
 ```
 
-The account is promoted on the next server startup. Further admin promotions and demotions are available only to a super admin.
+The matching account is promoted when the server starts. Additional role changes are available from the admin interface.
 
-## User Interface Routes
+---
 
-| Route               | Access               | Description                                             |
-| ------------------- | -------------------- | ------------------------------------------------------- |
-| `/`                 | Public               | Project landing page                                    |
-| `/login`            | Public               | Login                                                   |
-| `/register`         | Public               | Create an account                                       |
-| `/contact`          | Public               | Contact details, social links, and contact form         |
-| `/forgot-password`  | Public               | Request a password-reset email                          |
-| `/reset-password`   | Public               | Choose a new password using the emailed token           |
-| `/dashboard`        | Authenticated user   | Task overview and statistics                            |
-| `/tasks`            | Authenticated user   | List, filter, create, and edit personal tasks           |
-| `/account`          | Authenticated user   | Profile, password changes, and session management       |
-| `/admin/tasks`      | Admin or super admin | View, filter by owner, edit, and delete all tasks       |
-| `/admin/users`      | Admin or super admin | Manage users and bans; role changes require super admin |
-| `/admin/users/[id]` | Admin or super admin | View a user profile, statistics, and their tasks        |
-| `/admin/support`    | Admin or super admin | Claim, reply to, transfer, and close support chats      |
-| `/admin/contact`    | Admin or super admin | Review contact-form submissions and reply by email      |
+## 📌 Production Notes
 
-When a guest selects “View my tasks” or its German equivalent, “Meine Aufgaben ansehen,” they are redirected to the login page. Staff navigation is displayed only for users who have the `admin` or `super_admin` role. A floating assistant is available across the application; guests receive general AI help, while authenticated users also receive persistent history and human-support escalation according to their role.
-
-## API Documentation
-
-A complete list of endpoints, query parameters, request examples, session management behavior, and admin functionality is available in [server/README.md](server/README.md).
-
-## Production Notes
-
-- Use long, random, and different values for the two JWT secrets.
-- Set `NODE_ENV=production` so that the refresh cookie is sent only over HTTPS.
-- If Next.js is the only proxy in front of Express, `TRUST_PROXY_HOPS=1` is appropriate. For other architectures, specify the actual number of trusted proxy hops.
-- The current rate limiter uses in-memory storage. For multiple processes or servers, use a shared store such as Redis.
-- Deleting a user and their related data involves multiple separate operations. In production, when using a replica set, these operations should preferably run inside a transaction together with a retryable cleanup strategy for Cloudinary resources.
-- Protection against removing the final administrator is active for normal requests. However, guaranteeing this invariant across multiple instances and fully concurrent requests requires a database-level guard or distributed lock.
-- `npm audit` reports a moderate warning for the internal PostCSS dependency in Next.js `16.2.10`. Running `audit fix --force` downgrades Next.js to an older, incompatible version. Do not run it. Upgrade Next.js when a stable patched release becomes available.
-- Do not commit `.env` files, and keep the Cloudinary secret on the server only.
+- Use long, random, and different access and refresh JWT secrets.
+- Set `NODE_ENV=production` to enable secure refresh cookies.
+- Configure `TRUST_PROXY_HOPS` for the exact number of trusted proxies.
+- Use a shared rate-limit store such as Redis when running multiple API instances.
+- Verify the Brevo sender address before enabling transactional email.
+- Never commit `.env`, API keys, Cloudinary secrets, or database credentials.
+- Configure HTTPS and a production MongoDB deployment before exposing the application publicly.

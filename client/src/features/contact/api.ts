@@ -47,3 +47,23 @@ export const replyToContactRequest = async (
   );
   return data.contact;
 };
+
+export const getContactReplySuggestionsRequest = async (
+  id: string,
+): Promise<string[]> => {
+  const data = await apiRequest<{ suggestions: string[] }>(
+    `/contact/admin/${id}/suggestions`,
+  );
+  return data.suggestions;
+};
+
+export const rewriteContactReplyRequest = async (
+  id: string,
+  message: string,
+): Promise<string> => {
+  const data = await apiRequest<{ message: string }>(
+    `/contact/admin/${id}/rewrite`,
+    { method: "POST", json: { message } },
+  );
+  return data.message;
+};

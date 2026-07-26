@@ -19,11 +19,12 @@ import { useState, type ReactNode } from "react";
 import { toast } from "sonner";
 
 import { Logo } from "@/components/logo";
+import { UserAvatar } from "@/components/user-avatar";
 import { PreferencesControls } from "@/components/preferences-controls";
 import { Button, buttonClassName } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useAuth } from "@/features/auth/auth-provider";
-import { cn, initials } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 import { usePreferences } from "@/providers/preferences-provider";
 
 const copy = {
@@ -151,9 +152,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       </nav>
       <div className="border-t border-white/10 p-3">
         <div className="mb-2 flex items-center gap-3 rounded-2xl bg-white/7 p-3">
-          <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-[var(--highlight)] text-sm font-black text-[#171a18]">
-            {initials(user?.firstName, user?.lastName)}
-          </span>
+          <UserAvatar user={user} />
           <div className="min-w-0 flex-1" dir="auto">
             <p className="truncate text-sm font-bold text-white">
               {user?.firstName} {user?.lastName}
@@ -175,7 +174,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <div className="min-h-screen lg:grid lg:grid-cols-[19rem_minmax(0,1fr)]">
-      <aside className="fixed inset-y-3 left-3 z-30 hidden w-70 flex-col overflow-hidden rounded-[2rem] border border-white/8 bg-[#171a18] shadow-[0_24px_60px_rgba(23,26,24,.22)] lg:flex">
+      <aside className="fixed inset-y-3 left-3 z-30 hidden w-70 flex-col overflow-hidden rounded-[var(--container-radius)] border border-white/8 bg-[#171a18] shadow-[0_24px_60px_rgba(23,26,24,.22)] lg:flex">
         {desktopNav}
       </aside>
 
@@ -224,9 +223,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             )}
             <div className="mt-auto border-t border-white/10 p-3">
               <div className="mb-2 flex items-center gap-3 rounded-2xl bg-white/7 p-3">
-                <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-[var(--highlight)] text-sm font-black text-[#171a18]">
-                  {initials(user?.firstName, user?.lastName)}
-                </span>
+                <UserAvatar user={user} />
                 <div className="min-w-0 flex-1" dir="auto">
                   <p className="truncate text-sm font-bold text-white">
                     {user?.firstName} {user?.lastName}

@@ -7,10 +7,11 @@ import {
   Laptop,
   LogOut,
   MonitorSmartphone,
+  Pencil,
   Save,
   ShieldCheck,
   Smartphone,
-  UserRound,
+  Trash2,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
@@ -18,9 +19,11 @@ import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { UserAvatar } from "@/components/user-avatar";
 import { Card, Badge } from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Field, Input } from "@/components/ui/form-controls";
+import { PageHeading } from "@/components/ui/page-heading";
 import { ErrorState, LoadingState } from "@/components/ui/states";
 import {
   changePasswordRequest,
@@ -39,6 +42,7 @@ import {
 } from "@/features/auth/schemas";
 import { getErrorMessage } from "@/lib/api-error";
 import type { Locale } from "@/lib/preferences";
+import { prepareProfileImage } from "@/lib/profile-image";
 import type { RefreshSession } from "@/lib/types";
 import { getId } from "@/lib/utils";
 import { usePreferences } from "@/providers/preferences-provider";
@@ -88,6 +92,9 @@ interface AccountCopy {
   signOutAllDescription: string;
   closeSessionTitle: string;
   closeSessionDescription: string;
+  profileImage: string;
+  chooseImage: string;
+  removeImage: string;
 }
 
 const copy = {
@@ -100,21 +107,24 @@ const copy = {
     signedOutEverywhere: "You have been signed out on every device.",
     eyebrow: "Personal settings",
     title: "Account",
-    description: "Manage your profile, password, and devices connected to your account.",
+    description: "Manage your profile, password, and active sessions.",
     profileTitle: "Profile details",
-    profileDescription: "The name and email shown on your account",
+    profileDescription: "Your account details",
     firstName: "First name",
     lastName: "Last name",
     email: "Email",
+    profileImage: "Profile image",
+    chooseImage: "Choose image",
+    removeImage: "Remove image",
     saveChanges: "Save changes",
     passwordTitle: "Change password",
-    passwordDescription: "Confirm the change with your current password",
+    passwordDescription: "Use your current password",
     currentPassword: "Current password",
     newPassword: "New password",
     confirmPassword: "Confirm new password",
     changePassword: "Change password",
     sessionsTitle: "Active sessions",
-    sessionsDescription: "Devices that can keep your account signed in",
+    sessionsDescription: "Your signed-in devices",
     signOutOthers: "Sign out others",
     signOutAll: "Sign out everywhere",
     loadingSessions: "Loading sessions...",
@@ -147,22 +157,24 @@ const copy = {
     signedOutEverywhere: "Du wurdest auf allen Geräten abgemeldet.",
     eyebrow: "Persönliche Einstellungen",
     title: "Konto",
-    description:
-      "Verwalte dein Profil, Passwort und die mit deinem Konto verbundenen Geräte.",
+    description: "Verwalte dein Profil, Passwort und aktive Sitzungen.",
     profileTitle: "Profildaten",
-    profileDescription: "Name und E-Mail-Adresse deines Kontos",
+    profileDescription: "Deine Kontodaten",
     firstName: "Vorname",
     lastName: "Nachname",
     email: "E-Mail-Adresse",
+    profileImage: "Profilbild",
+    chooseImage: "Bild auswählen",
+    removeImage: "Bild entfernen",
     saveChanges: "Änderungen speichern",
     passwordTitle: "Passwort ändern",
-    passwordDescription: "Bestätige die Änderung mit deinem aktuellen Passwort",
+    passwordDescription: "Aktuelles Passwort verwenden",
     currentPassword: "Aktuelles Passwort",
     newPassword: "Neues Passwort",
     confirmPassword: "Neues Passwort bestätigen",
     changePassword: "Passwort ändern",
     sessionsTitle: "Aktive Sitzungen",
-    sessionsDescription: "Geräte, auf denen dein Konto angemeldet bleiben kann",
+    sessionsDescription: "Deine angemeldeten Geräte",
     signOutOthers: "Andere abmelden",
     signOutAll: "Überall abmelden",
     loadingSessions: "Sitzungen werden geladen...",
@@ -220,6 +232,13 @@ export function AccountView() {
   const [confirmOthers, setConfirmOthers] = useState(false);
   const [confirmAll, setConfirmAll] = useState(false);
   const [sessionToRevoke, setSessionToRevoke] = useState<RefreshSession | null>(null);
+  const [profileImage, setProfileImage] = useState<File | null>(null);
+  const [removeProfileImage, setRemoveProfileImage] = useState(false);
+  const [processingImage, setProcessingImage] = useState(false);
+  const profileImagePreview = useMemo(
+    () => (profileImage ? URL.createObjectURL(profileImage) : null),
+    [profileImage],
+  );
   const localizedProfileSchema = useMemo(() => createProfileSchema(locale), [locale]);
   const localizedPasswordSchema = useMemo(
     () => createPasswordChangeSchema(locale),
@@ -236,6 +255,13 @@ export function AccountView() {
     profileForm.clearErrors();
     passwordForm.clearErrors();
   }, [locale, profileForm, passwordForm]);
+
+  useEffect(
+    () => () => {
+      if (profileImagePreview) URL.revokeObjectURL(profileImagePreview);
+    },
+    [profileImagePreview],
+  );
 
   useEffect(() => {
     if (user) {
@@ -256,6 +282,8 @@ export function AccountView() {
     mutationFn: updateProfileRequest,
     onSuccess: (updatedUser) => {
       updateUser(updatedUser);
+      setProfileImage(null);
+      setRemoveProfileImage(false);
       toast.success(t.profileSaved);
     },
     onError: (error) => toast.error(getErrorMessage(error, locale)),
@@ -310,9 +338,16 @@ export function AccountView() {
     onError: (error) => toast.error(getErrorMessage(error, locale)),
   });
 
-  const submitProfile = profileForm.handleSubmit((values) =>
-    profileMutation.mutateAsync(values).then(() => undefined),
-  );
+  const profileHasChanges =
+    profileForm.formState.isDirty ||
+    Boolean(profileImage) ||
+    removeProfileImage;
+  const submitProfile = profileForm.handleSubmit((values) => {
+    if (!profileHasChanges) return;
+    return profileMutation
+      .mutateAsync({ ...values, profileImage, removeProfileImage })
+      .then(() => undefined);
+  });
   const submitPassword = passwordForm.handleSubmit((values) =>
     passwordMutation
       .mutateAsync({
@@ -324,26 +359,91 @@ export function AccountView() {
 
   return (
     <div>
-      <div>
-        <p className="text-sm font-bold text-indigo-600 dark:text-indigo-300">
-          {t.eyebrow}
-        </p>
-        <h1 className="mt-1 text-2xl font-black text-[var(--foreground)] sm:text-3xl">
-          {t.title}
-        </h1>
-        <p className="mt-2 text-sm text-[var(--muted)]">{t.description}</p>
-      </div>
+      <PageHeading eyebrow={t.eyebrow} title={t.title} description={t.description} />
 
-      <div className="mt-7 grid items-start gap-5 xl:grid-cols-2">
-        <Card className="p-5 sm:p-6">
-          <div className="flex items-center gap-3 border-b pb-4">
-            <span className="grid size-10 place-items-center rounded-xl bg-indigo-50 text-indigo-600 dark:bg-indigo-500/15 dark:text-indigo-300">
-              <UserRound className="size-5" />
-            </span>
-            <div>
-              <h2 className="font-black text-[var(--foreground)]">{t.profileTitle}</h2>
-              <p className="mt-0.5 text-xs text-[var(--muted)]">{t.profileDescription}</p>
+      <div className="mt-7 grid items-stretch gap-5 xl:grid-cols-2">
+        <Card className="h-full p-5 sm:p-6">
+          <div className="flex min-h-[4.5rem] items-center justify-between gap-3 border-b pb-4">
+            <div className="flex min-w-0 items-center gap-3">
+              <div className="relative shrink-0">
+                <UserAvatar
+                  user={user}
+                  className="size-14"
+                  imageSizes="56px"
+                  imageUrl={
+                    removeProfileImage ? null : (profileImagePreview ?? undefined)
+                  }
+                />
+                <label
+                  className={`focus-ring absolute -top-3 -right-3 grid size-11 cursor-pointer place-items-center rounded-full ${
+                    profileImage || processingImage
+                      ? "text-white"
+                      : "text-[var(--foreground)]"
+                  }`}
+                  title={t.chooseImage}
+                  aria-label={t.chooseImage}
+                >
+                  <span
+                    className={`grid size-7 place-items-center rounded-full border shadow-sm ${
+                    profileImage || processingImage
+                        ? "border-[var(--primary)] bg-[var(--primary)]"
+                        : "bg-[var(--surface)]"
+                    }`}
+                  >
+                    <Pencil className="size-3.5" />
+                  </span>
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    className="sr-only"
+                    disabled={processingImage}
+                    onChange={async (event) => {
+                      const selectedFile = event.target.files?.[0];
+                      if (!selectedFile) return;
+                      setProcessingImage(true);
+                      try {
+                        const preparedImage =
+                          await prepareProfileImage(selectedFile);
+                        setProfileImage(preparedImage);
+                        setRemoveProfileImage(false);
+                      } catch (error) {
+                        toast.error(
+                          error instanceof Error
+                            ? error.message
+                            : "The profile image could not be processed.",
+                        );
+                      } finally {
+                        setProcessingImage(false);
+                        event.target.value = "";
+                      }
+                    }}
+                  />
+                </label>
+              </div>
+              <div className="min-w-0">
+                <h2 className="truncate font-black text-[var(--foreground)]">
+                  {t.profileTitle}
+                </h2>
+                <p className="mt-0.5 truncate text-xs text-[var(--muted)]">
+                  {t.profileDescription}
+                </p>
+              </div>
             </div>
+            {!removeProfileImage && (user?.profileImage || profileImage) && (
+              <Button
+                type="button"
+                size="sm"
+                variant="danger"
+                className="min-h-11 shrink-0 rounded-full"
+                onClick={() => {
+                  setProfileImage(null);
+                  setRemoveProfileImage(Boolean(user?.profileImage));
+                }}
+              >
+                <Trash2 className="size-4" />
+                {t.removeImage}
+              </Button>
+            )}
           </div>
           <form onSubmit={submitProfile} className="mt-5 grid gap-3" noValidate>
             <div className="grid gap-3 sm:grid-cols-2">
@@ -377,15 +477,19 @@ export function AccountView() {
               />
             </Field>
             <div className="mt-2 flex justify-end">
-              <Button type="submit" loading={profileMutation.isPending}>
+              <Button
+                type="submit"
+                loading={profileMutation.isPending}
+                disabled={processingImage || !profileHasChanges}
+              >
                 <Save className="size-4" /> {t.saveChanges}
               </Button>
             </div>
           </form>
         </Card>
 
-        <Card className="p-5 sm:p-6">
-          <div className="flex items-center gap-3 border-b pb-4">
+        <Card className="h-full p-5 sm:p-6">
+          <div className="flex min-h-[4.5rem] items-center gap-3 border-b pb-4">
             <span className="grid size-10 place-items-center rounded-xl bg-amber-50 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300">
               <KeyRound className="size-5" />
             </span>

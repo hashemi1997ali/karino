@@ -1,10 +1,15 @@
 import type { RequestHandler } from "express";
 import mongoose from "mongoose";
 
+import {
+  generateEmailReplySuggestions,
+  rewriteEmailDraft,
+  type SupportTranscriptMessage,
+} from "#ai";
 import { ContactSubmission, User, type IContactSubmission } from "#models";
 import { contactListQuerySchema } from "#schemas";
 import { sendContactReplyEmail } from "#services";
-import { AppError } from "#utils";
+import { AppError, isSuperAdminRoles } from "#utils";
 
 const serializeContact = (contact: IContactSubmission & { _id: unknown }) => ({
   id: String(contact._id),
@@ -17,6 +22,7 @@ const serializeContact = (contact: IContactSubmission & { _id: unknown }) => ({
     id: String((message as typeof message & { _id?: unknown })._id ?? ""),
     sender: message.sender,
     senderName: message.senderName,
+    senderId: message.senderId ? String(message.senderId) : null,
     content: message.content,
     emailMessageId: message.emailMessageId,
     createdAt: message.createdAt,
@@ -78,6 +84,7 @@ export const createContact: RequestHandler = async (request, response) => {
       {
         sender: "visitor",
         senderName: `${firstName} ${lastName}`,
+        senderId: null,
         content: message,
         emailMessageId: null,
         createdAt: new Date(),
@@ -141,6 +148,7 @@ export const replyToContact: RequestHandler = async (request, response) => {
   contact.messages.push({
     sender: "staff",
     senderName: staffName,
+    senderId: staff._id,
     content: message,
     emailMessageId,
     createdAt: new Date(),
@@ -154,4 +162,55 @@ export const replyToContact: RequestHandler = async (request, response) => {
     message: "Reply sent by email",
     data: { contact: serializeContact(contact) },
   });
+};
+
+const getContactWritingContext = async (request: Parameters<RequestHandler>[0]) => {
+  const id = request.params.id;
+  if (typeof id !== "string" || !mongoose.isValidObjectId(id)) {
+    throw new AppError("Invalid contact message ID", 400);
+  }
+  const [contact, staff] = await Promise.all([
+    ContactSubmission.findById(id),
+    User.findById(request.user?.userId).select("firstName roles"),
+  ]);
+  if (!contact) throw new AppError("Contact message not found", 404);
+  if (!staff) throw new AppError("Support agent not found", 404);
+  const transcript: SupportTranscriptMessage[] = contact.messages.map((message) => ({
+    sender: message.sender === "visitor" ? "user" : "staff",
+    senderName: message.senderName,
+    content: message.content,
+  }));
+  return {
+    contact,
+    transcript,
+    context: {
+      roles: staff.roles,
+      authenticated: true,
+      locale: contact.locale,
+      staffName: staff.firstName,
+      staffRole: isSuperAdminRoles(staff.roles) ? ("super_admin" as const) : ("admin" as const),
+      customerRoles: [],
+    },
+  };
+};
+
+export const getContactReplySuggestions: RequestHandler = async (request, response) => {
+  const { contact, transcript, context } = await getContactWritingContext(request);
+  const suggestions = await generateEmailReplySuggestions(
+    transcript,
+    context,
+    contact.firstName,
+  );
+  response.status(200).json({ success: true, data: { suggestions } });
+};
+
+export const rewriteContactReply: RequestHandler = async (request, response) => {
+  const { contact, transcript, context } = await getContactWritingContext(request);
+  const message = await rewriteEmailDraft(
+    (request.body as { message: string }).message,
+    transcript,
+    context,
+    contact.firstName,
+  );
+  response.status(200).json({ success: true, data: { message } });
 };

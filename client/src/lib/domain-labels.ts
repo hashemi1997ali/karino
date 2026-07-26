@@ -24,14 +24,14 @@ const banReasonLabels: Record<Locale, Record<BanReason, string>> = {
 
 const roleLabels: Record<Locale, Record<UserRole, string>> = {
   en: {
-    user: "Regular user",
-    admin: "Administrator",
-    super_admin: "Super administrator",
+    user: "user",
+    admin: "admin",
+    super_admin: "super admin",
   },
   de: {
-    user: "Standardbenutzer",
-    admin: "Administrator",
-    super_admin: "Super-Administrator",
+    user: "user",
+    admin: "admin",
+    super_admin: "super admin",
   },
 };
 
@@ -61,31 +61,6 @@ const taskPriorityLabels: Record<Locale, Record<TaskPriority, string>> = {
   },
 };
 
-const assistantAgentLabels: Record<Locale, Record<string, string>> = {
-  en: {
-    "site-guide": "AI assistant",
-    "website-help": "Site guide",
-    welcome: "AI assistant",
-    account: "Account assistant",
-    staff: "Staff assistant",
-    offline: "AI assistant",
-    "account-helper": "Account assistant",
-    "support-triage": "Support assistant",
-    "staff-operations": "Staff assistant",
-  },
-  de: {
-    "site-guide": "KI-Assistent",
-    "website-help": "Website-Hilfe",
-    welcome: "KI-Assistent",
-    account: "Konto-Assistent",
-    staff: "Team-Assistent",
-    offline: "KI-Assistent",
-    "account-helper": "Konto-Assistent",
-    "support-triage": "Support-Assistent",
-    "staff-operations": "Team-Assistent",
-  },
-};
-
 export const getBanReasonLabel = (reason: BanReason, locale: Locale): string =>
   banReasonLabels[locale][reason];
 
@@ -98,5 +73,62 @@ export const getTaskStatusLabel = (status: TaskStatus, locale: Locale): string =
 export const getTaskPriorityLabel = (priority: TaskPriority, locale: Locale): string =>
   taskPriorityLabels[locale][priority];
 
-export const getAssistantAgentLabel = (agent: string, locale: Locale): string =>
-  assistantAgentLabels[locale][agent] ?? agent;
+export const getAssistantAgentLabel = (agent: string, locale: Locale): string => {
+  void agent;
+  void locale;
+  return "AI Assistant";
+};
+
+export const isInternalSupportTransferMessage = (content: string): boolean =>
+  /transferred this chat to a super support agent|an einen super-support-agenten/i.test(
+    content,
+  );
+
+export const getLocalizedSupportSystemMessage = (
+  content: string,
+  locale: Locale,
+): string => {
+  const normalized = content.toLowerCase();
+  const name = content.trim().split(/\s+/)[0] || "Support";
+  if (/waiting.*super|wartet.*super/.test(normalized)) {
+    return locale === "de"
+      ? "Dieser Chat wartet auf einen Super-Support-Agenten."
+      : "This chat is waiting for a Super Support Agent.";
+  }
+  if (/waiting.*support|wartet.*support/.test(normalized)) {
+    return locale === "de"
+      ? "Dieser Chat wartet auf einen Human-Support-Agenten."
+      : "This chat is waiting for a Human Support Agent.";
+  }
+  if (/the user ended|benutzer.*beendet/.test(normalized)) {
+    return locale === "de"
+      ? "Der Benutzer hat diesen Chat beendet."
+      : "The user ended this chat.";
+  }
+  if (/ended automatically|automatisch beendet/.test(normalized)) {
+    return locale === "de"
+      ? "Dieser Chat wurde automatisch beendet, weil längere Zeit keine Antwort eingegangen ist. Du kannst jederzeit einen neuen Chat starten."
+      : "This chat was ended automatically because no reply was received for a while. You can start a new chat at any time.";
+  }
+  if (/transferred|übertragen|uebertragen/.test(normalized)) {
+    return locale === "de"
+      ? `${name} hat diesen Chat an einen Super-Support-Agenten übertragen.`
+      : `${name} transferred this chat to a Super Support Agent.`;
+  }
+  if (/joined|accepted|beigetreten|angenommen/.test(normalized)) {
+    return locale === "de"
+      ? `${name} ist diesem Support-Chat beigetreten.`
+      : `${name} joined this support chat.`;
+  }
+  if (/left this support chat|support-chat verlassen/.test(normalized)) {
+    return locale === "de"
+      ? `${name} hat diesen Support-Chat verlassen.`
+      : `${name} left this support chat.`;
+  }
+  if (/ended this support chat|support-chat beendet/.test(normalized)) {
+    return locale === "de"
+      ? `${name} hat diesen Support-Chat beendet.`
+      : `${name} ended this support chat.`;
+  }
+  return content;
+};

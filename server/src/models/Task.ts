@@ -6,13 +6,6 @@ export const TASK_PRIORITIES = ["low", "medium", "high"] as const;
 export type TaskStatus = (typeof TASK_STATUSES)[number];
 export type TaskPriority = (typeof TASK_PRIORITIES)[number];
 
-export interface TaskAttachment {
-  url: string;
-  publicId: string;
-  originalName: string;
-  resourceType: string;
-}
-
 export interface ITask {
   title: string;
   description: string;
@@ -20,21 +13,10 @@ export interface ITask {
   priority: TaskPriority;
   dueDate?: Date | null;
   completedAt?: Date | null;
-  attachment?: TaskAttachment | null;
   owner: Types.ObjectId;
   createdAt: Date;
   updatedAt: Date;
 }
-
-const attachmentSchema = new Schema<TaskAttachment>(
-  {
-    url: { type: String, required: true },
-    publicId: { type: String, required: true },
-    originalName: { type: String, required: true },
-    resourceType: { type: String, required: true },
-  },
-  { _id: false },
-);
 
 const taskSchema = new Schema<ITask>(
   {
@@ -70,10 +52,6 @@ const taskSchema = new Schema<ITask>(
     },
     completedAt: {
       type: Date,
-      default: null,
-    },
-    attachment: {
-      type: attachmentSchema,
       default: null,
     },
     owner: {

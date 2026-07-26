@@ -19,6 +19,10 @@ export const contactReplySchema = z
   .object({ message: z.string().trim().min(1).max(5000) })
   .strict();
 
+export const contactReplyRewriteSchema = z
+  .object({ message: z.string().trim().min(1).max(5000) })
+  .strict();
+
 export const contactListQuerySchema = z
   .object({
     status: z.enum(CONTACT_STATUSES).optional(),

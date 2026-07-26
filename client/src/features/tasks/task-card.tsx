@@ -6,14 +6,12 @@ import {
   Circle,
   Clock3,
   Edit3,
-  ExternalLink,
   LoaderCircle,
-  Paperclip,
   Trash2,
-  UserRound,
 } from "lucide-react";
 
 import { Badge, Card } from "@/components/ui/card";
+import { UserAvatar } from "@/components/user-avatar";
 import type { Task, TaskPriority, TaskStatus } from "@/lib/types";
 import { cn, formatDateTime, getId } from "@/lib/utils";
 import { usePreferences } from "@/providers/preferences-provider";
@@ -236,7 +234,7 @@ export function TaskCard({
         )}
         {showOwner && owner && (
           <div className="flex min-w-0 items-start gap-2">
-            <UserRound className="mt-0.5 size-4 shrink-0" />
+            <UserAvatar user={owner} className="size-8 text-[10px]" imageSizes="32px" />
             <div className="min-w-0">
               <p className="truncate font-bold text-[var(--foreground)]" dir="auto">
                 {owner.firstName} {owner.lastName}
@@ -246,20 +244,6 @@ export function TaskCard({
               </p>
             </div>
           </div>
-        )}
-        {task.attachment && (
-          <a
-            href={task.attachment.url}
-            target="_blank"
-            rel="noreferrer"
-            className="focus-ring flex items-center gap-2 rounded text-[var(--primary)] hover:underline"
-          >
-            <Paperclip className="size-4" />
-            <span className="max-w-48 truncate" dir="auto">
-              {task.attachment.originalName}
-            </span>
-            <ExternalLink className="size-3" />
-          </a>
         )}
       </div>
       <span className="sr-only">

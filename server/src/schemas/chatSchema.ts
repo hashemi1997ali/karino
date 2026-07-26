@@ -45,6 +45,12 @@ export const supportMessageSchema = z
   })
   .strict();
 
+export const rewriteSupportMessageSchema = z
+  .object({
+    message: contentSchema,
+  })
+  .strict();
+
 export const rateChatSchema = z
   .object({
     score: z.number().int().min(1).max(5),

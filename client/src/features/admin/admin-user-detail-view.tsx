@@ -3,32 +3,42 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowLeft,
+  Ban,
   Calendar,
   CheckSquare2,
-  ExternalLink,
+  Edit3,
   Monitor,
   Pencil,
+  RotateCcw,
   ShieldCheck,
   Trash2,
-  UserRound,
 } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { UserAvatar } from "@/components/user-avatar";
 import { Badge, Card } from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Dialog } from "@/components/ui/dialog";
 import { ErrorState, LoadingState } from "@/components/ui/states";
 import {
-  deleteUserTaskAttachmentRequest,
+  banUserRequest,
   deleteUserTaskRequest,
   getUserRequest,
   getUserTasksRequest,
+  setAdminRoleRequest,
+  unbanUserRequest,
+  updateUserRequest,
   updateUserTaskRequest,
 } from "@/features/admin/api";
+import {
+  BanUserDialog,
+  EditUserDialog,
+} from "@/features/admin/admin-users-view";
 import { useAuth } from "@/features/auth/auth-provider";
+import type { ProfileFormValues } from "@/features/auth/schemas";
 import { TaskForm } from "@/features/tasks/task-form";
 import { getErrorMessage } from "@/lib/api-error";
 import {
@@ -37,7 +47,7 @@ import {
   getTaskStatusLabel,
   getUserRoleLabel,
 } from "@/lib/domain-labels";
-import type { Task } from "@/lib/types";
+import type { BanReason, Task, User } from "@/lib/types";
 import { getId } from "@/lib/utils";
 import { usePreferences } from "@/providers/preferences-provider";
 
@@ -61,13 +71,18 @@ const copy = {
     completed: "Completed",
     created: "Created",
     updated: "Updated",
-    attachment: "Attachment",
     edit: "Edit task",
     delete: "Delete task",
     deleteTitle: "Delete this user's task?",
     deleteDescription: "This action permanently deletes the selected task.",
     saved: "Task updated.",
     deleted: "Task deleted.",
+    editUser: "Edit profile",
+    banUser: "Ban user",
+    unbanUser: "Unban user",
+    userSaved: "User details saved.",
+    bannedDone: "The account was banned.",
+    unbannedDone: "The account was unbanned.",
   },
   de: {
     back: "Zurück zu Benutzern",
@@ -88,23 +103,31 @@ const copy = {
     completed: "Erledigt",
     created: "Erstellt",
     updated: "Aktualisiert",
-    attachment: "Anhang",
     edit: "Aufgabe bearbeiten",
     delete: "Aufgabe löschen",
     deleteTitle: "Diese Benutzeraufgabe löschen?",
     deleteDescription: "Die ausgewählte Aufgabe wird dauerhaft gelöscht.",
     saved: "Aufgabe aktualisiert.",
     deleted: "Aufgabe gelöscht.",
+    editUser: "Profil bearbeiten",
+    banUser: "Benutzer sperren",
+    unbanUser: "Sperre aufheben",
+    userSaved: "Benutzerdaten gespeichert.",
+    bannedDone: "Das Konto wurde gesperrt.",
+    unbannedDone: "Die Sperre wurde aufgehoben.",
   },
 } as const;
 
 export function AdminUserDetailView({ userId }: { userId: string }) {
   const { locale, intlLocale } = usePreferences();
   const t = copy[locale];
-  const { isSuperAdmin } = useAuth();
+  const { user: currentUser, isSuperAdmin, updateUser: updateCurrentUser } = useAuth();
   const queryClient = useQueryClient();
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [deletingTask, setDeletingTask] = useState<Task | null>(null);
+  const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [banningUser, setBanningUser] = useState<User | null>(null);
+  const [unbanningUser, setUnbanningUser] = useState<User | null>(null);
 
   const userQuery = useQuery({
     queryKey: ["admin", "user", userId],
@@ -116,22 +139,17 @@ export function AdminUserDetailView({ userId }: { userId: string }) {
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ taskId, formData }: { taskId: string; formData: FormData }) =>
-      updateUserTaskRequest(userId, taskId, formData),
+    mutationFn: ({
+      taskId,
+      values,
+    }: {
+      taskId: string;
+      values: import("@/features/tasks/api").TaskMutationValues;
+    }) => updateUserTaskRequest(userId, taskId, values),
     onSuccess: async () => {
       setEditingTask(null);
       toast.success(t.saved);
       await queryClient.invalidateQueries({ queryKey: ["admin", "user", userId] });
-    },
-    onError: (error) => toast.error(getErrorMessage(error, locale)),
-  });
-  const removeAttachmentMutation = useMutation({
-    mutationFn: (taskId: string) => deleteUserTaskAttachmentRequest(userId, taskId),
-    onSuccess: async (task) => {
-      setEditingTask(task);
-      await queryClient.invalidateQueries({
-        queryKey: ["admin", "user", userId, "tasks"],
-      });
     },
     onError: (error) => toast.error(getErrorMessage(error, locale)),
   });
@@ -140,6 +158,49 @@ export function AdminUserDetailView({ userId }: { userId: string }) {
     onSuccess: async () => {
       setDeletingTask(null);
       toast.success(t.deleted);
+      await queryClient.invalidateQueries({ queryKey: ["admin", "user", userId] });
+    },
+    onError: (error) => toast.error(getErrorMessage(error, locale)),
+  });
+  const editUserMutation = useMutation({
+    mutationFn: async ({
+      user,
+      values,
+      isAdmin,
+    }: {
+      user: User;
+      values: ProfileFormValues;
+      isAdmin: boolean | null;
+    }) => {
+      let updated = await updateUserRequest(getId(user), values);
+      if (isAdmin !== null) updated = await setAdminRoleRequest(getId(user), isAdmin);
+      return updated;
+    },
+    onSuccess: async (updated) => {
+      if (currentUser && getId(currentUser) === getId(updated)) {
+        updateCurrentUser(updated);
+      }
+      setEditingUser(null);
+      toast.success(t.userSaved);
+      await queryClient.invalidateQueries({ queryKey: ["admin", "user", userId] });
+    },
+    onError: (error) => toast.error(getErrorMessage(error, locale)),
+  });
+  const banMutation = useMutation({
+    mutationFn: ({ user, reason }: { user: User; reason: BanReason }) =>
+      banUserRequest(getId(user), reason),
+    onSuccess: async () => {
+      setBanningUser(null);
+      toast.success(t.bannedDone);
+      await queryClient.invalidateQueries({ queryKey: ["admin", "user", userId] });
+    },
+    onError: (error) => toast.error(getErrorMessage(error, locale)),
+  });
+  const unbanMutation = useMutation({
+    mutationFn: (user: User) => unbanUserRequest(getId(user)),
+    onSuccess: async () => {
+      setUnbanningUser(null);
+      toast.success(t.unbannedDone);
       await queryClient.invalidateQueries({ queryKey: ["admin", "user", userId] });
     },
     onError: (error) => toast.error(getErrorMessage(error, locale)),
@@ -155,6 +216,12 @@ export function AdminUserDetailView({ userId }: { userId: string }) {
   }
 
   const { user, stats } = userQuery.data;
+  const self = currentUser ? getId(currentUser) === getId(user) : false;
+  const targetSuperAdmin = user.roles.includes("super_admin");
+  const targetAdmin = user.roles.includes("admin");
+  const mayManageUser = self || (!targetAdmin && !targetSuperAdmin) || isSuperAdmin;
+  const mayBanUser = !self && !targetSuperAdmin && (!targetAdmin || isSuperAdmin);
+  const canChangeAdminRole = isSuperAdmin && !self && !targetSuperAdmin;
   const tasks = tasksQuery.data?.tasks ?? [];
   const formatDate = (value: string | null) =>
     value
@@ -176,9 +243,7 @@ export function AdminUserDetailView({ userId }: { userId: string }) {
 
       <div className="mt-6 grid min-w-0 gap-5 xl:grid-cols-[20rem_minmax(0,1fr)]">
         <Card className="h-fit p-5">
-          <span className="grid size-16 place-items-center rounded-2xl bg-[var(--primary-soft)] text-[var(--primary-dark)]">
-            <UserRound className="size-7" />
-          </span>
+          <UserAvatar user={user} className="size-16" imageSizes="64px" />
           <p className="mt-4 text-xs font-black tracking-[.12em] text-[var(--primary)] uppercase">
             {t.profile}
           </p>
@@ -191,6 +256,38 @@ export function AdminUserDetailView({ userId }: { userId: string }) {
               <Badge key={role}>{getUserRoleLabel(role, locale)}</Badge>
             ))}
           </div>
+          {mayManageUser && (
+            <div className="mt-4 grid gap-2">
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => setEditingUser(user)}
+              >
+                <Edit3 className="size-4" />
+                {t.editUser}
+              </Button>
+              {mayBanUser &&
+                (user.ban?.isBanned ? (
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => setUnbanningUser(user)}
+                  >
+                    <RotateCcw className="size-4" />
+                    {t.unbanUser}
+                  </Button>
+                ) : (
+                  <Button
+                    variant="danger"
+                    size="sm"
+                    onClick={() => setBanningUser(user)}
+                  >
+                    <Ban className="size-4" />
+                    {t.banUser}
+                  </Button>
+                ))}
+            </div>
+          )}
           <dl className="mt-6 space-y-4 text-sm">
             <div className="flex items-center justify-between gap-3">
               <dt className="flex items-center gap-2 text-[var(--muted)]">
@@ -315,19 +412,6 @@ export function AdminUserDetailView({ userId }: { userId: string }) {
                         </div>
                       )}
                     </dl>
-                    {task.attachment && (
-                      <a
-                        href={task.attachment.url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="focus-ring mt-4 flex items-center gap-2 rounded-xl border p-2 text-xs font-bold hover:border-[var(--primary)]"
-                      >
-                        <ExternalLink className="size-4" />
-                        <span className="min-w-0 flex-1 truncate">
-                          {task.attachment.originalName}
-                        </span>
-                      </a>
-                    )}
                     {isSuperAdmin && (
                       <div className="mt-4 grid gap-2 border-t pt-3 2xl:grid-cols-2">
                         <Button
@@ -366,11 +450,9 @@ export function AdminUserDetailView({ userId }: { userId: string }) {
             key={`${getId(editingTask)}-${editingTask.updatedAt}`}
             task={editingTask}
             loading={updateMutation.isPending}
-            removingAttachment={removeAttachmentMutation.isPending}
-            onSubmit={(formData) =>
-              updateMutation.mutate({ taskId: getId(editingTask), formData })
+            onSubmit={(values) =>
+              updateMutation.mutate({ taskId: getId(editingTask), values })
             }
-            onRemoveAttachment={() => removeAttachmentMutation.mutate(getId(editingTask))}
           />
         )}
       </Dialog>
@@ -385,6 +467,45 @@ export function AdminUserDetailView({ userId }: { userId: string }) {
         onConfirm={() => {
           if (deletingTask) deleteMutation.mutate(getId(deletingTask));
         }}
+      />
+      <EditUserDialog
+        key={editingUser ? getId(editingUser) : "closed-user-edit"}
+        user={editingUser}
+        loading={editUserMutation.isPending}
+        canChangeAdminRole={canChangeAdminRole}
+        onClose={() => setEditingUser(null)}
+        onSave={(values, isAdmin) =>
+          editingUser
+            ? editUserMutation
+                .mutateAsync({ user: editingUser, values, isAdmin })
+                .then(() => undefined)
+            : Promise.resolve()
+        }
+      />
+      <BanUserDialog
+        key={banningUser ? getId(banningUser) : "closed-user-ban"}
+        user={banningUser}
+        loading={banMutation.isPending}
+        onClose={() => setBanningUser(null)}
+        onBan={(reason) =>
+          banningUser
+            ? banMutation
+                .mutateAsync({ user: banningUser, reason })
+                .then(() => undefined)
+            : Promise.resolve()
+        }
+      />
+      <ConfirmDialog
+        open={Boolean(unbanningUser)}
+        onOpenChange={(open) => !open && setUnbanningUser(null)}
+        title={t.unbanUser}
+        description={t.unbannedDone}
+        loading={unbanMutation.isPending}
+        onConfirm={() =>
+          unbanningUser
+            ? unbanMutation.mutateAsync(unbanningUser).then(() => undefined)
+            : undefined
+        }
       />
     </div>
   );

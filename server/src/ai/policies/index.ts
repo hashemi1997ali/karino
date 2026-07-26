@@ -43,7 +43,7 @@ const GUEST_HELP_TOPICS = [
 const USER_HELP_TOPICS = [
   "Dashboard shows total, in-progress, completed, and overdue task counts, upcoming tasks, and overall progress",
   "My tasks lets the user create, search, filter, edit, update the status of, and delete only their own tasks",
-  "A task supports title, description, status, priority, due date, and an optional JPG, PNG, WEBP, PDF, or TXT attachment up to 5 MB",
+  "A task supports title, description, status, priority, and due date",
   "Account lets the user edit their first name, last name, and email, change their password, and view or revoke active sessions",
   "Active assistant chats are stored temporarily for context; after ending, only conversations that reached human support are retained",
 ];

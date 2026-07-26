@@ -23,6 +23,14 @@ export interface TaskListResult {
   pagination: Pagination;
 }
 
+export interface TaskMutationValues {
+  title?: string;
+  description?: string;
+  status?: TaskStatus;
+  priority?: TaskPriority;
+  dueDate?: string | null;
+}
+
 const toQuery = (filters: TaskFilters): string => {
   const query = new URLSearchParams();
   query.set("page", String(filters.page));
@@ -64,22 +72,22 @@ export const getTaskSummaryRequest = async (): Promise<TaskSummary> => {
   return data.summary;
 };
 
-export const createTaskRequest = async (formData: FormData): Promise<Task> => {
+export const createTaskRequest = async (values: TaskMutationValues): Promise<Task> => {
   const data = await apiRequest<{ task: Task }>("/tasks", {
     method: "POST",
-    body: formData,
+    json: values,
   });
   return data.task;
 };
 
 export const updateTaskRequest = async (
   id: string,
-  formData: FormData,
+  values: TaskMutationValues,
   admin = false,
 ): Promise<Task> => {
   const data = await apiRequest<{ task: Task }>(
     `${admin ? "/admin/tasks" : "/tasks"}/${id}`,
-    { method: "PATCH", body: formData },
+    { method: "PATCH", json: values },
   );
   return data.task;
 };
@@ -88,14 +96,3 @@ export const deleteTaskRequest = (id: string, admin = false): Promise<void> =>
   apiRequest<void>(`${admin ? "/admin/tasks" : "/tasks"}/${id}`, {
     method: "DELETE",
   });
-
-export const deleteTaskAttachmentRequest = async (
-  id: string,
-  admin = false,
-): Promise<Task> => {
-  const data = await apiRequest<{ task: Task }>(
-    `${admin ? "/admin/tasks" : "/tasks"}/${id}/attachment`,
-    { method: "DELETE" },
-  );
-  return data.task;
-};

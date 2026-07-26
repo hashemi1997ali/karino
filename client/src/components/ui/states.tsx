@@ -29,7 +29,7 @@ export function EmptyState({
   action?: React.ReactNode;
 }) {
   return (
-    <div className="grid min-h-56 place-items-center rounded-[1.6rem] border border-dashed bg-[color-mix(in_srgb,var(--surface)_75%,transparent)] p-8 text-center">
+    <div className="grid min-h-56 place-items-center rounded-[var(--container-radius)] border border-dashed bg-[color-mix(in_srgb,var(--surface)_75%,transparent)] p-8 text-center">
       <div className="grid max-w-sm justify-items-center gap-3">
         <span className="grid size-12 place-items-center rounded-2xl bg-[var(--primary-soft)] text-[var(--primary)]">
           <Inbox className="size-6" />

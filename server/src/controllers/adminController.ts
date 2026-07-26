@@ -11,7 +11,10 @@ import {
   type IUser,
   User,
 } from "#models";
-import { deleteAttachmentFromCloudinary, uploadAttachment } from "#middlewares";
+import {
+  deleteProfileImageFromCloudinary,
+  uploadProfileImage,
+} from "#middlewares";
 import {
   banUser,
   getLiveBanSessionIps,
@@ -56,6 +59,7 @@ const serializeUser = (
     lastName: string;
     email: string;
     roles: string[];
+    profileImage?: { url: string; publicId: string } | null;
     createdAt: Date;
     updatedAt: Date;
     ban?: IUser["ban"];
@@ -67,6 +71,7 @@ const serializeUser = (
   lastName: user.lastName,
   email: user.email,
   roles: user.roles,
+  profileImage: user.profileImage ?? null,
   createdAt: user.createdAt,
   updatedAt: user.updatedAt,
   ban: user.ban
@@ -87,34 +92,6 @@ const createPagination = (total: number, page: number, limit: number) => ({
   hasNextPage: page * limit < total,
   hasPreviousPage: page > 1,
 });
-
-const createAttachment = async (file: Express.Multer.File | undefined) => {
-  if (!file) {
-    return undefined;
-  }
-
-  const result = await uploadAttachment(file);
-
-  return {
-    url: result.secure_url,
-    publicId: result.public_id,
-    originalName: file.originalname,
-    resourceType: result.resource_type,
-  };
-};
-
-const deleteAttachmentSafely = async (
-  publicId: string,
-  resourceType: string,
-): Promise<boolean> => {
-  try {
-    await deleteAttachmentFromCloudinary(publicId, resourceType);
-    return true;
-  } catch (error) {
-    console.error(`Failed to delete Cloudinary attachment ${publicId}:`, error);
-    return false;
-  }
-};
 
 export const getAdminTasks: RequestHandler = async (request, response) => {
   const query = adminTaskQuerySchema.parse(request.query);
@@ -142,7 +119,7 @@ export const getAdminTasks: RequestHandler = async (request, response) => {
 
   const [tasks, total] = await Promise.all([
     Task.find(filter)
-      .populate("owner", "firstName lastName email roles")
+      .populate("owner", "firstName lastName email roles profileImage")
       .sort({ [query.sortBy]: order, _id: order })
       .skip(skip)
       .limit(query.limit),
@@ -196,7 +173,7 @@ export const getAdminTaskById: RequestHandler = async (request, response) => {
   const task = await Task.findOne({
     _id: taskId,
     ...(ownerId && { owner: ownerId }),
-  }).populate("owner", "firstName lastName email roles");
+  }).populate("owner", "firstName lastName email roles profileImage");
 
   if (!task) {
     throw new AppError("Task not found", 404);
@@ -209,8 +186,8 @@ export const updateAdminTask: RequestHandler = async (request, response) => {
   const taskId = validateObjectId(request.params.taskId ?? request.params.id, "task");
   const ownerId = validateObjectId(request.params.userId, "user");
 
-  if (Object.keys(request.body).length === 0 && !request.file) {
-    throw new AppError("At least one task field or an attachment must be provided", 400);
+  if (Object.keys(request.body).length === 0) {
+    throw new AppError("At least one task field must be provided", 400);
   }
 
   const task = await Task.findOne({ _id: taskId, owner: ownerId });
@@ -219,33 +196,11 @@ export const updateAdminTask: RequestHandler = async (request, response) => {
     throw new AppError("Task not found", 404);
   }
 
-  const newAttachment = await createAttachment(request.file);
-  const oldAttachment = task.attachment;
-
   applyTaskStatusTransition(task, request.body.status);
   Object.assign(task, request.body);
+  await task.save();
 
-  if (newAttachment) {
-    task.attachment = newAttachment;
-  }
-
-  try {
-    await task.save();
-  } catch (error) {
-    if (newAttachment) {
-      await deleteAttachmentSafely(newAttachment.publicId, newAttachment.resourceType);
-    }
-
-    throw error;
-  }
-
-  // From this point the database references the new file. Cleanup failures
-  // must not remove it or roll back an already-persisted task update.
-  if (newAttachment && oldAttachment) {
-    await deleteAttachmentSafely(oldAttachment.publicId, oldAttachment.resourceType);
-  }
-
-  await task.populate("owner", "firstName lastName email roles");
+  await task.populate("owner", "firstName lastName email roles profileImage");
 
   response.status(200).json({
     success: true,
@@ -263,50 +218,9 @@ export const deleteAdminTask: RequestHandler = async (request, response) => {
     throw new AppError("Task not found", 404);
   }
 
-  let attachmentCleanupFailed = false;
-
-  if (task.attachment) {
-    attachmentCleanupFailed = !(await deleteAttachmentSafely(
-      task.attachment.publicId,
-      task.attachment.resourceType,
-    ));
-  }
-
   response.status(200).json({
     success: true,
     message: "Task deleted successfully",
-    data: { attachmentCleanupFailed },
-  });
-};
-
-export const deleteAdminTaskAttachment: RequestHandler = async (request, response) => {
-  const taskId = validateObjectId(request.params.taskId ?? request.params.id, "task");
-  const ownerId = validateObjectId(request.params.userId, "user");
-  const task = await Task.findOne({ _id: taskId, owner: ownerId });
-
-  if (!task) {
-    throw new AppError("Task not found", 404);
-  }
-
-  if (!task.attachment) {
-    throw new AppError("Task does not have an attachment", 404);
-  }
-
-  const attachment = task.attachment;
-  task.attachment = null;
-  await task.save();
-
-  const attachmentCleanupFailed = !(await deleteAttachmentSafely(
-    attachment.publicId,
-    attachment.resourceType,
-  ));
-
-  await task.populate("owner", "firstName lastName email roles");
-
-  response.status(200).json({
-    success: true,
-    message: "Attachment deleted successfully",
-    data: { task, attachmentCleanupFailed },
   });
 };
 
@@ -447,6 +361,11 @@ export const updateAdminUser: RequestHandler = async (request, response) => {
     }
   }
 
+  const uploadedImage = request.file
+    ? await uploadProfileImage(request.file)
+    : null;
+  const previousImage = user.profileImage;
+
   if (firstName !== undefined) {
     user.firstName = firstName;
   }
@@ -456,11 +375,22 @@ export const updateAdminUser: RequestHandler = async (request, response) => {
   if (email !== undefined) {
     user.email = email;
   }
+  if (uploadedImage) {
+    user.profileImage = {
+      url: uploadedImage.secure_url,
+      publicId: uploadedImage.public_id,
+    };
+  }
 
   try {
     await user.save();
     if (emailChanged) await PasswordReset.deleteMany({ user: user._id });
   } catch (error) {
+    if (uploadedImage) {
+      await deleteProfileImageFromCloudinary(uploadedImage.public_id).catch(
+        () => undefined,
+      );
+    }
     if (
       typeof error === "object" &&
       error !== null &&
@@ -471,6 +401,11 @@ export const updateAdminUser: RequestHandler = async (request, response) => {
     }
 
     throw error;
+  }
+  if (uploadedImage && previousImage) {
+    await deleteProfileImageFromCloudinary(previousImage.publicId).catch(
+      () => undefined,
+    );
   }
 
   response.status(200).json({
@@ -575,9 +510,6 @@ export const deleteAdminUser: RequestHandler = async (request, response) => {
     throw new AppError("You do not have permission to delete this account", 403);
   }
 
-  const tasks = await Task.find({ owner: user._id }).select("attachment");
-  const attachments = tasks.flatMap((task) => (task.attachment ? [task.attachment] : []));
-
   await RefreshSession.updateMany(
     { user: user._id, revokedAt: null },
     {
@@ -594,18 +526,10 @@ export const deleteAdminUser: RequestHandler = async (request, response) => {
   const chatDeleteResult = await SupportChat.deleteMany({ user: user._id });
   await User.deleteOne({ _id: user._id });
 
-  const cleanupResults = await Promise.allSettled(
-    attachments.map((attachment) =>
-      deleteAttachmentFromCloudinary(attachment.publicId, attachment.resourceType),
-    ),
-  );
-  const attachmentCleanupFailures = cleanupResults.filter(
-    (result) => result.status === "rejected",
-  ).length;
-
-  if (attachmentCleanupFailures > 0) {
-    console.error(
-      `Failed to delete ${attachmentCleanupFailures} Cloudinary attachment(s) for deleted user ${userId}`,
+  if (user.profileImage) {
+    await deleteProfileImageFromCloudinary(user.profileImage.publicId).catch(
+      (error) =>
+        console.error(`Failed to delete profile image for user ${userId}:`, error),
     );
   }
 
@@ -615,7 +539,6 @@ export const deleteAdminUser: RequestHandler = async (request, response) => {
     data: {
       deletedTaskCount: taskDeleteResult.deletedCount,
       deletedChatCount: chatDeleteResult.deletedCount,
-      attachmentCleanupFailures,
     },
   });
 };

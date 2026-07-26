@@ -48,11 +48,22 @@ export const getUserRequest = (id: string): Promise<AdminUserDetail> =>
 
 export const updateUserRequest = async (
   id: string,
-  values: { firstName: string; lastName: string; email: string },
+  values: {
+    firstName: string;
+    lastName: string;
+    email: string;
+    profileImage?: File | null;
+  },
 ): Promise<User> => {
+  const formData = new FormData();
+  formData.set("firstName", values.firstName);
+  formData.set("lastName", values.lastName);
+  formData.set("email", values.email);
+  if (values.profileImage) formData.set("profileImage", values.profileImage);
+
   const data = await apiRequest<{ user: User }>(`/admin/users/${id}`, {
     method: "PATCH",
-    json: values,
+    body: formData,
   });
   return data.user;
 };
@@ -96,25 +107,14 @@ export const getUserTasksRequest = async (
 export const updateUserTaskRequest = async (
   userId: string,
   taskId: string,
-  formData: FormData,
+  values: import("@/features/tasks/api").TaskMutationValues,
 ): Promise<import("@/lib/types").Task> => {
   const data = await apiRequest<{ task: import("@/lib/types").Task }>(
     `/admin/users/${userId}/tasks/${taskId}`,
-    { method: "PATCH", body: formData },
+    { method: "PATCH", json: values },
   );
   return data.task;
 };
 
 export const deleteUserTaskRequest = (userId: string, taskId: string): Promise<void> =>
   apiRequest<void>(`/admin/users/${userId}/tasks/${taskId}`, { method: "DELETE" });
-
-export const deleteUserTaskAttachmentRequest = async (
-  userId: string,
-  taskId: string,
-): Promise<import("@/lib/types").Task> => {
-  const data = await apiRequest<{ task: import("@/lib/types").Task }>(
-    `/admin/users/${userId}/tasks/${taskId}/attachment`,
-    { method: "DELETE" },
-  );
-  return data.task;
-};

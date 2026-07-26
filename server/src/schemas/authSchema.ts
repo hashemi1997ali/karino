@@ -51,6 +51,11 @@ export const updateProfileSchema = z
     firstName: firstNameSchema.optional(),
     lastName: lastNameSchema.optional(),
     email: emailSchema.optional(),
+    removeProfileImage: z.preprocess(
+      (value) =>
+        value === undefined ? undefined : value === true || value === "true",
+      z.boolean(),
+    ).optional(),
   })
   .strict()
   .refine(

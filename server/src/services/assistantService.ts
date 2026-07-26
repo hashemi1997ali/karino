@@ -13,14 +13,22 @@
 import {
   detectMessageLocale,
   generateReplySuggestions,
+  rewriteStaffDraft,
   runOrchestrator,
   type AssistantContext,
   type AssistantHistoryMessage,
   type AssistantResult,
   type ReplyAgentId,
+  type StaffWritingContext,
+  type SupportTranscriptMessage,
 } from "#ai";
 
-export type { AssistantHistoryMessage, AssistantContext, AssistantResult };
+export type {
+  AssistantHistoryMessage,
+  AssistantContext,
+  AssistantResult,
+  SupportTranscriptMessage,
+};
 export { detectMessageLocale };
 
 /** Agent identifier surfaced to callers (kept as an alias for compatibility). */
@@ -38,6 +46,12 @@ export const runAssistant = (
 
 /** Generates three short staff reply suggestions for a support transcript. */
 export const createReplySuggestions = (
-  transcript: AssistantHistoryMessage[],
-  context: AssistantContext,
+  transcript: SupportTranscriptMessage[],
+  context: StaffWritingContext,
 ): Promise<string[]> => generateReplySuggestions(transcript, context);
+
+export const improveStaffDraft = (
+  draft: string,
+  transcript: SupportTranscriptMessage[],
+  context: StaffWritingContext,
+): Promise<string> => rewriteStaffDraft(draft, transcript, context);

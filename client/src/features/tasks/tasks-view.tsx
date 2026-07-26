@@ -13,11 +13,11 @@ import { Input, Select } from "@/components/ui/form-controls";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui/states";
 import {
   createTaskRequest,
-  deleteTaskAttachmentRequest,
   deleteTaskRequest,
   getTasksRequest,
   updateTaskRequest,
   type TaskFilters,
+  type TaskMutationValues,
 } from "@/features/tasks/api";
 import { TaskCard } from "@/features/tasks/task-card";
 import { TaskForm } from "@/features/tasks/task-form";
@@ -64,12 +64,11 @@ const copy = {
     dialogDescription: "Add the task details. You can update them at any time.",
     deleteDialog: "Delete task",
     deleteDescription: (title: string) =>
-      `“${title}” and its attachment will be permanently deleted.`,
+      `“${title}” will be permanently deleted.`,
     saved: "Task changes saved.",
     statusUpdated: "Task status updated.",
     created: "Task created.",
     deleted: "Task deleted.",
-    attachmentDeleted: "Attachment removed.",
   },
   de: {
     adminEyebrow: "Inhaltsverwaltung",
@@ -115,7 +114,6 @@ const copy = {
     statusUpdated: "Aufgabenstatus aktualisiert.",
     created: "Aufgabe erstellt.",
     deleted: "Aufgabe gelöscht.",
-    attachmentDeleted: "Anhang entfernt.",
   },
 } as const;
 
@@ -169,9 +167,9 @@ export function TasksView({ admin = false }: { admin?: boolean }) {
   };
 
   const saveMutation = useMutation({
-    mutationFn: async (formData: FormData) => {
-      if (editingTask) return updateTaskRequest(getId(editingTask), formData, admin);
-      return createTaskRequest(formData);
+    mutationFn: async (values: TaskMutationValues) => {
+      if (editingTask) return updateTaskRequest(getId(editingTask), values, admin);
+      return createTaskRequest(values);
     },
     onSuccess: async () => {
       toast.success(editingTask ? t.saved : t.created);
@@ -197,22 +195,10 @@ export function TasksView({ admin = false }: { admin?: boolean }) {
 
   const statusMutation = useMutation({
     mutationFn: ({ task, status }: { task: Task; status: TaskStatus }) => {
-      const formData = new FormData();
-      formData.set("status", status);
-      return updateTaskRequest(getId(task), formData, admin);
+      return updateTaskRequest(getId(task), { status }, admin);
     },
     onSuccess: async () => {
       toast.success(t.statusUpdated);
-      await refreshLists();
-    },
-    onError: (error) => toast.error(getErrorMessage(error, locale)),
-  });
-
-  const attachmentMutation = useMutation({
-    mutationFn: (task: Task) => deleteTaskAttachmentRequest(getId(task), admin),
-    onSuccess: async (updatedTask) => {
-      toast.success(t.attachmentDeleted);
-      setEditingTask(updatedTask);
       await refreshLists();
     },
     onError: (error) => toast.error(getErrorMessage(error, locale)),
@@ -226,7 +212,7 @@ export function TasksView({ admin = false }: { admin?: boolean }) {
 
   return (
     <div>
-      <div className="relative overflow-hidden rounded-[2rem] border bg-[#171a18] p-6 text-white sm:p-8">
+      <div className="relative overflow-hidden rounded-[var(--container-radius)] border bg-[#171a18] p-6 text-white sm:p-8">
         <div className="paper-grid absolute inset-0 opacity-10" />
         <span className="absolute -right-12 -top-16 size-56 rounded-full bg-[var(--primary)]/30 blur-3xl" />
         <div className="relative">
@@ -242,7 +228,7 @@ export function TasksView({ admin = false }: { admin?: boolean }) {
         </div>
       </div>
 
-      <section className="mt-5 grid gap-3 rounded-[1.6rem] border bg-[var(--surface)] p-3 shadow-[0_7px_0_color-mix(in_srgb,var(--foreground)_6%,transparent)] sm:grid-cols-2 xl:grid-cols-[minmax(14rem,1fr)_minmax(10rem,11rem)_minmax(10rem,11rem)_auto]">
+      <section className="mt-5 grid gap-3 rounded-[var(--container-radius)] border bg-[var(--surface)] p-3 shadow-[0_7px_0_color-mix(in_srgb,var(--foreground)_6%,transparent)] sm:grid-cols-2 xl:grid-cols-[minmax(14rem,1fr)_minmax(10rem,11rem)_minmax(10rem,11rem)_auto]">
         <label className="relative min-w-0 sm:col-span-2 xl:col-span-1">
           <Search className="pointer-events-none absolute left-4 top-4 size-4 text-slate-400" />
           <Input
@@ -390,13 +376,7 @@ export function TasksView({ admin = false }: { admin?: boolean }) {
           key={editingTask ? getId(editingTask) : "new"}
           task={editingTask}
           loading={saveMutation.isPending}
-          removingAttachment={attachmentMutation.isPending}
           onSubmit={(data) => saveMutation.mutateAsync(data).then(() => undefined)}
-          onRemoveAttachment={
-            editingTask
-              ? () => attachmentMutation.mutateAsync(editingTask).then(() => undefined)
-              : undefined
-          }
         />
       </Dialog>
 

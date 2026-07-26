@@ -8,32 +8,35 @@ import {
   Headphones,
   Lightbulb,
   Send,
-  UserRound,
+  WandSparkles,
 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { UserAvatar } from "@/components/user-avatar";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Badge, Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/form-controls";
+import { PageHeading } from "@/components/ui/page-heading";
 import { ErrorState, LoadingState } from "@/components/ui/states";
 import { useAuth } from "@/features/auth/auth-provider";
 import { ChatMessageBubble } from "@/features/chat/chat-message-bubble";
+import { DateGroupedMessageList } from "@/features/chat/date-grouped-message-list";
 import {
   claimStaffChatRequest,
   endStaffChatRequest,
   getStaffSuggestionsRequest,
   listStaffChatsRequest,
+  rewriteStaffMessageRequest,
   sendStaffMessageRequest,
   transferStaffChatRequest,
 } from "@/features/chat/api";
 import { getErrorMessage } from "@/lib/api-error";
 import {
   getAssistantAgentLabel,
-  getBanReasonLabel,
-  getUserRoleLabel,
+  getLocalizedSupportSystemMessage,
 } from "@/lib/domain-labels";
 import type { SupportChat, User } from "@/lib/types";
 import { cn, getId } from "@/lib/utils";
@@ -43,22 +46,23 @@ const copy = {
   en: {
     eyebrow: "Human support",
     title: "Support inbox",
-    description:
-      "Accept conversations, answer users, transfer difficult cases to a super admin, and open the user's profile and tasks.",
+    description: "Join and manage human support conversations.",
     empty: "There are no support conversations waiting right now.",
     loading: "Loading support conversations…",
-    accept: "Accept chat",
+    accept: "Join chat",
     assigned: (name: string) => `Assigned to ${name}`,
     reply: "Write a reply…",
     send: "Send reply",
-    transfer: "Transfer to super admin",
+    transfer: "Transfer to Super Support",
     end: "End chat",
     suggestions: "Suggested replies",
+    improve: "Improve draft",
+    improved: "Your draft was improved.",
     profile: "Open user profile",
     tasks: "Open this user's tasks",
     waiting: "Waiting",
     active: "Active",
-    super: "Super admin required",
+    super: "Super Support required",
     userDetails: "User details",
     banned: "Banned",
     noSelection: "Select a conversation from the inbox.",
@@ -68,31 +72,43 @@ const copy = {
     endDescription: "The conversation will be closed for both sides.",
     allHistory: "All chat history",
     supportQueue: "Support queue",
-    assistantStatus: "AI chat",
+    assistantStatus: "AI Assistant",
     endedStatus: "Ended",
     previous: "Previous",
     next: "Next",
     page: "Page",
+    takeoverTitle: "Join this active chat?",
+    takeoverDescription:
+      "The current Support Agent will leave the conversation and you will become the assigned Super Support Agent.",
+    takeoverConfirm: "Join and replace",
+    superQueue: "Super",
+    historyRole: {
+      user: "user",
+      admin: "admin",
+      super_admin: "super admin",
+      guest: "guest",
+    },
   },
   de: {
     eyebrow: "Menschlicher Support",
     title: "Support-Posteingang",
-    description:
-      "Unterhaltungen annehmen, Benutzern antworten, schwierige Fälle an einen Super-Admin übertragen und Profil sowie Aufgaben öffnen.",
+    description: "Menschliche Support-Unterhaltungen beitreten und verwalten.",
     empty: "Momentan warten keine Support-Unterhaltungen.",
     loading: "Support-Unterhaltungen werden geladen…",
-    accept: "Chat annehmen",
+    accept: "Chat beitreten",
     assigned: (name: string) => `Zugewiesen an ${name}`,
     reply: "Antwort schreiben…",
     send: "Antwort senden",
-    transfer: "An Super-Admin übertragen",
+    transfer: "An Super-Support übertragen",
     end: "Chat beenden",
     suggestions: "Antwortvorschläge",
+    improve: "Entwurf verbessern",
+    improved: "Dein Entwurf wurde verbessert.",
     profile: "Benutzerprofil öffnen",
     tasks: "Aufgaben dieses Benutzers öffnen",
     waiting: "Wartet",
     active: "Aktiv",
-    super: "Super-Admin erforderlich",
+    super: "Super-Support erforderlich",
     userDetails: "Benutzerdaten",
     banned: "Gesperrt",
     noSelection: "Wähle eine Unterhaltung aus dem Posteingang.",
@@ -102,23 +118,37 @@ const copy = {
     endDescription: "Die Unterhaltung wird für beide Seiten geschlossen.",
     allHistory: "Gesamter Chatverlauf",
     supportQueue: "Support-Warteschlange",
-    assistantStatus: "KI-Chat",
+    assistantStatus: "AI Assistant",
     endedStatus: "Beendet",
     previous: "Zurück",
     next: "Weiter",
     page: "Seite",
+    takeoverTitle: "Diesem aktiven Chat beitreten?",
+    takeoverDescription:
+      "Der aktuelle Support-Agent verlässt die Unterhaltung und du wirst als Super-Support-Agent zugewiesen.",
+    takeoverConfirm: "Beitreten und übernehmen",
+    superQueue: "Super",
+    historyRole: {
+      user: "user",
+      admin: "admin",
+      super_admin: "super admin",
+      guest: "guest",
+    },
   },
 } as const;
 
 const getChatUser = (
   chat: SupportChat | null,
-): Pick<User, "id" | "firstName" | "lastName" | "email" | "roles" | "ban"> | null => {
+): Pick<
+  User,
+  "id" | "firstName" | "lastName" | "email" | "roles" | "profileImage" | "ban"
+> | null => {
   if (!chat || typeof chat.user === "string") return null;
   return chat.user;
 };
 
 export function StaffSupportView() {
-  const { locale } = usePreferences();
+  const { locale, intlLocale } = usePreferences();
   const t = copy[locale];
   const { user: currentUser, isSuperAdmin } = useAuth();
   const queryClient = useQueryClient();
@@ -126,6 +156,7 @@ export function StaffSupportView() {
   const [message, setMessage] = useState("");
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [confirmEnd, setConfirmEnd] = useState(false);
+  const [confirmTakeover, setConfirmTakeover] = useState(false);
   const [page, setPage] = useState(1);
   const endRef = useRef<HTMLDivElement>(null);
   const supportQueryKey = ["support", "queue", isSuperAdmin, page] as const;
@@ -151,6 +182,22 @@ export function StaffSupportView() {
     Boolean(selected?.assignedTo) &&
     selected?.assignedTo === (currentUser ? getId(currentUser) : "");
   const canReply = assignedToMe && selected?.status === "active";
+  const firstNameOnly = (name: string | null | undefined) =>
+    name?.trim().split(/\s+/)[0] ?? "";
+  const userFullName = (
+    user: Pick<User, "firstName" | "lastName">,
+  ) => `${user.firstName} ${user.lastName}`.trim();
+  const formatLastMessage = (chat: SupportChat) => {
+    const value = chat.messages.at(-1)?.createdAt ?? chat.updatedAt;
+    return new Intl.DateTimeFormat(intlLocale, {
+      dateStyle: "short",
+      timeStyle: "short",
+    }).format(new Date(value));
+  };
+  const formatMessageDate = (value: string) =>
+    new Intl.DateTimeFormat(intlLocale, { dateStyle: "medium" }).format(
+      new Date(value),
+    );
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -213,6 +260,16 @@ export function StaffSupportView() {
     ...mutationOptions,
   });
 
+  const rewriteMutation = useMutation({
+    mutationFn: ({ id, text }: { id: string; text: string }) =>
+      rewriteStaffMessageRequest(id, text),
+    onSuccess: (rewritten) => {
+      setMessage(rewritten);
+      toast.success(t.improved);
+    },
+    onError: (error) => toast.error(getErrorMessage(error, locale)),
+  });
+
   const send = () => {
     const text = message.trim();
     if (!selected || !canReply || !text) return;
@@ -221,12 +278,8 @@ export function StaffSupportView() {
 
   return (
     <>
-      <div>
-        <p className="eyebrow text-[var(--primary)]">{t.eyebrow}</p>
-        <h1 className="mt-2 text-3xl font-black">{t.title}</h1>
-        <p className="mt-2 max-w-3xl text-sm leading-6 text-[var(--muted)]">
-          {t.description}
-        </p>
+      <div className="lg:flex lg:h-[calc(100dvh-9.75rem)] lg:min-h-0 lg:flex-col lg:overflow-hidden">
+        <PageHeading eyebrow={t.eyebrow} title={t.title} description={t.description} />
 
         {chatsQuery.isPending ? (
           <div className="mt-8">
@@ -245,9 +298,9 @@ export function StaffSupportView() {
             {t.empty}
           </Card>
         ) : (
-          <div className="mt-7 grid items-start gap-5 xl:grid-cols-[20rem_minmax(0,1fr)_18rem]">
-            <Card className="flex h-[min(70dvh,46rem)] min-h-[32rem] flex-col overflow-hidden p-2">
-              <p className="shrink-0 px-3 py-2 text-xs font-black text-[var(--muted)] uppercase">
+          <div className="mt-7 grid items-start gap-5 lg:min-h-0 lg:flex-1 lg:grid-cols-[18rem_minmax(0,1fr)] xl:grid-cols-[20rem_minmax(0,1fr)]">
+            <Card className="flex h-[min(70dvh,46rem)] min-h-[32rem] flex-col overflow-hidden p-2 lg:h-full lg:min-h-0">
+              <p className="shrink-0 px-3 py-2 text-xs font-black uppercase tracking-[.08em] text-[var(--muted)]">
                 {isSuperAdmin ? t.allHistory : t.supportQueue}
               </p>
               <div className="min-h-0 flex-1 overflow-y-auto">
@@ -261,49 +314,84 @@ export function StaffSupportView() {
                         : chat.status === "active"
                           ? t.active
                           : t.endedStatus;
+                  const ownerRole = owner?.roles.includes("super_admin")
+                    ? "super_admin"
+                    : owner?.roles.includes("admin")
+                      ? "admin"
+                      : owner
+                        ? "user"
+                        : "guest";
                   return (
-                    <button
+                    <div
                       key={chat.id}
-                      type="button"
-                      onClick={() => {
-                        setSelectedId(chat.id);
-                        setSuggestions([]);
-                      }}
                       className={cn(
-                        "focus-ring mb-1 w-full rounded-2xl p-3 text-left transition",
+                        "group relative h-[6.75rem] w-full border-b p-3 text-left transition-colors duration-200 last:border-b-0",
                         effectiveSelectedId === chat.id
-                          ? "bg-[var(--primary-soft)]"
-                          : "hover:bg-[var(--surface-muted)]",
+                          ? "bg-[var(--primary-soft)] shadow-[inset_3px_0_0_var(--primary)]"
+                          : "hover:bg-[color-mix(in_srgb,var(--surface-muted)_78%,var(--primary-soft))]",
                       )}
                     >
-                      <div className="flex items-center justify-between gap-2">
-                        <p className="truncate text-sm font-black">
-                          {owner
-                            ? `${owner.firstName} ${owner.lastName}`
-                            : (chat.guest?.label ?? t.guest)}
-                        </p>
+                      <button
+                        type="button"
+                        className="focus-ring absolute inset-0 z-0 transition active:bg-[var(--primary-soft)]/60"
+                        onClick={() => {
+                          setSelectedId(chat.id);
+                          setSuggestions([]);
+                        }}
+                        aria-label={`Open chat: ${owner ? userFullName(owner) : (chat.guest?.label ?? t.guest)}`}
+                        aria-current={effectiveSelectedId === chat.id ? "true" : undefined}
+                      />
+                      <div className="pointer-events-none relative z-10">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex min-w-0 items-center gap-2">
+                            {owner ? (
+                              <Link
+                                href={`/admin/users/${owner.id}`}
+                                className="pointer-events-auto truncate rounded text-sm font-black transition-colors hover:text-[var(--primary)]"
+                              >
+                                {userFullName(owner)}
+                              </Link>
+                            ) : (
+                              <p className="truncate text-sm font-black">
+                                {chat.guest?.label ?? t.guest}
+                              </p>
+                            )}
+                          </div>
                         <Badge
                           className={cn(
-                            chat.status === "open" && "text-amber-700",
-                            chat.status === "active" && "text-emerald-700",
-                            chat.status === "ended" && "text-[var(--muted)]",
+                            "max-w-[8.5rem] shrink-0 truncate",
+                            chat.requiresSuperAdmin
+                              ? "border-[var(--primary)]/30 bg-[var(--primary-soft)] text-[var(--primary)]"
+                              : chat.status === "open"
+                                ? "text-amber-700"
+                                : chat.status === "active"
+                                  ? "text-emerald-700"
+                                  : chat.status === "ended"
+                                    ? "text-[var(--muted)]"
+                                    : null,
                           )}
                         >
-                          {statusText}
+                          {chat.requiresSuperAdmin
+                            ? `${t.superQueue} · ${statusText}`
+                            : statusText}
                         </Badge>
-                      </div>
-                      <p className="mt-1 truncate text-xs text-[var(--muted)]">
-                        {owner?.email ?? chat.guest?.email ?? t.guest}
-                      </p>
-                      <p className="mt-2 line-clamp-2 text-xs leading-5 text-[var(--muted)]">
-                        {chat.messages.at(-1)?.content}
-                      </p>
-                      {chat.requiresSuperAdmin && (
-                        <p className="mt-2 text-[10px] font-black text-[var(--primary)] uppercase">
-                          {t.super}
+                        </div>
+                        <p className="mt-1 truncate text-xs text-[var(--muted)]">
+                          {owner?.email ?? chat.guest?.email ?? t.guest}
                         </p>
-                      )}
-                    </button>
+                        <div className="mt-1 flex items-center justify-between gap-2">
+                          <time
+                            className="truncate text-[10px] text-[var(--muted)]"
+                            dateTime={chat.messages.at(-1)?.createdAt ?? chat.updatedAt}
+                          >
+                            {formatLastMessage(chat)}
+                          </time>
+                          <span className="shrink-0 text-[10px] font-bold text-[var(--muted)]">
+                            {t.historyRole[ownerRole]}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
                   );
                 })}
               </div>
@@ -333,7 +421,7 @@ export function StaffSupportView() {
               )}
             </Card>
 
-            <Card className="flex h-[min(70dvh,46rem)] min-h-[32rem] flex-col overflow-hidden">
+            <Card className="relative flex h-[min(70dvh,46rem)] min-h-[32rem] flex-col overflow-hidden lg:h-full lg:min-h-0">
               {!selected ? (
                 <div className="grid flex-1 place-items-center text-sm text-[var(--muted)]">
                   {t.noSelection}
@@ -341,27 +429,46 @@ export function StaffSupportView() {
               ) : (
                 <>
                   <div className="flex flex-wrap items-center justify-between gap-3 border-b bg-[var(--surface-muted)] p-4">
-                    <div>
-                      <p className="font-black">
-                        {chatUser
-                          ? `${chatUser.firstName} ${chatUser.lastName}`
-                          : (selected.guest?.label ?? t.guest)}
-                      </p>
+                    <div className="flex items-center gap-3">
+                      {chatUser && <UserAvatar user={chatUser} />}
+                      <div>
+                      {chatUser ? (
+                        <Link
+                          href={`/admin/users/${chatUser.id}`}
+                          className="focus-ring rounded font-black hover:text-[var(--primary)]"
+                        >
+                          {userFullName(chatUser)}
+                        </Link>
+                      ) : (
+                        <p className="font-black">
+                          {selected.guest?.label ?? t.guest}
+                        </p>
+                      )}
                       <p className="text-xs text-[var(--muted)]">
                         {selected.status === "ended"
                           ? t.endedStatus
                           : selected.status === "assistant"
                             ? t.assistantStatus
                             : selected.assignedToName
-                              ? t.assigned(selected.assignedToName)
+                              ? t.assigned(firstNameOnly(selected.assignedToName))
                               : t.waiting}
                       </p>
+                      </div>
                     </div>
-                    {selected.status === "open" && (
+                    {(selected.status === "open" ||
+                      (isSuperAdmin &&
+                        selected.status === "active" &&
+                        !assignedToMe)) && (
                       <Button
                         size="sm"
                         loading={claimMutation.isPending}
-                        onClick={() => claimMutation.mutate(selected.id)}
+                        onClick={() => {
+                          if (selected.status === "active") {
+                            setConfirmTakeover(true);
+                          } else {
+                            claimMutation.mutate(selected.id);
+                          }
+                        }}
                       >
                         <Check className="size-4" />
                         {t.accept}
@@ -369,43 +476,63 @@ export function StaffSupportView() {
                     )}
                   </div>
 
-                  <div className="flex-1 space-y-3 overflow-y-auto p-4">
-                    {selected.messages.map((item) => (
-                      <ChatMessageBubble
-                        key={item.id}
-                        direction={
-                          item.sender === "staff"
-                            ? "outgoing"
-                            : item.sender === "system"
-                              ? "system"
-                              : "incoming"
-                        }
-                        content={item.content}
-                        createdAt={item.createdAt}
-                        name={
-                          item.sender === "ai" && item.senderName
-                            ? getAssistantAgentLabel(item.senderName, locale)
-                            : item.senderName
-                        }
+                  <div className="relative min-h-0 flex-1">
+                    <div className="absolute inset-0 overflow-y-auto px-4 pb-4">
+                      <DateGroupedMessageList
+                        items={selected.messages}
+                        formatDate={formatMessageDate}
+                        renderItem={(item) => (
+                          <ChatMessageBubble
+                            direction={
+                              item.sender === "staff"
+                                ? "outgoing"
+                                : item.sender === "system"
+                                  ? "system"
+                                  : "incoming"
+                            }
+                            content={
+                              item.sender === "system"
+                                ? getLocalizedSupportSystemMessage(item.content, locale)
+                                : item.content
+                            }
+                            createdAt={item.createdAt}
+                            name={
+                            item.sender === "ai" && item.senderName
+                              ? getAssistantAgentLabel(item.senderName, locale)
+                              : firstNameOnly(item.senderName)
+                          }
+                          nameHref={
+                            item.sender === "user" && chatUser
+                              ? `/admin/users/${chatUser.id}`
+                              : item.sender === "staff" && item.senderId
+                                ? `/admin/users/${item.senderId}`
+                                : null
+                          }
+                          />
+                        )}
                       />
-                    ))}
-                    <div ref={endRef} />
-                  </div>
-
-                  {suggestions.length > 0 && (
-                    <div className="space-y-2 border-t bg-[var(--highlight-soft)] p-3">
-                      {suggestions.map((suggestion) => (
-                        <button
-                          key={suggestion}
-                          type="button"
-                          onClick={() => setMessage(suggestion)}
-                          className="focus-ring block w-full rounded-xl border bg-[var(--surface)] p-2 text-left text-xs hover:border-[var(--primary)]"
-                        >
-                          {suggestion}
-                        </button>
-                      ))}
+                      <div ref={endRef} />
                     </div>
-                  )}
+                    {suggestions.length > 0 && (
+                      <div className="absolute inset-0 z-20 flex flex-col bg-[var(--surface)]">
+                      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-4">
+                        {suggestions.map((suggestion) => (
+                          <button
+                            key={suggestion}
+                            type="button"
+                            onClick={() => {
+                              setMessage(suggestion);
+                              setSuggestions([]);
+                            }}
+                            className="focus-ring block w-full whitespace-pre-wrap rounded-2xl border bg-[var(--surface-muted)] p-4 text-left text-sm leading-6 hover:border-[var(--primary)]"
+                          >
+                            {suggestion}
+                          </button>
+                        ))}
+                      </div>
+                      </div>
+                    )}
+                  </div>
 
                   <div className="border-t p-3">
                     <div className="mb-2 flex flex-wrap gap-2">
@@ -414,7 +541,13 @@ export function StaffSupportView() {
                         size="sm"
                         disabled={!canReply}
                         loading={suggestionsMutation.isPending}
-                        onClick={() => suggestionsMutation.mutate(selected.id)}
+                        onClick={() => {
+                          if (suggestions.length > 0) {
+                            setSuggestions([]);
+                            return;
+                          }
+                          suggestionsMutation.mutate(selected.id);
+                        }}
                       >
                         <Lightbulb className="size-4" />
                         {t.suggestions}
@@ -458,7 +591,25 @@ export function StaffSupportView() {
                         placeholder={t.reply}
                       />
                       <Button
+                        variant="secondary"
                         size="icon"
+                        className="size-12 shrink-0 rounded-full"
+                        disabled={!canReply || !message.trim()}
+                        loading={rewriteMutation.isPending}
+                        onClick={() => {
+                          const text = message.trim();
+                          if (selected && text) {
+                            rewriteMutation.mutate({ id: selected.id, text });
+                          }
+                        }}
+                        aria-label={t.improve}
+                        title={t.improve}
+                      >
+                        <WandSparkles className="size-4" />
+                      </Button>
+                      <Button
+                        size="icon"
+                        className="size-12 shrink-0 rounded-full"
                         disabled={!canReply}
                         loading={sendMutation.isPending}
                         onClick={send}
@@ -472,60 +623,23 @@ export function StaffSupportView() {
               )}
             </Card>
 
-            <Card className="h-fit p-4">
-              <p className="text-sm font-black">{t.userDetails}</p>
-              {chatUser ? (
-                <div className="mt-4 space-y-3 text-sm">
-                  <span className="grid size-12 place-items-center rounded-xl bg-[var(--primary-soft)] text-[var(--primary-dark)]">
-                    <UserRound className="size-5" />
-                  </span>
-                  <div>
-                    <p className="font-black">
-                      {chatUser.firstName} {chatUser.lastName}
-                    </p>
-                    <p className="break-all text-xs text-[var(--muted)]">
-                      {chatUser.email}
-                    </p>
-                  </div>
-                  <div className="flex flex-wrap gap-1">
-                    {chatUser.roles.map((role) => (
-                      <Badge key={role}>{getUserRoleLabel(role, locale)}</Badge>
-                    ))}
-                  </div>
-                  {chatUser.ban?.isBanned && (
-                    <p className="rounded-xl bg-rose-50 p-2 text-xs text-rose-700 dark:bg-rose-500/15 dark:text-rose-300">
-                      {t.banned}: {getBanReasonLabel(chatUser.ban.reason, locale)}
-                    </p>
-                  )}
-                  <Link
-                    href={`/admin/users/${chatUser.id}`}
-                    className="focus-ring flex items-center justify-between rounded-xl border p-3 text-xs font-bold hover:border-[var(--primary)]"
-                  >
-                    {t.profile}
-                    <ArrowUpRight className="size-4" />
-                  </Link>
-                  <Link
-                    href={`/admin/users/${chatUser.id}#tasks`}
-                    className="focus-ring flex items-center justify-between rounded-xl border p-3 text-xs font-bold hover:border-[var(--primary)]"
-                  >
-                    {t.tasks}
-                    <ArrowUpRight className="size-4" />
-                  </Link>
-                </div>
-              ) : selected?.origin === "guest" ? (
-                <div className="mt-4 space-y-2 text-sm">
-                  <p className="font-black">{t.guestDetails}</p>
-                  <p className="break-all text-xs text-[var(--muted)]">
-                    {selected.guest?.email ?? t.guest}
-                  </p>
-                </div>
-              ) : (
-                <p className="mt-3 text-xs text-[var(--muted)]">{t.noSelection}</p>
-              )}
-            </Card>
           </div>
         )}
       </div>
+      <ConfirmDialog
+        open={confirmTakeover}
+        onOpenChange={setConfirmTakeover}
+        title={t.takeoverTitle}
+        description={t.takeoverDescription}
+        confirmLabel={t.takeoverConfirm}
+        loading={claimMutation.isPending}
+        onConfirm={() => {
+          if (!selected) return;
+          claimMutation.mutate(selected.id, {
+            onSuccess: () => setConfirmTakeover(false),
+          });
+        }}
+      />
       <ConfirmDialog
         open={confirmEnd}
         onOpenChange={setConfirmEnd}

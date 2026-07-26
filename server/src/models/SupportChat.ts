@@ -25,6 +25,7 @@ export type SupportEscalationReason = (typeof SUPPORT_ESCALATION_REASONS)[number
 export interface ISupportMessage {
   _id: Types.ObjectId;
   sender: SupportMessageSender;
+  senderId?: Types.ObjectId | null;
   senderName: string | null;
   content: string;
   createdAt: Date;
@@ -42,6 +43,7 @@ export interface ISupportChat {
   subject: string;
   status: SupportChatStatus;
   assignedTo: Types.ObjectId | null;
+  staffParticipants: Types.ObjectId[];
   assignedToName: string | null;
   requiresSuperAdmin: boolean;
   escalationReason: SupportEscalationReason | null;
@@ -70,6 +72,11 @@ const supportMessageSchema = new Schema<ISupportMessage>(
     senderName: {
       type: String,
       maxlength: 120,
+      default: null,
+    },
+    senderId: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
       default: null,
     },
     content: {
@@ -124,6 +131,10 @@ const supportChatSchema = new Schema<ISupportChat>(
       type: Schema.Types.ObjectId,
       ref: "User",
       default: null,
+    },
+    staffParticipants: {
+      type: [{ type: Schema.Types.ObjectId, ref: "User" }],
+      default: [],
     },
     assignedToName: {
       type: String,

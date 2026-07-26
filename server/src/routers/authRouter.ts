@@ -23,6 +23,7 @@ import {
   refreshIpRateLimiter,
   refreshSessionRateLimiter,
   registerRateLimiter,
+  profileImageUpload,
   requireActiveSession,
   validateByZod,
 } from "#middlewares";
@@ -76,6 +77,7 @@ authRouter
   .patch(
     authenticate,
     requireActiveSession,
+    profileImageUpload.single("profileImage"),
     validateByZod(updateProfileSchema),
     updateMe,
   );

@@ -76,7 +76,7 @@ export function ResetPasswordForm() {
       <p className="eyebrow text-[var(--primary)]">{t.eyebrow}</p>
       <h1 className="mt-3 text-4xl font-black tracking-[-0.04em]">{t.title}</h1>
       {success ? (
-        <div className="mt-7 rounded-[1.5rem] border bg-[var(--surface)] p-6">
+        <div className="mt-7 rounded-[var(--container-radius)] border bg-[var(--surface)] p-6">
           <KeyRound className="size-8 text-emerald-600" />
           <p className="mt-4 text-sm leading-7 text-[var(--muted)]">{t.success}</p>
         </div>

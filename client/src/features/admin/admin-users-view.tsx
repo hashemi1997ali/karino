@@ -10,10 +10,12 @@ import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { UserAvatar } from "@/components/user-avatar";
 import { Badge, Card } from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Dialog } from "@/components/ui/dialog";
 import { Field, Input, Select } from "@/components/ui/form-controls";
+import { PageHeading } from "@/components/ui/page-heading";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui/states";
 import {
   banUserRequest,
@@ -29,7 +31,7 @@ import { createProfileSchema, type ProfileFormValues } from "@/features/auth/sch
 import { getErrorMessage } from "@/lib/api-error";
 import { getBanReasonLabel } from "@/lib/domain-labels";
 import type { BanReason, User } from "@/lib/types";
-import { getId, initials } from "@/lib/utils";
+import { cn, getId } from "@/lib/utils";
 import { usePreferences } from "@/providers/preferences-provider";
 
 const banReasons: BanReason[] = [
@@ -46,12 +48,12 @@ const copy = {
   en: {
     eyebrow: "Access and safety",
     title: "Users",
-    description: "Open a profile to see its tasks and manage the user account.",
+    description: "Manage user accounts, profiles, and access.",
     search: "Search by name or email…",
     allRoles: "All roles",
-    user: "Regular user",
-    admin: "Administrator",
-    superAdmin: "Super administrator",
+    user: "user",
+    admin: "admin",
+    superAdmin: "super admin",
     allStates: "All account states",
     active: "Active",
     banned: "Banned",
@@ -92,7 +94,7 @@ const copy = {
     unbanDescription: "All ban metadata will be cleared from the account.",
     deleteTitle: "Delete user",
     deleteDescription: (name: string) =>
-      `${name}'s account, sessions, tasks, and attachments will be permanently deleted.`,
+      `${name}'s account, sessions, tasks, and profile image will be permanently deleted.`,
     previous: "Previous",
     next: "Next",
     page: "Page",
@@ -103,13 +105,12 @@ const copy = {
   de: {
     eyebrow: "Zugriff und Sicherheit",
     title: "Benutzer",
-    description:
-      "Öffne ein Profil, um Aufgaben zu sehen und das Benutzerkonto zu verwalten.",
+    description: "Verwalte Benutzerkonten, Profile und Zugriffe.",
     search: "Nach Name oder E-Mail suchen…",
     allRoles: "Alle Rollen",
-    user: "Standardbenutzer",
-    admin: "Administrator",
-    superAdmin: "Super-Administrator",
+    user: "user",
+    admin: "admin",
+    superAdmin: "super admin",
     allStates: "Alle Kontostatus",
     active: "Aktiv",
     banned: "Gesperrt",
@@ -161,7 +162,7 @@ const copy = {
   },
 } as const;
 
-function EditUserDialog({
+export function EditUserDialog({
   user,
   loading,
   canChangeAdminRole,
@@ -270,7 +271,7 @@ function EditUserDialog({
   );
 }
 
-function BanUserDialog({
+export function BanUserDialog({
   user,
   loading,
   onClose,
@@ -430,13 +431,9 @@ export function AdminUsersView() {
 
   return (
     <div>
-      <p className="eyebrow text-[var(--primary)]">{t.eyebrow}</p>
-      <h1 className="mt-2 text-3xl font-black">{t.title}</h1>
-      <p className="mt-2 max-w-3xl text-sm leading-6 text-[var(--muted)]">
-        {t.description}
-      </p>
+      <PageHeading eyebrow={t.eyebrow} title={t.title} description={t.description} />
 
-      <section className="mt-6 grid gap-3 rounded-[1.5rem] border bg-[var(--surface)] p-3 shadow-sm md:grid-cols-[1fr_12rem_13rem]">
+      <section className="mt-6 grid gap-3 rounded-[var(--container-radius)] border bg-[var(--surface)] p-3 shadow-sm md:grid-cols-[1fr_12rem_13rem]">
         <label className="relative">
           <Search className="pointer-events-none absolute start-3.5 top-4 size-4 text-[var(--muted)]" />
           <Input
@@ -502,9 +499,7 @@ export function AdminUsersView() {
                 <article key={id} className="grid min-w-0 gap-3 p-4 xl:px-5">
                   <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                     <div className="flex min-w-0 items-start gap-3">
-                      <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-[var(--primary-soft)] font-black text-[var(--primary-dark)]">
-                        {initials(user.firstName, user.lastName)}
-                      </span>
+                      <UserAvatar user={user} className="size-11" imageSizes="44px" />
                       <div className="min-w-0 flex-1 pt-0.5">
                         <Link
                           href={`/admin/users/${id}`}
@@ -521,7 +516,12 @@ export function AdminUsersView() {
                         </p>
                       </div>
                     </div>
-                    <div className="grid max-w-full shrink-0 grid-cols-4 self-end gap-1 sm:self-start">
+                    <div
+                      className={cn(
+                        "grid max-w-full shrink-0 self-end gap-1 sm:self-start",
+                        isSuperAdmin ? "grid-cols-4" : "grid-cols-3",
+                      )}
+                    >
                       <Link
                         href={`/admin/users/${id}`}
                         className="focus-ring grid size-10 place-items-center rounded-full text-[var(--muted)] hover:bg-[var(--surface-muted)]"
@@ -556,14 +556,16 @@ export function AdminUsersView() {
                           <Ban className="size-4" />
                         </Button>
                       )}
-                      <Button
-                        variant="danger"
-                        size="icon"
-                        disabled={!mayManage || self}
-                        onClick={() => setDeletingUser(user)}
-                      >
-                        <Trash2 className="size-4" />
-                      </Button>
+                      {isSuperAdmin && (
+                        <Button
+                          variant="danger"
+                          size="icon"
+                          disabled={!mayManage || self}
+                          onClick={() => setDeletingUser(user)}
+                        >
+                          <Trash2 className="size-4" />
+                        </Button>
+                      )}
                     </div>
                   </div>
 

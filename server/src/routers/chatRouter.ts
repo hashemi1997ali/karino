@@ -14,6 +14,7 @@ import {
   listOwnChats,
   listStaffChats,
   rateOwnChat,
+  rewriteStaffMessage,
   sendOwnMessage,
   sendStaffMessage,
   transferStaffChat,
@@ -32,6 +33,7 @@ import {
   guestAssistantSchema,
   rateChatSchema,
   sendChatMessageSchema,
+  rewriteSupportMessageSchema,
   supportMessageSchema,
 } from "#schemas";
 
@@ -79,6 +81,13 @@ chatRouter.get(
   requireCurrentStaff,
   suggestionRateLimiter,
   getStaffSuggestions,
+);
+chatRouter.post(
+  "/staff/:id/rewrite",
+  requireCurrentStaff,
+  suggestionRateLimiter,
+  validateByZod(rewriteSupportMessageSchema),
+  rewriteStaffMessage,
 );
 
 chatRouter.get("/", listOwnChats);

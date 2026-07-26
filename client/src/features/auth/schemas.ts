@@ -15,6 +15,7 @@ const copy = {
     passwordMismatch: "Passwords do not match.",
     currentPasswordRequired: "Enter your current password.",
     newPasswordMismatch: "New passwords do not match.",
+    newPasswordSame: "The new password is the same as your current password.",
   },
   de: {
     invalidEmail: "Gib eine gültige E-Mail-Adresse ein.",
@@ -28,6 +29,7 @@ const copy = {
     passwordMismatch: "Die Passwörter stimmen nicht überein.",
     currentPasswordRequired: "Gib dein aktuelles Passwort ein.",
     newPasswordMismatch: "Die neuen Passwörter stimmen nicht überein.",
+    newPasswordSame: "Das neue Passwort entspricht deinem aktuellen Passwort.",
   },
 } as const;
 
@@ -81,6 +83,10 @@ export const createPasswordChangeSchema = (locale: Locale) => {
       currentPassword: z.string().min(1, t.currentPasswordRequired),
       newPassword: createStrongPasswordSchema(locale),
       confirmPassword: z.string(),
+    })
+    .refine((values) => values.currentPassword !== values.newPassword, {
+      path: ["newPassword"],
+      message: t.newPasswordSame,
     })
     .refine((values) => values.newPassword === values.confirmPassword, {
       path: ["confirmPassword"],

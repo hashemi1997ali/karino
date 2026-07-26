@@ -128,7 +128,7 @@ export function DashboardView() {
 
   return (
     <div>
-      <section className="relative overflow-hidden rounded-[2rem] border bg-[var(--surface)] p-6 sm:p-8">
+      <section className="relative overflow-hidden rounded-[var(--container-radius)] border bg-[var(--surface)] p-6 sm:p-8">
         <div className="paper-grid absolute inset-0 opacity-30" />
         <span className="absolute -right-10 -top-12 size-48 rounded-full bg-[var(--highlight)]/45 blur-3xl" />
         <div>

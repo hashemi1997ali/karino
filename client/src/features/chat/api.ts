@@ -156,3 +156,14 @@ export const getStaffSuggestionsRequest = async (
   );
   return data.suggestions;
 };
+
+export const rewriteStaffMessageRequest = async (
+  id: string,
+  message: string,
+): Promise<string> => {
+  const data = await apiRequest<{ message: string }>(`/chat/staff/${id}/rewrite`, {
+    method: "POST",
+    json: { message },
+  });
+  return data.message;
+};

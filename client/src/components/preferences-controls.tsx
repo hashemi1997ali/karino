@@ -56,7 +56,7 @@ export function PreferencesControls({
       </summary>
       <div
         className={cn(
-          "surface-shadow z-[70] rounded-[1.5rem] border bg-[var(--surface)] p-3 text-[var(--foreground)]",
+          "surface-shadow z-[70] rounded-[var(--container-radius)] border bg-[var(--surface)] p-3 text-[var(--foreground)]",
           placement === "sidebar"
             ? "fixed inset-x-3 top-18 w-auto sm:right-auto sm:w-72"
             : "fixed inset-x-3 top-22 w-auto sm:absolute sm:inset-x-auto sm:end-0 sm:top-12 sm:w-72",

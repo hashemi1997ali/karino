@@ -5,12 +5,21 @@ export interface ProfileValues {
   firstName: string;
   lastName: string;
   email: string;
+  profileImage?: File | null;
+  removeProfileImage?: boolean;
 }
 
 export const updateProfileRequest = async (values: ProfileValues): Promise<User> => {
+  const formData = new FormData();
+  formData.set("firstName", values.firstName);
+  formData.set("lastName", values.lastName);
+  formData.set("email", values.email);
+  if (values.profileImage) formData.set("profileImage", values.profileImage);
+  if (values.removeProfileImage) formData.set("removeProfileImage", "true");
+
   const data = await apiRequest<{ user: User }>("/auth/me", {
     method: "PATCH",
-    json: values,
+    body: formData,
   });
   return data.user;
 };
