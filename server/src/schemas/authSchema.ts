@@ -51,11 +51,12 @@ export const updateProfileSchema = z
     firstName: firstNameSchema.optional(),
     lastName: lastNameSchema.optional(),
     email: emailSchema.optional(),
-    removeProfileImage: z.preprocess(
-      (value) =>
-        value === undefined ? undefined : value === true || value === "true",
-      z.boolean(),
-    ).optional(),
+    removeProfileImage: z
+      .preprocess(
+        (value) => (value === undefined ? undefined : value === true || value === "true"),
+        z.boolean(),
+      )
+      .optional(),
   })
   .strict()
   .refine(
@@ -85,6 +86,13 @@ export const resetPasswordSchema = z
   .object({
     token: z.string().trim().min(32).max(200),
     password: passwordSchema,
+  })
+  .strict();
+
+export const onboardingSchema = z
+  .object({
+    primaryUseCase: z.enum(["personal", "study", "work", "projects", "other"]),
+    planningStyle: z.enum(["simple", "daily", "priority"]),
   })
   .strict();
 

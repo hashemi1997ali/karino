@@ -2,49 +2,54 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 :root {
-  --background: #f3f1e9;
-  --foreground: #171a18;
-  --surface: #fffdf7;
-  --surface-muted: #e9e6dc;
-  --surface-strong: #171a18;
-  --navigation: #171a18;
-  --border: #d7d2c5;
-  --primary: #c84425;
-  --primary-dark: #a9341a;
+  --background: #f7f8fa;
+  --foreground: #17181c;
+  --surface: #ffffff;
+  --surface-muted: #f1f3f7;
+  --surface-strong: #202229;
+  --navigation: #ffffff;
+  --border: #e3e6ed;
+  --primary: #5b5ce2;
+  --primary-dark: #494ac7;
   --on-primary: #ffffff;
-  --primary-soft: #ffe0d6;
-  --highlight: #d8f56a;
-  --highlight-soft: #eef9be;
-  --on-highlight: #171a18;
-  --success: #087f68;
-  --warning: #b96707;
-  --danger: #cf3e56;
-  --muted: #686b66;
-  --focus: #f15a38;
-  --container-radius: 1.5rem;
+  --primary-soft: #eeeeff;
+  --highlight: #8b5cf6;
+  --highlight-soft: #f3efff;
+  --on-highlight: #ffffff;
+  --success: #16a36a;
+  --warning: #b86e00;
+  --danger: #e5484d;
+  --muted: #6b7080;
+  --focus: #5b5ce2;
+  --container-radius: 1rem;
+  --control-radius: 0.625rem;
+  --site-header-height: 4.5rem;
+  --page-gutter: 1rem;
+  --section-gap: 1.5rem;
+  --transition-fast: 160ms;
   color-scheme: light;
 }
 
 .dark {
-  --background: #101310;
-  --foreground: #f7f5ed;
-  --surface: #191d19;
-  --surface-muted: #242a23;
-  --surface-strong: #090b09;
-  --navigation: #171a18;
-  --border: #353b33;
-  --primary: #ff7655;
-  --primary-dark: #f15a38;
-  --on-primary: #171a18;
-  --primary-soft: #47271f;
-  --highlight: #d8f56a;
-  --highlight-soft: #30391f;
-  --on-highlight: #171a18;
-  --success: #4fd5b1;
-  --warning: #f4b84d;
-  --danger: #ff8091;
-  --muted: #afb4aa;
-  --focus: #ff967e;
+  --background: #101114;
+  --foreground: #f4f5f7;
+  --surface: #181a1f;
+  --surface-muted: #202229;
+  --surface-strong: #272a32;
+  --navigation: #181a1f;
+  --border: #2c2f37;
+  --primary: #8586ff;
+  --primary-dark: #7475ed;
+  --on-primary: #101114;
+  --primary-soft: #292a55;
+  --highlight: #a78bfa;
+  --highlight-soft: #30294a;
+  --on-highlight: #101114;
+  --success: #43c990;
+  --warning: #f6b843;
+  --danger: #ff7377;
+  --muted: #9ca1ae;
+  --focus: #9596ff;
   color-scheme: dark;
 }
 
@@ -67,13 +72,9 @@ html {
 
 body {
   margin: 0;
-  background:
-    radial-gradient(circle at 82% -8%, rgba(241, 90, 56, 0.13), transparent 28rem),
-    radial-gradient(circle at 8% 34%, rgba(216, 245, 106, 0.1), transparent 24rem),
-    var(--background);
+  background: var(--background);
   color: var(--foreground);
   font-family:
-    "Aptos",
     "Inter",
     ui-sans-serif,
     system-ui,
@@ -86,11 +87,17 @@ body {
     color 160ms ease;
 }
 
-.dark body {
-  background:
-    radial-gradient(circle at 82% -8%, rgba(255, 118, 85, 0.13), transparent 28rem),
-    radial-gradient(circle at 8% 34%, rgba(216, 245, 106, 0.06), transparent 24rem),
-    var(--background);
+@media (min-width: 40rem) {
+  :root {
+    --page-gutter: 1.5rem;
+  }
+}
+
+@media (min-width: 64rem) {
+  :root {
+    --page-gutter: 1.75rem;
+    --section-gap: 1.75rem;
+  }
 }
 
 /* The original UI used Tailwind's slate/white palette directly. These
@@ -137,7 +144,7 @@ button:not(:disabled),
 }
 
 ::selection {
-  background: rgba(241, 90, 56, 0.23);
+  background: color-mix(in srgb, var(--primary) 26%, transparent);
 }
 
 .focus-ring {
@@ -169,11 +176,117 @@ button:not(:disabled),
 }
 
 .surface-shadow {
-  box-shadow: 0 22px 60px rgba(48, 43, 32, 0.1);
+  box-shadow: 0 12px 32px rgb(15 23 42 / 8%);
+}
+
+@keyframes logo-beacon-pulse {
+  0%,
+  100% {
+    opacity: 0.45;
+  }
+
+  50% {
+    opacity: 1;
+  }
+}
+
+.logo-beacon {
+  animation: logo-beacon-pulse 2s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .logo-beacon {
+    animation: none;
+    opacity: 1;
+  }
 }
 
 .dark .surface-shadow {
   box-shadow: 0 18px 50px rgba(0, 0, 0, 0.32);
+}
+
+.chat-markdown {
+  line-height: 1.55;
+}
+
+.chat-markdown > * + * {
+  margin-top: 0.625rem;
+}
+
+.chat-markdown ul,
+.chat-markdown ol {
+  padding-inline-start: 1.25rem;
+}
+
+.chat-markdown ul {
+  list-style: disc;
+}
+
+.chat-markdown ol {
+  list-style: decimal;
+}
+
+.chat-markdown li + li {
+  margin-top: 0.25rem;
+}
+
+.chat-markdown a {
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+}
+
+.chat-markdown blockquote {
+  border-inline-start: 3px solid currentColor;
+  padding-inline-start: 0.75rem;
+  opacity: 0.78;
+}
+
+.chat-markdown pre {
+  max-width: 100%;
+  overflow-x: auto;
+  border-radius: var(--control-radius);
+  background: color-mix(in srgb, var(--surface-strong) 12%, transparent);
+  padding: 0.75rem;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  white-space: pre;
+}
+
+.chat-markdown :not(pre) > code {
+  border-radius: 0.3rem;
+  background: color-mix(in srgb, var(--surface-strong) 12%, transparent);
+  padding: 0.1rem 0.3rem;
+  font-size: 0.875em;
+}
+
+.chat-markdown table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+  border-collapse: collapse;
+}
+
+.chat-markdown th,
+.chat-markdown td {
+  border: 1px solid var(--border);
+  padding: 0.4rem 0.55rem;
+  text-align: start;
+}
+
+.chat-markdown hr {
+  border: 0;
+  border-top: 1px solid var(--border);
+}
+
+.chat-markdown img {
+  height: auto;
+  max-width: 100%;
+  border-radius: var(--control-radius);
+}
+
+.chat-markdown input[type="checkbox"] {
+  margin-inline-end: 0.4rem;
 }
 
 .text-balance {
@@ -214,9 +327,11 @@ button:not(:disabled),
   bottom: max(1rem, env(safe-area-inset-bottom));
 }
 
-.chat-launcher-above-nav {
-  /* Keep the launcher clear of the fixed mobile/tablet navigation bar. */
-  bottom: max(6rem, calc(env(safe-area-inset-bottom) + 5rem));
+@media (max-width: 47.999rem) {
+  .chat-launcher-above-nav {
+    /* The bottom navigation only exists below the tablet breakpoint. */
+    bottom: max(6rem, calc(env(safe-area-inset-bottom) + 5rem));
+  }
 }
 
 .chat-panel {

@@ -12,6 +12,8 @@ import {
   banAdminUser,
   deleteAdminTask,
   deleteAdminUser,
+  getAdminOverview,
+  getAdminTasks,
   getAdminUserById,
   getAdminUsers,
   getAdminUserTasks,
@@ -31,16 +33,17 @@ export const adminRouter = Router();
 
 adminRouter.use(authenticate, requireActiveSession, requireCurrentStaff);
 
-// Tasks are only exposed in the context of a selected user. There is no
-// administrator-wide "all tasks" endpoint.
+adminRouter.get("/overview", getAdminOverview);
+adminRouter.get("/tasks", getAdminTasks);
+adminRouter
+  .route("/tasks/:id")
+  .patch(requireCurrentSuperAdmin, validateByZod(adminUpdateTaskSchema), updateAdminTask)
+  .delete(requireCurrentSuperAdmin, deleteAdminTask);
+
 adminRouter.get("/users/:id/tasks", getAdminUserTasks);
 adminRouter
   .route("/users/:userId/tasks/:taskId")
-  .patch(
-    requireCurrentSuperAdmin,
-    validateByZod(adminUpdateTaskSchema),
-    updateAdminTask,
-  )
+  .patch(requireCurrentSuperAdmin, validateByZod(adminUpdateTaskSchema), updateAdminTask)
   .delete(requireCurrentSuperAdmin, deleteAdminTask);
 
 adminRouter.get("/users", getAdminUsers);

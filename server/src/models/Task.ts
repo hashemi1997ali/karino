@@ -69,5 +69,7 @@ const taskSchema = new Schema<ITask>(
 
 taskSchema.index({ owner: 1, status: 1, priority: 1 });
 taskSchema.index({ owner: 1, createdAt: -1 });
+taskSchema.index({ owner: 1, dueDate: 1, status: 1 });
+taskSchema.index({ owner: 1, completedAt: 1 });
 
 export const Task = model<ITask>("Task", taskSchema);

@@ -2,6 +2,8 @@ import type { RequestHandler } from "express";
 import mongoose, { type QueryFilter, type SortOrder } from "mongoose";
 
 import {
+  Activity,
+  ContactSubmission,
   RefreshSession,
   PasswordReset,
   SupportChat,
@@ -11,12 +13,10 @@ import {
   type IUser,
   User,
 } from "#models";
-import {
-  deleteProfileImageFromCloudinary,
-  uploadProfileImage,
-} from "#middlewares";
+import { deleteProfileImageFromCloudinary, uploadProfileImage } from "#middlewares";
 import {
   banUser,
+  deleteUserAccount,
   getLiveBanSessionIps,
   setAdministratorRole,
   unbanUser,
@@ -135,6 +135,79 @@ export const getAdminTasks: RequestHandler = async (request, response) => {
   });
 };
 
+export const getAdminOverview: RequestHandler = async (_request, response) => {
+  const now = new Date();
+  const todayStart = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
+  );
+  const weeklyStart = new Date(todayStart);
+  weeklyStart.setUTCDate(weeklyStart.getUTCDate() - 6);
+  const [
+    totalUsers,
+    activeUsers,
+    totalTasks,
+    openTasks,
+    overdueTasks,
+    waitingSupport,
+    unansweredContacts,
+    bannedUsers,
+    weeklyCompleted,
+    recentActivity,
+  ] = await Promise.all([
+    User.countDocuments(),
+    User.countDocuments({ $or: [{ ban: null }, { "ban.isBanned": { $ne: true } }] }),
+    Task.countDocuments(),
+    Task.countDocuments({ status: { $ne: "done" } }),
+    Task.countDocuments({ status: { $ne: "done" }, dueDate: { $lt: now } }),
+    SupportChat.countDocuments({ status: "open" }),
+    ContactSubmission.countDocuments({ status: "open" }),
+    User.countDocuments({ "ban.isBanned": true }),
+    Task.aggregate<{ _id: string; count: number }>([
+      { $match: { completedAt: { $gte: weeklyStart } } },
+      {
+        $group: {
+          _id: {
+            $dateToString: {
+              date: "$completedAt",
+              format: "%Y-%m-%d",
+              timezone: "UTC",
+            },
+          },
+          count: { $sum: 1 },
+        },
+      },
+    ]),
+    Activity.find()
+      .sort({ createdAt: -1 })
+      .limit(4)
+      .select("type label createdAt")
+      .lean(),
+  ]);
+  const weeklyMap = new Map(weeklyCompleted.map((entry) => [entry._id, entry.count]));
+  const weeklyProgress = Array.from({ length: 7 }, (_, index) => {
+    const date = new Date(weeklyStart);
+    date.setUTCDate(date.getUTCDate() + index);
+    const key = date.toISOString().slice(0, 10);
+    return { date: key, completed: weeklyMap.get(key) ?? 0 };
+  });
+
+  response.status(200).json({
+    success: true,
+    data: {
+      totalUsers,
+      activeUsers,
+      totalTasks,
+      openTasks,
+      overdueTasks,
+      waitingSupport,
+      unansweredContacts,
+      bannedUsers,
+      weeklyProgress,
+      recentActivity,
+    },
+  });
+};
+
 export const getAdminUserTasks: RequestHandler = async (request, response) => {
   const userId = validateObjectId(request.params.id, "user");
   const query = adminUserTaskQuerySchema.parse(request.query);
@@ -184,13 +257,15 @@ export const getAdminTaskById: RequestHandler = async (request, response) => {
 
 export const updateAdminTask: RequestHandler = async (request, response) => {
   const taskId = validateObjectId(request.params.taskId ?? request.params.id, "task");
-  const ownerId = validateObjectId(request.params.userId, "user");
+  const ownerId = request.params.userId
+    ? validateObjectId(request.params.userId, "user")
+    : undefined;
 
   if (Object.keys(request.body).length === 0) {
     throw new AppError("At least one task field must be provided", 400);
   }
 
-  const task = await Task.findOne({ _id: taskId, owner: ownerId });
+  const task = await Task.findOne({ _id: taskId, ...(ownerId && { owner: ownerId }) });
 
   if (!task) {
     throw new AppError("Task not found", 404);
@@ -211,8 +286,13 @@ export const updateAdminTask: RequestHandler = async (request, response) => {
 
 export const deleteAdminTask: RequestHandler = async (request, response) => {
   const taskId = validateObjectId(request.params.taskId ?? request.params.id, "task");
-  const ownerId = validateObjectId(request.params.userId, "user");
-  const task = await Task.findOneAndDelete({ _id: taskId, owner: ownerId });
+  const ownerId = request.params.userId
+    ? validateObjectId(request.params.userId, "user")
+    : undefined;
+  const task = await Task.findOneAndDelete({
+    _id: taskId,
+    ...(ownerId && { owner: ownerId }),
+  });
 
   if (!task) {
     throw new AppError("Task not found", 404);
@@ -361,9 +441,7 @@ export const updateAdminUser: RequestHandler = async (request, response) => {
     }
   }
 
-  const uploadedImage = request.file
-    ? await uploadProfileImage(request.file)
-    : null;
+  const uploadedImage = request.file ? await uploadProfileImage(request.file) : null;
   const previousImage = user.profileImage;
 
   if (firstName !== undefined) {
@@ -403,9 +481,7 @@ export const updateAdminUser: RequestHandler = async (request, response) => {
     throw error;
   }
   if (uploadedImage && previousImage) {
-    await deleteProfileImageFromCloudinary(previousImage.publicId).catch(
-      () => undefined,
-    );
+    await deleteProfileImageFromCloudinary(previousImage.publicId).catch(() => undefined);
   }
 
   response.status(200).json({
@@ -510,35 +586,13 @@ export const deleteAdminUser: RequestHandler = async (request, response) => {
     throw new AppError("You do not have permission to delete this account", 403);
   }
 
-  await RefreshSession.updateMany(
-    { user: user._id, revokedAt: null },
-    {
-      $set: {
-        revokedAt: new Date(),
-        revocationReason: "user-deleted",
-      },
-    },
-  );
-
-  const taskDeleteResult = await Task.deleteMany({ owner: user._id });
-  await RefreshSession.deleteMany({ user: user._id });
-  await PasswordReset.deleteMany({ user: user._id });
-  const chatDeleteResult = await SupportChat.deleteMany({ user: user._id });
-  await User.deleteOne({ _id: user._id });
-
-  if (user.profileImage) {
-    await deleteProfileImageFromCloudinary(user.profileImage.publicId).catch(
-      (error) =>
-        console.error(`Failed to delete profile image for user ${userId}:`, error),
-    );
-  }
+  const deletion = await deleteUserAccount(user);
 
   response.status(200).json({
     success: true,
     message: "User and related data deleted successfully",
     data: {
-      deletedTaskCount: taskDeleteResult.deletedCount,
-      deletedChatCount: chatDeleteResult.deletedCount,
+      ...deletion,
     },
   });
 };

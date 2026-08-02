@@ -2,36 +2,28 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as Switch from "@radix-ui/react-switch";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Ban, Edit3, Eye, RotateCcw, Search, Trash2, UserRound } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { Ban, Search } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
-import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { UserAvatar } from "@/components/user-avatar";
-import { Badge, Card } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
+import { AccountStatusBadge, RoleBadge } from "@/components/ui/domain-badge";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Dialog } from "@/components/ui/dialog";
 import { Field, Input, Select } from "@/components/ui/form-controls";
 import { PageHeading } from "@/components/ui/page-heading";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui/states";
-import {
-  banUserRequest,
-  deleteUserRequest,
-  getUsersRequest,
-  setAdminRoleRequest,
-  unbanUserRequest,
-  updateUserRequest,
-  type UserFilters,
-} from "@/features/admin/api";
+import { getUsersRequest, type UserFilters } from "@/features/admin/api";
 import { useAuth } from "@/features/auth/auth-provider";
 import { createProfileSchema, type ProfileFormValues } from "@/features/auth/schemas";
 import { getErrorMessage } from "@/lib/api-error";
 import { getBanReasonLabel } from "@/lib/domain-labels";
 import type { BanReason, User } from "@/lib/types";
-import { cn, getId } from "@/lib/utils";
+import { getId } from "@/lib/utils";
 import { usePreferences } from "@/providers/preferences-provider";
 
 const banReasons: BanReason[] = [
@@ -55,6 +47,7 @@ const copy = {
     admin: "admin",
     superAdmin: "super admin",
     allStates: "All account states",
+    status: "Status",
     active: "Active",
     banned: "Banned",
     loading: "Loading users…",
@@ -112,6 +105,7 @@ const copy = {
     admin: "admin",
     superAdmin: "super admin",
     allStates: "Alle Kontostatus",
+    status: "Status",
     active: "Aktiv",
     banned: "Gesperrt",
     loading: "Benutzer werden geladen…",
@@ -319,19 +313,14 @@ export function BanUserDialog({
 }
 
 export function AdminUsersView() {
-  const { locale, intlLocale } = usePreferences();
+  const { locale } = usePreferences();
   const t = copy[locale];
-  const queryClient = useQueryClient();
-  const { user: currentUser, isSuperAdmin, updateUser } = useAuth();
+  const { user: currentUser } = useAuth();
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [role, setRole] = useState<UserFilters["role"]>("");
   const [banned, setBanned] = useState<UserFilters["banned"]>("");
   const [page, setPage] = useState(1);
-  const [editingUser, setEditingUser] = useState<User | null>(null);
-  const [banningUser, setBanningUser] = useState<User | null>(null);
-  const [unbanningUser, setUnbanningUser] = useState<User | null>(null);
-  const [deletingUser, setDeletingUser] = useState<User | null>(null);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -349,91 +338,15 @@ export function AdminUsersView() {
     queryKey: ["admin", "users", filters],
     queryFn: () => getUsersRequest(filters),
   });
-  const invalidate = () =>
-    queryClient.invalidateQueries({ queryKey: ["admin", "users"] });
-
-  const editMutation = useMutation({
-    mutationFn: async ({
-      user,
-      values,
-      isAdmin,
-    }: {
-      user: User;
-      values: ProfileFormValues;
-      isAdmin: boolean | null;
-    }) => {
-      let updated = await updateUserRequest(getId(user), values);
-      if (isAdmin !== null) {
-        updated = await setAdminRoleRequest(getId(user), isAdmin);
-      }
-      return updated;
-    },
-    onSuccess: async (updated, variables) => {
-      if (currentUser && getId(currentUser) === getId(variables.user))
-        updateUser(updated);
-      setEditingUser(null);
-      toast.success(
-        variables.isAdmin === null
-          ? t.saved
-          : variables.isAdmin
-            ? t.roleEnabled
-            : t.roleRemoved,
-      );
-      await Promise.all([
-        invalidate(),
-        queryClient.invalidateQueries({
-          queryKey: ["admin", "user", getId(updated)],
-        }),
-      ]);
-    },
-    onError: (error) => toast.error(getErrorMessage(error, locale)),
-  });
-  const banMutation = useMutation({
-    mutationFn: ({ user, reason }: { user: User; reason: BanReason }) =>
-      banUserRequest(getId(user), reason),
-    onSuccess: async () => {
-      setBanningUser(null);
-      toast.success(t.bannedDone);
-      await invalidate();
-    },
-    onError: (error) => toast.error(getErrorMessage(error, locale)),
-  });
-  const unbanMutation = useMutation({
-    mutationFn: (user: User) => unbanUserRequest(getId(user)),
-    onSuccess: async () => {
-      setUnbanningUser(null);
-      toast.success(t.unbannedDone);
-      await invalidate();
-    },
-    onError: (error) => toast.error(getErrorMessage(error, locale)),
-  });
-  const deleteMutation = useMutation({
-    mutationFn: (user: User) => deleteUserRequest(getId(user)),
-    onSuccess: async () => {
-      setDeletingUser(null);
-      toast.success(t.deleted);
-      await invalidate();
-    },
-    onError: (error) => toast.error(getErrorMessage(error, locale)),
-  });
 
   const users = usersQuery.data?.users ?? [];
   const pagination = usersQuery.data?.pagination;
-  const canChangeEditingUserRole = Boolean(
-    editingUser &&
-    currentUser &&
-    isSuperAdmin &&
-    getId(editingUser) !== getId(currentUser) &&
-    !editingUser.roles.includes("super_admin"),
-  );
-  const formatDate = (value: string) =>
-    new Intl.DateTimeFormat(intlLocale, { dateStyle: "medium" }).format(new Date(value));
 
   return (
     <div>
-      <PageHeading eyebrow={t.eyebrow} title={t.title} description={t.description} />
+      <PageHeading title={t.title} description={t.description} />
 
-      <section className="mt-6 grid gap-3 rounded-[var(--container-radius)] border bg-[var(--surface)] p-3 shadow-sm md:grid-cols-[1fr_12rem_13rem]">
+      <section className="mt-6 grid gap-3 rounded-[var(--container-radius)] border bg-[var(--surface)] p-3 md:grid-cols-[1fr_12rem_13rem]">
         <label className="relative">
           <Search className="pointer-events-none absolute start-3.5 top-4 size-4 text-[var(--muted)]" />
           <Input
@@ -468,147 +381,153 @@ export function AdminUsersView() {
         </Select>
       </section>
 
-      <Card className="mt-6 overflow-hidden">
+      <div className="mt-6">
         {usersQuery.isPending ? (
-          <LoadingState label={t.loading} />
+          <Card>
+            <LoadingState label={t.loading} />
+          </Card>
         ) : usersQuery.isError ? (
-          <div className="p-5">
+          <Card className="p-5">
             <ErrorState
               message={getErrorMessage(usersQuery.error, locale)}
               retry={() => void usersQuery.refetch()}
             />
-          </div>
+          </Card>
         ) : users.length === 0 ? (
-          <div className="p-5">
+          <Card className="p-5">
             <EmptyState title={t.emptyTitle} description={t.emptyDescription} />
-          </div>
+          </Card>
         ) : (
-          <div className="divide-y">
-            {users.map((user) => {
-              const id = getId(user);
-              const self = id === currentUser?.id || id === currentUser?._id;
-              const superAdmin = user.roles.includes("super_admin");
-              const admin = user.roles.includes("admin");
-              const targetStaff = admin || superAdmin;
-              const mayManage = self || !targetStaff || isSuperAdmin;
-              const mayBan = !self && !superAdmin && (!admin || isSuperAdmin);
-              const roleLabel = superAdmin ? t.superAdmin : admin ? t.admin : t.user;
-              const roleEmoji = superAdmin ? "👑" : admin ? "🛡️" : "👤";
+          <>
+            <div className="grid items-start gap-4 lg:grid-cols-2 min-[70rem]:hidden">
+              {users.map((user) => {
+                const id = getId(user);
+                const self = id === currentUser?.id || id === currentUser?._id;
+                const superAdmin = user.roles.includes("super_admin");
+                const admin = user.roles.includes("admin");
+                const roleLabel = superAdmin ? t.superAdmin : admin ? t.admin : t.user;
+                const roleValue = superAdmin ? "super_admin" : admin ? "admin" : "user";
+                const isBanned = Boolean(user.ban?.isBanned);
 
-              return (
-                <article key={id} className="grid min-w-0 gap-3 p-4 xl:px-5">
-                  <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                return (
+                  <Card
+                    key={id}
+                    className="group relative overflow-hidden p-4 transition-colors duration-200 hover:border-[var(--primary)]/50"
+                  >
+                    <span
+                      className={`absolute inset-y-0 left-0 w-1.5 ${
+                        isBanned
+                          ? "bg-rose-500"
+                          : superAdmin || admin
+                            ? "bg-[var(--primary)]"
+                            : "bg-sky-500"
+                      }`}
+                      aria-hidden="true"
+                    />
                     <div className="flex min-w-0 items-start gap-3">
                       <UserAvatar user={user} className="size-11" imageSizes="44px" />
-                      <div className="min-w-0 flex-1 pt-0.5">
+                      <div className="min-w-0 flex-1">
                         <Link
                           href={`/admin/users/${id}`}
-                          className="focus-ring min-w-0 max-w-full break-words rounded font-bold hover:text-[var(--primary)]"
+                          className="focus-ring flex min-h-11 min-w-0 items-center rounded-[var(--control-radius)] text-sm font-bold hover:text-[var(--primary)]"
                           title={t.viewProfile}
+                          dir="auto"
                         >
-                          {user.firstName} {user.lastName}
+                          <span className="truncate">
+                            {user.firstName} {user.lastName}
+                            {self && (
+                              <span className="ms-1 text-xs font-normal text-[var(--muted)]">
+                                ({t.you})
+                              </span>
+                            )}
+                          </span>
                         </Link>
                         <p
-                          className="mt-1 min-w-0 max-w-full break-all text-xs text-[var(--muted)]"
+                          className="truncate text-xs text-[var(--muted)]"
                           dir="ltr"
+                          title={user.email}
                         >
                           {user.email}
                         </p>
                       </div>
                     </div>
-                    <div
-                      className={cn(
-                        "grid max-w-full shrink-0 self-end gap-1 sm:self-start",
-                        isSuperAdmin ? "grid-cols-4" : "grid-cols-3",
-                      )}
+                    <div className="mt-4 flex flex-wrap items-center gap-2 border-t pt-3">
+                      <RoleBadge role={roleValue}>{roleLabel}</RoleBadge>
+                      <AccountStatusBadge
+                        banned={isBanned}
+                        title={
+                          user.ban?.isBanned
+                            ? `${t.bannedReason}: ${getBanReasonLabel(user.ban.reason, locale)}`
+                            : undefined
+                        }
+                      >
+                        {isBanned ? t.banned : t.active}
+                      </AccountStatusBadge>
+                    </div>
+                  </Card>
+                );
+              })}
+            </div>
+            <Card className="hidden overflow-hidden min-[70rem]:block">
+              <div className="grid grid-cols-[minmax(12rem,1.3fr)_minmax(12rem,1.25fr)_7rem_7rem] gap-3 border-b bg-[var(--surface-muted)] px-4 py-3 text-xs font-semibold text-[var(--muted)]">
+                <span>{t.users}</span>
+                <span>{t.email}</span>
+                <span>{t.role}</span>
+                <span>{t.status}</span>
+              </div>
+              <div className="divide-y">
+                {users.map((user) => {
+                  const id = getId(user);
+                  const self = id === currentUser?.id || id === currentUser?._id;
+                  const superAdmin = user.roles.includes("super_admin");
+                  const admin = user.roles.includes("admin");
+                  const roleLabel = superAdmin ? t.superAdmin : admin ? t.admin : t.user;
+                  const roleValue = superAdmin ? "super_admin" : admin ? "admin" : "user";
+                  return (
+                    <article
+                      key={id}
+                      className="grid min-w-0 grid-cols-[minmax(12rem,1.3fr)_minmax(12rem,1.25fr)_7rem_7rem] items-center gap-3 p-4 transition-colors hover:bg-[var(--surface-muted)]"
                     >
-                      <Link
-                        href={`/admin/users/${id}`}
-                        className="focus-ring grid size-10 place-items-center rounded-full text-[var(--muted)] hover:bg-[var(--surface-muted)]"
-                        aria-label={t.viewProfile}
-                      >
-                        <Eye className="size-4" />
-                      </Link>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        disabled={!mayManage}
-                        onClick={() => setEditingUser(user)}
-                      >
-                        <Edit3 className="size-4" />
-                      </Button>
-                      {user.ban?.isBanned ? (
-                        <Button
-                          variant="secondary"
-                          size="icon"
-                          disabled={!mayBan}
-                          onClick={() => setUnbanningUser(user)}
+                      <div className="flex min-w-0 items-center gap-3">
+                        <UserAvatar user={user} className="size-9" imageSizes="36px" />
+                        <Link
+                          href={`/admin/users/${id}`}
+                          className="focus-ring min-w-0 truncate rounded text-sm font-semibold hover:text-[var(--primary)]"
+                          title={t.viewProfile}
                         >
-                          <RotateCcw className="size-4" />
-                        </Button>
-                      ) : (
-                        <Button
-                          variant="danger"
-                          size="icon"
-                          disabled={!mayBan}
-                          onClick={() => setBanningUser(user)}
-                        >
-                          <Ban className="size-4" />
-                        </Button>
-                      )}
-                      {isSuperAdmin && (
-                        <Button
-                          variant="danger"
-                          size="icon"
-                          disabled={!mayManage || self}
-                          onClick={() => setDeletingUser(user)}
-                        >
-                          <Trash2 className="size-4" />
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2 border-t pt-3">
-                    <div className="flex min-w-0 items-center gap-2 text-sm text-[var(--muted)]">
-                      <UserRound className="size-4 shrink-0" />
-                      <span className="min-w-0 break-words">
-                        {formatDate(user.createdAt)}
-                      </span>
-                    </div>
-                    <div className="flex min-w-0 items-center gap-2">
-                      <span aria-hidden="true" className="text-lg leading-none">
-                        {roleEmoji}
-                      </span>
-                      <span className="min-w-0 text-xs font-bold break-words text-[var(--muted)]">
-                        {roleLabel}
-                      </span>
-                    </div>
-                    {(self || user.ban?.isBanned) && (
-                      <div className="flex w-full min-w-0 flex-wrap items-center gap-2 sm:w-auto">
-                        {self && <Badge>{t.you}</Badge>}
-                        {user.ban?.isBanned && (
-                          <>
-                            <Badge className="border-rose-200 bg-rose-50 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300">
-                              {t.banned}
-                            </Badge>
-                            <Badge className="max-w-full border-rose-200 bg-transparent text-rose-700 dark:text-rose-300">
-                              <span className="break-words">
-                                {t.bannedReason}:{" "}
-                                {getBanReasonLabel(user.ban.reason, locale)}
-                              </span>
-                            </Badge>
-                          </>
-                        )}
+                          {user.firstName} {user.lastName}
+                          {self && (
+                            <span className="ms-1 text-xs font-normal text-[var(--muted)]">
+                              ({t.you})
+                            </span>
+                          )}
+                        </Link>
                       </div>
-                    )}
-                  </div>
-                </article>
-              );
-            })}
-          </div>
+                      <p
+                        className="min-w-0 truncate text-xs text-[var(--muted)]"
+                        dir="ltr"
+                      >
+                        {user.email}
+                      </p>
+                      <RoleBadge role={roleValue}>{roleLabel}</RoleBadge>
+                      <AccountStatusBadge
+                        banned={Boolean(user.ban?.isBanned)}
+                        title={
+                          user.ban?.isBanned
+                            ? `${t.bannedReason}: ${getBanReasonLabel(user.ban.reason, locale)}`
+                            : undefined
+                        }
+                      >
+                        {user.ban?.isBanned ? t.banned : t.active}
+                      </AccountStatusBadge>
+                    </article>
+                  );
+                })}
+              </div>
+            </Card>
+          </>
         )}
-      </Card>
+      </div>
 
       {pagination && pagination.totalPages > 1 && (
         <div className="mt-5 flex items-center justify-between text-sm">
@@ -635,58 +554,6 @@ export function AdminUsersView() {
           </div>
         </div>
       )}
-
-      <EditUserDialog
-        key={editingUser ? getId(editingUser) : "closed"}
-        user={editingUser}
-        loading={editMutation.isPending}
-        canChangeAdminRole={canChangeEditingUserRole}
-        onClose={() => setEditingUser(null)}
-        onSave={(values, isAdmin) =>
-          editingUser
-            ? editMutation
-                .mutateAsync({ user: editingUser, values, isAdmin })
-                .then(() => undefined)
-            : Promise.resolve()
-        }
-      />
-      <BanUserDialog
-        key={banningUser?.id ?? "closed"}
-        user={banningUser}
-        loading={banMutation.isPending}
-        onClose={() => setBanningUser(null)}
-        onBan={(reason) =>
-          banningUser
-            ? banMutation.mutateAsync({ user: banningUser, reason }).then(() => undefined)
-            : Promise.resolve()
-        }
-      />
-      <ConfirmDialog
-        open={Boolean(unbanningUser)}
-        onOpenChange={(open) => !open && setUnbanningUser(null)}
-        title={t.unbanTitle}
-        description={t.unbanDescription}
-        loading={unbanMutation.isPending}
-        onConfirm={() =>
-          unbanningUser
-            ? unbanMutation.mutateAsync(unbanningUser).then(() => undefined)
-            : undefined
-        }
-      />
-      <ConfirmDialog
-        open={Boolean(deletingUser)}
-        onOpenChange={(open) => !open && setDeletingUser(null)}
-        title={t.deleteTitle}
-        description={t.deleteDescription(
-          `${deletingUser?.firstName ?? ""} ${deletingUser?.lastName ?? ""}`.trim(),
-        )}
-        loading={deleteMutation.isPending}
-        onConfirm={() =>
-          deletingUser
-            ? deleteMutation.mutateAsync(deletingUser).then(() => undefined)
-            : undefined
-        }
-      />
     </div>
   );
 }

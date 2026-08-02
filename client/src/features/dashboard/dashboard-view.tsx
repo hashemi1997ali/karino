@@ -1,263 +1,443 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AlertTriangle,
-  ArrowRight,
+  Bot,
+  CalendarCheck2,
   CheckCircle2,
-  CircleDashed,
+  Circle,
   Clock3,
   ListTodo,
+  Sparkles,
 } from "lucide-react";
 import Link from "next/link";
+import { toast } from "sonner";
 
-import { Badge, Card } from "@/components/ui/card";
+import { buttonClassName } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { TaskPriorityBadge, TaskStatusBadge } from "@/components/ui/domain-badge";
 import { ErrorState, LoadingState } from "@/components/ui/states";
+import { TrendChart } from "@/components/ui/trend-chart";
 import { useAuth } from "@/features/auth/auth-provider";
-import { getTaskSummaryRequest, getTasksRequest } from "@/features/tasks/api";
+import { getTodayDashboardRequest, updateTaskRequest } from "@/features/tasks/api";
 import { getErrorMessage } from "@/lib/api-error";
-import { formatDate, formatNumber, formatPercent, getId } from "@/lib/utils";
+import type { ActivityType, Task, TodayDashboard } from "@/lib/types";
+import { cn, formatNumber, formatPercent, getId } from "@/lib/utils";
 import { usePreferences } from "@/providers/preferences-provider";
 
 const copy = {
   en: {
-    total: "Total tasks",
-    inProgress: "In progress",
-    done: "Completed",
+    greetings: {
+      morning: "Good morning",
+      afternoon: "Good afternoon",
+      evening: "Good evening",
+    },
+    intro: "Here’s what needs your attention today.",
+    tasksToday: "Tasks today",
+    completed: "Completed",
     overdue: "Overdue",
-    eyebrow: "Today at a glance",
-    greeting: (name?: string) => `Hello ${name ?? "there"}, how is your day going?`,
-    intro: "Track your most important work and overall progress in one place.",
-    upcoming: "Upcoming work",
-    upcomingHint: "The nearest tasks by due date",
-    viewAll: "View all",
-    noTasks: "You have not created a task yet.",
-    noDueDate: "No due date",
-    todo: "To do",
-    overall: "Overall progress",
-    overallHint: "Share of completed tasks",
-    completed: "completed",
-    remaining: "left",
-    active: "active",
-    finished: "done",
+    completionRate: "Completion rate",
+    focus: "Today focus",
+    upcoming: "Upcoming",
+    aiBrief: "AI Daily Brief",
+    aiAction: "Fix my schedule",
+    askAi: "Ask AI about my day",
+    weekly: "Weekly progress",
+    lastSevenDays: "Last 7 days",
+    recent: "Recent activity",
+    noTasks: "No active tasks need your attention.",
+    noActivity: "No recent activity yet.",
+    today: "Today",
+    overdueLabel: "Overdue",
+    noUpcoming: "No tasks",
+    scheduledTasks: (count: number) => `${count} task${count === 1 ? "" : "s"} scheduled`,
+    completedTasks: (count: number) => `${count} task${count === 1 ? "" : "s"} completed`,
+    priority: { low: "Low", medium: "Medium", high: "High" },
+    status: { todo: "To do", "in-progress": "In progress", done: "Done" },
+    brief: ({
+      overdue,
+      highPriority,
+      dueToday,
+      scheduleConflicts,
+    }: TodayDashboard["dailyBrief"]) => {
+      const details = [
+        overdue > 0 ? `${overdue} overdue task${overdue === 1 ? "" : "s"}` : null,
+        dueToday > 0
+          ? `${dueToday} task${dueToday === 1 ? "" : "s"} still due today`
+          : null,
+        highPriority > 0
+          ? `${highPriority} high-priority item${highPriority === 1 ? "" : "s"}`
+          : null,
+        scheduleConflicts > 0
+          ? `${scheduleConflicts} potential scheduling conflict${scheduleConflicts === 1 ? "" : "s"}`
+          : null,
+      ].filter(Boolean);
+      return details.length
+        ? `Karino found ${details.join(", ")}.`
+        : "Your schedule looks clear. Choose one meaningful task to move forward.";
+    },
+    activityLabels: {
+      task_created: "Task created",
+      task_updated: "Task updated",
+      task_completed: "Task completed",
+      task_deleted: "Task deleted",
+      sign_in: "Signed in",
+      password_changed: "Password changed",
+      session_revoked: "Session revoked",
+      support_opened: "Support opened",
+      support_resolved: "Support resolved",
+    },
   },
   de: {
-    total: "Aufgaben gesamt",
-    inProgress: "In Bearbeitung",
-    done: "Erledigt",
+    greetings: {
+      morning: "Guten Morgen",
+      afternoon: "Guten Tag",
+      evening: "Guten Abend",
+    },
+    intro: "Das benötigt heute deine Aufmerksamkeit.",
+    tasksToday: "Aufgaben heute",
+    completed: "Erledigt",
     overdue: "Überfällig",
-    eyebrow: "Heute auf einen Blick",
-    greeting: (name?: string) =>
-      name ? `Hallo ${name}, wie läuft dein Tag?` : "Hallo, wie läuft dein Tag?",
-    intro: "Behalte wichtige Aufgaben und deinen Fortschritt an einem Ort im Blick.",
-    upcoming: "Anstehende Aufgaben",
-    upcomingHint: "Die nächsten Aufgaben nach Fälligkeit",
-    viewAll: "Alle anzeigen",
-    noTasks: "Du hast noch keine Aufgabe erstellt.",
-    noDueDate: "Kein Fälligkeitsdatum",
-    todo: "Offen",
-    overall: "Gesamtfortschritt",
-    overallHint: "Anteil der erledigten Aufgaben",
-    completed: "erledigt",
-    remaining: "offen",
-    active: "aktiv",
-    finished: "fertig",
+    completionRate: "Erledigungsquote",
+    focus: "Fokus für heute",
+    upcoming: "Demnächst",
+    aiBrief: "KI-Tagesübersicht",
+    aiAction: "Zeitplan optimieren",
+    askAi: "KI zu meinem Tag fragen",
+    weekly: "Wochenfortschritt",
+    lastSevenDays: "Letzte 7 Tage",
+    recent: "Letzte Aktivitäten",
+    noTasks: "Keine aktiven Aufgaben benötigen deine Aufmerksamkeit.",
+    noActivity: "Noch keine aktuellen Aktivitäten.",
+    today: "Heute",
+    overdueLabel: "Überfällig",
+    noUpcoming: "Keine Aufgaben",
+    scheduledTasks: (count: number) =>
+      `${count} Aufgabe${count === 1 ? "" : "n"} geplant`,
+    completedTasks: (count: number) =>
+      `${count} Aufgabe${count === 1 ? "" : "n"} erledigt`,
+    priority: { low: "Niedrig", medium: "Mittel", high: "Hoch" },
+    status: { todo: "Offen", "in-progress": "In Bearbeitung", done: "Erledigt" },
+    brief: ({
+      overdue,
+      highPriority,
+      dueToday,
+      scheduleConflicts,
+    }: TodayDashboard["dailyBrief"]) => {
+      const details = [
+        overdue > 0 ? `${overdue} überfällige Aufgabe${overdue === 1 ? "" : "n"}` : null,
+        dueToday > 0
+          ? `${dueToday} heute noch fällige Aufgabe${dueToday === 1 ? "" : "n"}`
+          : null,
+        highPriority > 0
+          ? `${highPriority} Eintrag${highPriority === 1 ? "" : "e"} mit hoher Priorität`
+          : null,
+        scheduleConflicts > 0
+          ? `${scheduleConflicts} mögliche${scheduleConflicts === 1 ? "r" : ""} Terminkonflikt${scheduleConflicts === 1 ? "" : "e"}`
+          : null,
+      ].filter(Boolean);
+      return details.length
+        ? `Karino hat ${details.join(", ")} gefunden.`
+        : "Dein Zeitplan ist übersichtlich. Wähle eine wichtige Aufgabe als nächsten Schritt.";
+    },
+    activityLabels: {
+      task_created: "Aufgabe erstellt",
+      task_updated: "Aufgabe aktualisiert",
+      task_completed: "Aufgabe erledigt",
+      task_deleted: "Aufgabe gelöscht",
+      sign_in: "Angemeldet",
+      password_changed: "Passwort geändert",
+      session_revoked: "Sitzung widerrufen",
+      support_opened: "Support geöffnet",
+      support_resolved: "Support gelöst",
+    },
   },
 } as const;
+
+const getGreetingKey = (): "morning" | "afternoon" | "evening" => {
+  const hour = new Date().getHours();
+  if (hour < 12) return "morning";
+  if (hour < 18) return "afternoon";
+  return "evening";
+};
 
 export function DashboardView() {
   const { user } = useAuth();
   const { locale, intlLocale } = usePreferences();
   const t = copy[locale];
-  const summaryQuery = useQuery({
-    queryKey: ["tasks", "summary"],
-    queryFn: getTaskSummaryRequest,
+  const queryClient = useQueryClient();
+  const dashboardQuery = useQuery({
+    queryKey: ["dashboard", "today"],
+    queryFn: getTodayDashboardRequest,
   });
-  const upcomingQuery = useQuery({
-    queryKey: ["tasks", "upcoming"],
-    queryFn: () =>
-      getTasksRequest({ page: 1, limit: 5, sortBy: "dueDate", order: "asc" }),
+  const statusMutation = useMutation({
+    mutationFn: (task: Task) =>
+      updateTaskRequest(getId(task), {
+        status: task.status === "done" ? "todo" : "done",
+      }),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["dashboard"] }),
+        queryClient.invalidateQueries({ queryKey: ["tasks"] }),
+      ]);
+    },
+    onError: (error) => toast.error(getErrorMessage(error, locale)),
   });
 
-  if (summaryQuery.isPending || upcomingQuery.isPending) return <LoadingState />;
-  if (summaryQuery.isError || upcomingQuery.isError) {
+  if (dashboardQuery.isPending) return <LoadingState />;
+  if (dashboardQuery.isError) {
     return (
       <ErrorState
-        message={getErrorMessage(summaryQuery.error ?? upcomingQuery.error, locale)}
-        retry={() => {
-          void summaryQuery.refetch();
-          void upcomingQuery.refetch();
-        }}
+        message={getErrorMessage(dashboardQuery.error, locale)}
+        retry={() => void dashboardQuery.refetch()}
       />
     );
   }
 
-  const summary = summaryQuery.data;
-  const upcoming = upcomingQuery.data.tasks;
-  const progress = summary.total === 0 ? 0 : summary.done / summary.total;
+  const dashboard = dashboardQuery.data;
   const stats = [
     {
-      label: t.total,
-      value: summary.total,
+      label: t.tasksToday,
+      value: formatNumber(dashboard.stats.tasksToday, intlLocale),
       icon: ListTodo,
-      color: "bg-white/10 text-white",
-        card: "bg-[var(--navigation)] text-white border-[var(--navigation)]",
     },
     {
-      label: t.inProgress,
-      value: summary.inProgress,
-      icon: Clock3,
-      color: "bg-white/16 text-white",
-      card: "bg-[var(--primary)] text-[var(--on-primary)] border-[var(--primary)]",
-    },
-    {
-      label: t.done,
-      value: summary.done,
+      label: t.completed,
+      value: formatNumber(dashboard.stats.completed, intlLocale),
       icon: CheckCircle2,
-      color: "bg-black/8 text-[var(--on-highlight)]",
-      card: "bg-[var(--highlight)] text-[var(--on-highlight)] border-[var(--highlight)]",
     },
     {
       label: t.overdue,
-      value: summary.overdue,
+      value: formatNumber(dashboard.stats.overdue, intlLocale),
       icon: AlertTriangle,
-      color: "bg-rose-500/10 text-rose-600 dark:text-rose-300",
-      card: "bg-[var(--surface)]",
+    },
+    {
+      label: t.completionRate,
+      value: formatPercent(dashboard.stats.completionRate, intlLocale),
+      icon: Clock3,
     },
   ];
+  const todayKey = new Intl.DateTimeFormat("en-CA", {
+    timeZone: dashboard.timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date(dashboard.generatedAt));
+  const dateKeyFor = (date: string) =>
+    new Intl.DateTimeFormat("en-CA", {
+      timeZone: dashboard.timeZone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(new Date(date));
 
   return (
-    <div>
-      <section className="relative overflow-hidden rounded-[var(--container-radius)] border bg-[var(--surface)] p-6 sm:p-8">
-        <div className="paper-grid absolute inset-0 opacity-30" />
-        <span className="absolute -right-10 -top-12 size-48 rounded-full bg-[var(--highlight)]/45 blur-3xl" />
-        <div>
-          <p className="eyebrow relative text-[var(--primary)]">{t.eyebrow}</p>
-          <h1
-            className="relative mt-3 max-w-3xl text-3xl leading-tight font-black tracking-[-0.04em] text-[var(--foreground)] sm:text-5xl"
-            dir="auto"
-          >
-            {t.greeting(user?.firstName)}
-          </h1>
-          <p className="relative mt-3 text-sm text-[var(--muted)]">{t.intro}</p>
-        </div>
-      </section>
+    <div className="dashboard-page">
+      <header>
+        <h1 className="text-[1.625rem] leading-8 font-bold tracking-[-0.025em]">
+          {t.greetings[getGreetingKey()]}, {user?.firstName}
+        </h1>
+        <p className="mt-1 text-sm text-[var(--muted)]">{t.intro}</p>
+        <time className="sr-only" dateTime={dashboard.generatedAt}>
+          {new Intl.DateTimeFormat(intlLocale, { dateStyle: "full" }).format(
+            new Date(dashboard.generatedAt),
+          )}
+        </time>
+      </header>
 
-      <section className="mt-7 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {stats.map(({ label, value, icon: Icon, color, card }) => (
-          <Card
-            key={label}
-            className={`flex min-h-36 flex-col justify-between p-5 ${card}`}
-          >
-            <span className={`grid size-11 place-items-center rounded-2xl ${color}`}>
-              <Icon className="size-5" />
+      <Link
+        href="/assistant"
+        className={buttonClassName({ className: "mt-4 flex w-full md:hidden" })}
+      >
+        <Sparkles className="size-4" />
+        {t.askAi}
+      </Link>
+
+      <section className="mt-6 grid grid-cols-2 gap-3 xl:grid-cols-4">
+        {stats.map(({ label, value, icon: Icon }) => (
+          <Card key={label} className="min-h-[7.5rem] p-4">
+            <span className="grid size-9 place-items-center rounded-[9px] bg-[var(--primary-soft)] text-[var(--primary)]">
+              <Icon className="size-4" aria-hidden="true" />
             </span>
-            <div className="mt-5 flex items-end justify-between gap-3">
-              <div className="text-3xl font-black tracking-tight text-inherit">
-                {formatNumber(value, intlLocale)}
-              </div>
-              <div className="pb-1 text-right text-xs font-bold opacity-65">{label}</div>
-            </div>
+            <p className="mt-3 text-xs font-semibold text-[var(--muted)]">{label}</p>
+            <p className="mt-1 text-2xl font-bold tabular-nums">{value}</p>
           </Card>
         ))}
       </section>
 
-      <section className="mt-6 grid gap-5 xl:grid-cols-[1fr_23rem]">
-        <Card className="p-5 sm:p-7">
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <h2 className="text-lg font-black text-[var(--foreground)]">
-                {t.upcoming}
-              </h2>
-              <p className="mt-1 text-sm text-[var(--muted)]">{t.upcomingHint}</p>
-            </div>
-            <Link
-              href="/tasks"
-              className="inline-flex items-center gap-1 text-sm font-bold text-[var(--primary)]"
-            >
-              {t.viewAll} <ArrowRight className="size-4" />
-            </Link>
-          </div>
-          {upcoming.length === 0 ? (
-            <div className="mt-8 grid justify-items-center gap-3 rounded-2xl bg-[var(--surface-muted)] py-10 text-center">
-              <CircleDashed className="size-8 text-slate-300" />
-              <p className="text-sm text-[var(--muted)]">{t.noTasks}</p>
-            </div>
-          ) : (
-            <div className="mt-5 divide-y">
-              {upcoming.map((task) => (
-                <div
-                  key={getId(task)}
-                  className="flex items-center gap-3 py-3.5 first:pt-0 last:pb-0"
-                >
-                  <span
-                    className={`size-2.5 shrink-0 rounded-full ${task.status === "done" ? "bg-emerald-500" : task.priority === "high" ? "bg-rose-500" : "bg-indigo-500"}`}
-                  />
-                  <div className="min-w-0 flex-1" dir="auto">
-                    <p className="truncate text-sm font-bold text-[var(--foreground)]">
-                      {task.title}
-                    </p>
-                    <p className="mt-1 text-xs text-slate-400">
-                      {task.dueDate ? formatDate(task.dueDate, intlLocale) : t.noDueDate}
-                    </p>
-                  </div>
-                  <Badge
-                    className={
-                      task.status === "done"
-                        ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300"
-                        : task.status === "in-progress"
-                          ? "bg-amber-50 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300"
-                          : "bg-slate-100 text-slate-600"
-                    }
-                  >
-                    {task.status === "done"
-                      ? t.done
-                      : task.status === "in-progress"
-                        ? t.inProgress
-                        : t.todo}
-                  </Badge>
-                </div>
-              ))}
-            </div>
-          )}
-        </Card>
-
-        <Card className="overflow-hidden bg-[var(--navigation)] p-6 text-white">
-          <h2 className="font-black text-white">{t.overall}</h2>
-          <p className="mt-1 text-sm text-white/70">{t.overallHint}</p>
-          <div
-            className="relative mx-auto mt-8 grid size-44 place-items-center rounded-full bg-[conic-gradient(var(--highlight)_var(--progress),rgba(255,255,255,.1)_0)] p-4"
-            style={{ "--progress": `${progress * 100}%` } as React.CSSProperties}
-          >
-            <div className="grid size-full place-items-center rounded-full bg-[var(--navigation)] text-center">
-              <div>
-                <p className="text-3xl font-black text-white">
-                  {formatPercent(progress, intlLocale)}
-                </p>
-                <p className="mt-1 text-xs text-white/70">{t.completed}</p>
+      <div className="mt-6 grid gap-5 xl:grid-cols-[minmax(0,1.65fr)_minmax(20rem,.85fr)]">
+        <div className="space-y-6">
+          <section>
+            <h2 className="text-sm font-semibold">{t.focus}</h2>
+            {dashboard.focusTasks.length === 0 ? (
+              <Card className="mt-3 p-8 text-center text-sm text-[var(--muted)]">
+                <CalendarCheck2 className="mx-auto mb-3 size-6 text-[var(--success)]" />
+                {t.noTasks}
+              </Card>
+            ) : (
+              <div className="mt-3 space-y-2">
+                {dashboard.focusTasks.map((task) => {
+                  const taskDateKey = task.dueDate ? dateKeyFor(task.dueDate) : "";
+                  return (
+                    <Card
+                      key={getId(task)}
+                      className="grid min-h-16 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-2 gap-y-3 p-3 sm:grid-cols-[auto_minmax(0,1fr)_auto_auto] sm:px-4"
+                    >
+                      <button
+                        type="button"
+                        onClick={() => statusMutation.mutate(task)}
+                        aria-label={`${t.status[task.status]}: ${task.title}`}
+                        disabled={statusMutation.isPending}
+                        className="focus-ring row-span-2 grid size-11 place-items-center rounded-full disabled:opacity-50 sm:row-span-1"
+                      >
+                        {task.status === "done" ? (
+                          <CheckCircle2 className="size-5 text-[var(--primary)]" />
+                        ) : (
+                          <Circle className="size-5 text-[var(--muted)]" />
+                        )}
+                      </button>
+                      <div className="col-span-2 min-w-0 sm:col-span-1">
+                        <h3 className="truncate text-sm font-semibold">{task.title}</h3>
+                        <p
+                          className={cn(
+                            "mt-1 text-xs text-[var(--muted)]",
+                            taskDateKey < todayKey &&
+                              task.status !== "done" &&
+                              "text-[var(--danger)]",
+                          )}
+                        >
+                          {taskDateKey < todayKey && task.status !== "done"
+                            ? t.overdueLabel
+                            : t.today}
+                        </p>
+                      </div>
+                      <TaskPriorityBadge priority={task.priority}>
+                        {t.priority[task.priority]}
+                      </TaskPriorityBadge>
+                      <TaskStatusBadge status={task.status}>
+                        {t.status[task.status]}
+                      </TaskStatusBadge>
+                    </Card>
+                  );
+                })}
               </div>
+            )}
+          </section>
+
+          <section>
+            <h2 className="text-sm font-semibold">{t.upcoming}</h2>
+            <Card className="mt-3 grid grid-cols-5 gap-1 p-3 sm:p-5">
+              {dashboard.upcoming.map((day) => {
+                const date = new Date(`${day.date}T12:00:00Z`);
+                const dateLabel = new Intl.DateTimeFormat(intlLocale, {
+                  weekday: "long",
+                  month: "long",
+                  day: "numeric",
+                  timeZone: "UTC",
+                }).format(date);
+                return (
+                  <div
+                    key={day.date}
+                    className="flex min-w-0 flex-col items-center rounded-[10px] px-1 py-3 text-center"
+                    aria-label={`${dateLabel}: ${
+                      day.count ? t.scheduledTasks(day.count) : t.noUpcoming
+                    }`}
+                  >
+                    <span className="text-[11px] font-semibold text-[var(--muted)]">
+                      {new Intl.DateTimeFormat(intlLocale, {
+                        weekday: "short",
+                        timeZone: "UTC",
+                      }).format(date)}
+                    </span>
+                    <span
+                      className={cn(
+                        "my-4 size-3 rounded-[4px] rotate-45",
+                        day.count
+                          ? "bg-[var(--primary)]"
+                          : "bg-[var(--border)] dark:bg-[var(--surface-strong)]",
+                      )}
+                    />
+                    <span className="text-sm font-bold tabular-nums">
+                      {new Intl.DateTimeFormat(intlLocale, {
+                        day: "numeric",
+                        timeZone: "UTC",
+                      }).format(date)}
+                    </span>
+                    <span className="mt-1 text-[10px] text-[var(--muted)]">
+                      {day.count > 0 ? formatNumber(day.count, intlLocale) : "—"}
+                    </span>
+                  </div>
+                );
+              })}
+            </Card>
+          </section>
+        </div>
+
+        <aside className="space-y-5">
+          <Card className="p-5">
+            <div className="flex items-center gap-2">
+              <Bot className="size-5 text-[var(--primary)]" aria-hidden="true" />
+              <h2 className="text-sm font-semibold">{t.aiBrief}</h2>
             </div>
-          </div>
-          <div className="mt-7 grid grid-cols-3 gap-2 text-center text-xs">
-            <div className="rounded-xl bg-white/7 p-2.5 text-white/70">
-              <b className="block text-base text-white">
-                {formatNumber(summary.todo, intlLocale)}
-              </b>{" "}
-              {t.remaining}
+            <p className="mt-4 min-h-12 text-sm leading-6 text-[var(--muted)]">
+              {t.brief(dashboard.dailyBrief)}
+            </p>
+            <Link
+              href="/assistant"
+              className={buttonClassName({ className: "mt-5 flex w-full" })}
+            >
+              <Sparkles className="size-4" />
+              {t.aiAction}
+            </Link>
+          </Card>
+
+          <Card className="p-5">
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="text-sm font-semibold">{t.weekly}</h2>
+              <span className="text-xs text-[var(--muted)]">{t.lastSevenDays}</span>
             </div>
-            <div className="rounded-xl bg-[var(--primary)]/15 p-2.5 text-[var(--primary)]">
-              <b className="block text-base">
-                {formatNumber(summary.inProgress, intlLocale)}
-              </b>{" "}
-              {t.active}
+            <div className="mt-4">
+              <TrendChart
+                data={dashboard.weeklyProgress.map((item) => ({
+                  key: item.date,
+                  value: item.completed,
+                  accessibleLabel: `${new Intl.DateTimeFormat(intlLocale, {
+                    dateStyle: "medium",
+                    timeZone: "UTC",
+                  }).format(new Date(`${item.date}T12:00:00Z`))}: ${t.completedTasks(
+                    item.completed,
+                  )}`,
+                }))}
+                label={t.weekly}
+              />
             </div>
-            <div className="rounded-xl bg-[var(--highlight)]/10 p-2.5 text-[var(--highlight)]">
-              <b className="block text-base">{formatNumber(summary.done, intlLocale)}</b>{" "}
-              {t.finished}
-            </div>
-          </div>
-        </Card>
-      </section>
+          </Card>
+
+          <Card className="p-5">
+            <h2 className="text-sm font-semibold">{t.recent}</h2>
+            {dashboard.recentActivity.length === 0 ? (
+              <p className="mt-4 text-sm text-[var(--muted)]">{t.noActivity}</p>
+            ) : (
+              <ul className="mt-4 space-y-3">
+                {dashboard.recentActivity.map((activity) => (
+                  <li key={getId(activity)} className="flex items-start gap-3">
+                    <span className="mt-1.5 size-2 shrink-0 rounded-full bg-[var(--primary)]" />
+                    <div className="min-w-0">
+                      <p className="truncate text-xs font-medium">
+                        {t.activityLabels[activity.type as ActivityType]}
+                      </p>
+                      <p className="mt-0.5 truncate text-xs text-[var(--muted)]">
+                        {activity.label}
+                      </p>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Card>
+        </aside>
+      </div>
     </div>
   );
 }

@@ -2,10 +2,7 @@ const PROFILE_IMAGE_SIZE = 512;
 const TARGET_FILE_SIZE = 500 * 1024;
 const SUPPORTED_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 
-const canvasToBlob = (
-  canvas: HTMLCanvasElement,
-  quality: number,
-): Promise<Blob> =>
+const canvasToBlob = (canvas: HTMLCanvasElement, quality: number): Promise<Blob> =>
   new Promise((resolve, reject) => {
     canvas.toBlob(
       (blob) => {

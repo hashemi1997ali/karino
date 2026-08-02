@@ -47,7 +47,7 @@ const copy = {
 export function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { login, status } = useAuth();
+  const { login, status, user } = useAuth();
   const { locale } = usePreferences();
   const t = copy[locale];
   const schema = useMemo(() => createLoginSchema(locale), [locale]);
@@ -63,16 +63,18 @@ export function LoginForm() {
   } = useForm<LoginFormValues>({ resolver: zodResolver(schema) });
 
   useEffect(() => {
-    if (status === "authenticated") router.replace(destination);
-  }, [status, destination, router]);
+    if (status === "authenticated" && user) {
+      router.replace(user.onboardingCompleted ? destination : "/onboarding");
+    }
+  }, [status, destination, router, user]);
 
   useEffect(() => clearErrors(), [locale, clearErrors]);
 
   const onSubmit = handleSubmit(async (values) => {
     try {
-      await login(values);
+      const authenticatedUser = await login(values);
       toast.success(t.success);
-      router.replace(destination);
+      router.replace(authenticatedUser.onboardingCompleted ? destination : "/onboarding");
     } catch (error) {
       toast.error(getErrorMessage(error, locale));
     }

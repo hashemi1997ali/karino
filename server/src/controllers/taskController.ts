@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 import type { RequestHandler } from "express";
 
 import { Task, User, type ITask } from "#models";
+import { getTodayDashboardData, recordActivity } from "#services";
 import { AppError, applyTaskStatusTransition } from "#utils";
 import { taskQuerySchema } from "#schemas";
 
@@ -37,6 +38,12 @@ export const createTask: RequestHandler = async (request, response) => {
     ...request.body,
     owner,
     completedAt: request.body.status === "done" ? new Date() : null,
+  });
+  await recordActivity({
+    userId: owner,
+    type: "task_created",
+    entityId: task.id,
+    label: task.title,
   });
 
   response.status(201).json({
@@ -133,8 +140,15 @@ export const updateTask: RequestHandler = async (request, response) => {
   }
 
   applyTaskStatusTransition(task, request.body.status);
+  const wasDone = task.status === "done";
   Object.assign(task, request.body);
   await task.save();
+  await recordActivity({
+    userId: owner,
+    type: !wasDone && task.status === "done" ? "task_completed" : "task_updated",
+    entityId: task.id,
+    label: task.title,
+  });
 
   response.status(200).json({
     success: true,
@@ -151,6 +165,12 @@ export const deleteTask: RequestHandler = async (request, response) => {
   if (!task) {
     throw new AppError("Task not found", 404);
   }
+  await recordActivity({
+    userId: owner,
+    type: "task_deleted",
+    entityId: task.id,
+    label: task.title,
+  });
 
   response.status(200).json({
     success: true,
@@ -220,5 +240,29 @@ export const getTaskSummary: RequestHandler = async (request, response) => {
         overdue: 0,
       },
     },
+  });
+};
+
+export const getTodayDashboard: RequestHandler = async (request, response) => {
+  const owner = requireUserId(request.user?.userId);
+  const requestedTimeZone =
+    typeof request.query.timeZone === "string" ? request.query.timeZone : "UTC";
+
+  let dashboard;
+  try {
+    dashboard = await getTodayDashboardData({
+      userId: owner,
+      requestedTimeZone,
+    });
+  } catch (error) {
+    if (error instanceof RangeError) {
+      throw new AppError("Invalid time zone", 400);
+    }
+    throw error;
+  }
+
+  response.status(200).json({
+    success: true,
+    data: { dashboard },
   });
 };

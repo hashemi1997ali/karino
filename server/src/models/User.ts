@@ -35,6 +35,9 @@ export interface IUser {
   roles: string[];
   profileImage: IUserProfileImage | null;
   ban: IUserBan | null;
+  onboardingCompleted: boolean;
+  primaryUseCase: "personal" | "study" | "work" | "projects" | "other" | null;
+  planningStyle: "simple" | "daily" | "priority" | null;
   createdAt: Date;
   updatedAt: Date;
   comparePassword(candidatePassword: string): Promise<boolean>;
@@ -93,6 +96,21 @@ const userSchema = new Schema<IUser>(
         },
         { _id: false },
       ),
+      default: null,
+    },
+    onboardingCompleted: {
+      type: Boolean,
+      required: true,
+      default: true,
+    },
+    primaryUseCase: {
+      type: String,
+      enum: ["personal", "study", "work", "projects", "other"],
+      default: null,
+    },
+    planningStyle: {
+      type: String,
+      enum: ["simple", "daily", "priority"],
       default: null,
     },
   },

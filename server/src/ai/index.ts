@@ -13,10 +13,14 @@ export type {
   AssistantAction,
   EscalationReason,
   ReplyAgentId,
+  TaskAssistantResult,
+  TaskContextItem,
+  TaskProposalDraft,
   TriageDecision,
 } from "./types.ts";
 
 export { runOrchestrator } from "./orchestrator/index.ts";
+export { runTaskAgent } from "./agents/taskAgent.ts";
 export {
   generateReplySuggestions,
   generateEmailReplySuggestions,

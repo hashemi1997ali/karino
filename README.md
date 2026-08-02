@@ -1,14 +1,14 @@
 # ✅ Karino
 
-A full-stack task-management platform built with **Next.js, Express, TypeScript, MongoDB, and configurable AI providers**.
+A responsive full-stack productivity platform built with **Next.js, Express, TypeScript, MongoDB, and configurable AI providers**.
 
-Karino combines personal task planning, secure account management, role-based administration, and persistent support chat in one bilingual web application.
+Karino combines personal task planning, a private AI assistant, secure account management, role-based administration, activity tracking, contact workflows, and persistent support chat in one bilingual web application.
 
 ---
 
 ## 📖 Project Overview
 
-Karino gives users a private workspace for creating, organizing, filtering, and completing tasks. Administrators can manage users and support conversations, while the built-in assistant provides contextual help and can transfer conversations to human staff when needed.
+Karino gives users a private, responsive workspace for planning their day and managing tasks in list or board views. Administrators get an operational overview plus tools for users, tasks, support, and contact messages. Built-in assistants provide role-scoped site guidance, private task planning, confirmed task creation, and staff account tools.
 
 The repository is an npm workspace containing the web client and API:
 
@@ -16,6 +16,7 @@ The repository is an npm workspace containing the web client and API:
 task-manager/
 ├── client/   # Next.js application
 ├── server/   # Express REST API
+├── package-lock.json
 ├── package.json
 └── README.md
 ```
@@ -27,11 +28,20 @@ task-manager/
 ### 📋 Task Management
 
 - Create, edit, delete, search, filter, sort, and paginate tasks
+- Switch between responsive list and status-board views
 - Track `todo`, `in-progress`, and `done` statuses
 - Assign low, medium, or high priority
-- Set deadlines and view overdue-task statistics
-- Upload JPG, PNG, or WEBP profile images through Cloudinary
-- View personal and administrative dashboards
+- Set deadlines, identify overdue work, and review recently updated tasks
+- Use a focused Today dashboard with progress, priorities, and recent activity
+
+### 🎨 Workspace Experience
+
+- Responsive desktop sidebar, tablet navigation rail, and mobile bottom navigation
+- Mobile and tablet cards for tasks and users, with dense tables on wide screens
+- Guided onboarding for goals, work style, the first task, and assistant preferences
+- Light, dark, and system themes with persisted appearance preferences
+- English and German interface copy with locale-aware dates and numbers
+- Accessible focus states, semantic controls, reduced-motion support, and reusable loading, error, and empty states
 
 ### 🔐 Authentication and Security
 
@@ -48,13 +58,19 @@ task-manager/
 - `user`: manages personal tasks, profile, sessions, and chat history
 - `admin`: manages regular users, tasks, bans, and support requests
 - `super_admin`: manages administrators and escalated support requests
+- Administrative overview with user, task, support, and activity metrics
+- Responsive user and task management with role, status, and ownership context
 - Immediate session revocation after bans, deletion, or role changes
 - Configurable initial super administrator
 
 ### 💬 Assistant and Support Chat
 
-- Guest and authenticated conversations
-- Persistent chat history for signed-in users
+- Guest site guidance with account requests directed to the public contact form
+- Private task-assistant conversations stored separately from support and visible only to their owner
+- Friendly task planning, prioritization, and task drafts that require confirmation before creation
+- Persistent assistant history with conversation-aware task context
+- Role-scoped site guidance that never exposes staff features
+- Staff account tools for lookup, ban/unban, and super-admin-only role changes
 - English and German responses
 - Human-support escalation, claiming, transfer, rating, and closure
 - Context-aware reply suggestions for administrators
@@ -64,9 +80,10 @@ task-manager/
 ### ✉️ Contact and Email
 
 - Public contact form
-- Administrative inbox with stored reply history
+- Responsive administrative inbox with stored reply history
 - Password-reset and contact-reply email through Brevo
 - Configurable public contact and social information
+- JPG, PNG, and WEBP profile-image uploads through Cloudinary
 
 ---
 
@@ -100,14 +117,14 @@ task-manager/
 - Node.js `24` or later
 - npm
 - MongoDB locally or through MongoDB Atlas
-- An AI provider, or a local Ollama installation
-- A Brevo account for transactional email
-- A Cloudinary account for profile image uploads
+- Optional: an AI provider or a local Ollama installation
+- Optional: a Brevo account for transactional email
+- Optional: a Cloudinary account for profile-image uploads
 
 ### Installation
 
 ```bash
-git clone <repository-url>
+git clone https://github.com/hashemi1997ali/task-manager.git
 cd task-manager
 npm install
 ```
@@ -143,8 +160,8 @@ Select one assistant provider. For example, a local Ollama setup can use:
 
 ```env
 AI_PROVIDER=ollama
-OLLAMA_BASE_URL=http://localhost:11434/v1
-OLLAMA_MODEL=qwen3:8b
+OLLAMA_BASE_URL=http://127.0.0.1:11434
+OLLAMA_MODEL=qwen3:4b
 ```
 
 The complete configuration, including provider keys, Brevo, Cloudinary, rate limits, retention, and contact details, is documented inline in `server/.env.example`.
@@ -198,29 +215,37 @@ npm run start:server
 
 ### Web Application
 
-| Route            | Access        | Description                          |
-| ---------------- | ------------- | ------------------------------------ |
-| `/`              | Public        | Landing page                         |
-| `/login`         | Public        | Sign in                              |
-| `/register`      | Public        | Create an account                    |
-| `/contact`       | Public        | Contact form and public information  |
-| `/dashboard`     | Authenticated | Task summary                         |
-| `/tasks`         | Authenticated | Personal task management             |
-| `/account`       | Authenticated | Profile, password, and sessions      |
-| `/admin/tasks`   | Staff         | Manage all tasks                     |
-| `/admin/users`   | Staff         | Manage users, roles, and bans        |
-| `/admin/support` | Staff         | Handle support conversations         |
-| `/admin/contact` | Staff         | Review and reply to contact messages |
+| Route               | Access        | Description                                 |
+| ------------------- | ------------- | ------------------------------------------- |
+| `/`                 | Public        | Landing page                                |
+| `/login`            | Public        | Sign in                                     |
+| `/register`         | Public        | Create an account                           |
+| `/forgot-password`  | Public        | Request a password-reset link               |
+| `/reset-password`   | Public        | Set a new password                          |
+| `/contact`          | Public        | Contact form and public information         |
+| `/onboarding`       | Authenticated | Configure goals, work style, and first task |
+| `/dashboard`        | Authenticated | Today overview, focus work, and activity    |
+| `/tasks`            | Authenticated | Personal task list and board                |
+| `/assistant`        | Authenticated | Private AI task assistant and history       |
+| `/account`          | Authenticated | Profile, appearance, security, and sessions |
+| `/admin`            | Staff         | Administrative overview and metrics         |
+| `/admin/tasks`      | Staff         | Manage all tasks and owners                 |
+| `/admin/users`      | Staff         | Manage users, roles, and bans               |
+| `/admin/users/[id]` | Staff         | Review a user, their tasks, and access      |
+| `/admin/support`    | Staff         | Handle and transfer support conversations   |
+| `/admin/contact`    | Staff         | Review and reply to public contact messages |
 
 ### API
 
-| Base Path  | Purpose                                                 |
-| ---------- | ------------------------------------------------------- |
-| `/auth`    | Authentication, profile, password, and sessions         |
-| `/tasks`   | Personal task CRUD, filters, and summaries |
-| `/admin`   | Administrative task and user management                 |
-| `/chat`    | Assistant conversations and staff support               |
-| `/contact` | Public submissions and staff replies                    |
+| Base Path    | Purpose                                                          |
+| ------------ | ---------------------------------------------------------------- |
+| `/auth`      | Authentication, profile, password, and sessions                  |
+| `/tasks`     | Personal task CRUD, filters, and summaries                       |
+| `/activity`  | Authenticated activity feed                                      |
+| `/admin`     | Administrative task and user management                          |
+| `/assistant` | Private task-assistant conversations and confirmed task creation |
+| `/chat`      | Site guidance and staff support conversations                    |
+| `/contact`   | Public submissions and staff replies                             |
 
 Protected API requests use:
 

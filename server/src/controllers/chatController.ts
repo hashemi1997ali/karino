@@ -233,7 +233,7 @@ const parseStaffCommand = async (
 
   const actorInfo = { userId: String(actor._id), roles: actor.roles };
 
-  if (command === "/ban") {
+  if (command === "/ban" || command === "/confirm-ban") {
     if (
       !reasonValue ||
       !BAN_REASONS.includes(reasonValue as (typeof BAN_REASONS)[number])
@@ -247,6 +247,13 @@ const parseStaffCommand = async (
     if (!canManageBan(actor.roles, target.roles)) {
       throw new AppError("You cannot ban this account", 403);
     }
+    if (command === "/ban") {
+      return localized(
+        locale,
+        `Confirm banning ${target.email} for "${reasonValue}" by sending /confirm-ban ${target.email} ${reasonValue}.`,
+        `Bestätige die Sperre von ${target.email} wegen „${reasonValue}“ mit /confirm-ban ${target.email} ${reasonValue}.`,
+      );
+    }
     const result = await banUser(target, reasonValue as (typeof BAN_REASONS)[number]);
     return localized(
       locale,
@@ -255,7 +262,7 @@ const parseStaffCommand = async (
     );
   }
 
-  if (command === "/unban") {
+  if (command === "/unban" || command === "/confirm-unban") {
     if (!canManageBan(actor.roles, target.roles)) {
       throw new AppError("You cannot unban this account", 403);
     }
@@ -266,6 +273,13 @@ const parseStaffCommand = async (
         `${target.email} ist derzeit nicht gesperrt.`,
       );
     }
+    if (command === "/unban") {
+      return localized(
+        locale,
+        `Confirm removing the ban from ${target.email} by sending /confirm-unban ${target.email}.`,
+        `Bestätige das Aufheben der Sperre von ${target.email} mit /confirm-unban ${target.email}.`,
+      );
+    }
     await unbanUser(target);
     return localized(
       locale,
@@ -274,9 +288,30 @@ const parseStaffCommand = async (
     );
   }
 
-  if (command === "/promote" || command === "/demote") {
-    const result = await setAdministratorRole(actorInfo, target, command === "/promote");
-    if (command === "/promote") {
+  if (
+    command === "/promote" ||
+    command === "/demote" ||
+    command === "/confirm-promote" ||
+    command === "/confirm-demote"
+  ) {
+    if (!isSuperAdminRoles(actor.roles)) {
+      throw new AppError(
+        "Only a super administrator can change administrator roles",
+        403,
+      );
+    }
+    const promote = command === "/promote" || command === "/confirm-promote";
+    const confirmed = command === "/confirm-promote" || command === "/confirm-demote";
+    if (!confirmed) {
+      const confirmation = promote ? "/confirm-promote" : "/confirm-demote";
+      return localized(
+        locale,
+        `Confirm this role change for ${target.email} by sending ${confirmation} ${target.email}.`,
+        `Bestätige diese Rollenänderung für ${target.email} mit ${confirmation} ${target.email}.`,
+      );
+    }
+    const result = await setAdministratorRole(actorInfo, target, promote);
+    if (promote) {
       return localized(
         locale,
         `${target.email} is now an administrator. ${result.sessionsRevoked} active session(s) were revoked.`,
@@ -504,6 +539,7 @@ export const guestAssistant: RequestHandler = async (request, response) => {
     });
     escalated = applyAssistantTurn(chat, assistant, {
       supportAudience: resolveSupportAudience([]),
+      allowEscalation: false,
     });
     provider = assistant.provider;
   }
@@ -800,8 +836,10 @@ export const listStaffChats: RequestHandler = async (request, response) => {
     ];
   }
   const [allChats, total] = await Promise.all([
-    SupportChat.find(filter)
-      .populate("user", "firstName lastName email roles profileImage ban createdAt updatedAt"),
+    SupportChat.find(filter).populate(
+      "user",
+      "firstName lastName email roles profileImage ban createdAt updatedAt",
+    ),
     SupportChat.countDocuments(filter),
   ]);
   const statusRank: Record<ISupportChat["status"], number> = {
@@ -889,10 +927,10 @@ export const claimStaffChat: RequestHandler = async (request, response) => {
       ]
     : [
         {
-              sender: "system",
-              senderName: null,
-              content: systemMessage(pendingChat.locale, "accepted", staffName),
-              createdAt: new Date(),
+          sender: "system",
+          senderName: null,
+          content: systemMessage(pendingChat.locale, "accepted", staffName),
+          createdAt: new Date(),
         },
       ];
   const chat = await SupportChat.findOneAndUpdate(
@@ -921,7 +959,10 @@ export const claimStaffChat: RequestHandler = async (request, response) => {
     throw new AppError("The chat assignment changed before you could join", 409);
   }
 
-  await chat.populate("user", "firstName lastName email roles profileImage ban createdAt updatedAt");
+  await chat.populate(
+    "user",
+    "firstName lastName email roles profileImage ban createdAt updatedAt",
+  );
   response.status(200).json({ success: true, data: { chat: serializeChat(chat) } });
 };
 
@@ -952,7 +993,10 @@ export const sendStaffMessage: RequestHandler = async (request, response) => {
     chat.staffParticipants.push(staff._id);
   }
   await chat.save();
-  await chat.populate("user", "firstName lastName email roles profileImage ban createdAt updatedAt");
+  await chat.populate(
+    "user",
+    "firstName lastName email roles profileImage ban createdAt updatedAt",
+  );
   response.status(200).json({ success: true, data: { chat: serializeChat(chat) } });
 };
 
@@ -1010,7 +1054,10 @@ export const endStaffChat: RequestHandler = async (request, response) => {
     createdAt: new Date(),
   } as ISupportChat["messages"][number]);
   await endChatDocument(chat);
-  await chat.populate("user", "firstName lastName email roles profileImage ban createdAt updatedAt");
+  await chat.populate(
+    "user",
+    "firstName lastName email roles profileImage ban createdAt updatedAt",
+  );
   response.status(200).json({ success: true, data: { chat: serializeChat(chat) } });
 };
 

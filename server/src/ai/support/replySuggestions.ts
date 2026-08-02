@@ -125,7 +125,10 @@ export const generateEmailReplySuggestions = async (
 ): Promise<string[]> => {
   const language = context.locale === "de" ? "German" : "English";
   const formattedTranscript = transcript
-    .map((item) => `${item.sender === "user" ? "Visitor" : "Human support"}: ${item.content}`)
+    .map(
+      (item) =>
+        `${item.sender === "user" ? "Visitor" : "Human support"}: ${item.content}`,
+    )
     .join("\n");
   const result = await runProviders({
     systemPrompt: [

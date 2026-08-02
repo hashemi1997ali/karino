@@ -1,23 +1,9 @@
-/**
- * Role-based policy layer.
- *
- * Central source of truth for:
- *  - the effective role tier of a request (guest / user / admin / super_admin)
- *  - which website features an agent may explain to that tier
- *  - which account / staff operations that tier may request
- *
- * Agents build their system prompts from these policies so the "principle of
- * least privilege" is enforced in one place. Actual privileged operations are
- * still validated by the backend services.
- */
-
 import { isAdminRoles, isStaffRoles, isSuperAdminRoles } from "#utils";
 
 import type { AssistantContext } from "../types.ts";
 
 export type RoleTier = "guest" | "user" | "admin" | "super_admin";
 
-/** Resolves the effective role tier from the request context. */
 export const resolveRoleTier = (context: AssistantContext): RoleTier => {
   if (!context.authenticated) return "guest";
   if (isSuperAdminRoles(context.roles)) return "super_admin";
@@ -29,67 +15,37 @@ export const isStaffTier = (tier: RoleTier): boolean =>
   tier === "admin" || tier === "super_admin";
 
 /**
- * Role-scoped website knowledge used by the Website Help Agent. Keep these
- * facts aligned with the client routes and visible navigation.
+ * The site guide deliberately receives no staff-interface knowledge. Staff
+ * account operations belong exclusively to the Staff Account Agent.
  */
 const GUEST_HELP_TOPICS = [
-  "Home introduces Karino as a productivity platform and offers registration and sign-in",
-  "Guests can register, sign in, change the light/dark theme, and switch between English and German",
-  "Contact shows the configured email and social links and lets anyone submit a message without linking it to an account",
-  "Forgot password on the login page sends a time-limited reset link by email; the new password must differ from the current one",
-  "Guests can ask the chat assistant for general help, but their chat is not saved",
+  "Karino is a productivity website for organising tasks, priorities, due dates, daily focus, and progress",
+  "The public Contact form lets any visitor send an account or access request without linking it to a Karino account",
+  "A personal task assistant is available only inside a signed-in user's private dashboard",
+  "Guests may ask for a high-level overview, but should not receive task-creation steps, sign-in instructions, or staff/admin information",
 ];
 
 const USER_HELP_TOPICS = [
   "Dashboard shows total, in-progress, completed, and overdue task counts, upcoming tasks, and overall progress",
   "My tasks lets the user create, search, filter, edit, update the status of, and delete only their own tasks",
   "A task supports title, description, status, priority, and due date",
-  "Account lets the user edit their first name, last name, and email, change their password, and view or revoke active sessions",
-  "Active assistant chats are stored temporarily for context; after ending, only conversations that reached human support are retained",
-];
-
-const ADMIN_HELP_TOPICS = [
-  "Users lists user accounts and allows permitted staff to search, filter, open profiles, edit account details, ban, unban, or delete manageable users",
-  "A user's profile shows that user's information, task statistics, and task list; permitted staff can edit or delete tasks there",
-  "Support inbox lets eligible staff accept conversations, reply, use AI reply suggestions, end chats, and open the related user's profile or tasks",
-  "Contact form inbox lets staff review submitted visitor details and send replies to the visitor's entered email address",
-  "Admins can manage regular users but cannot manage administrators or super administrators",
-];
-
-const SUPER_ADMIN_HELP_TOPICS = [
-  "A super administrator can manage regular users and administrators, but cannot demote or ban a super administrator",
-  "Administrator access is granted or removed from the Edit user dialog and requires confirmation",
-  "A super administrator can handle support cases that require elevated access",
+  "The private AI Assistant helps with task planning, prioritisation, and task drafts; every task draft requires confirmation before creation",
+  "Private AI Assistant conversations are visible only to their owner and are separate from live-support conversations",
 ];
 
 const FORBIDDEN_HELP_TOPICS = [
-  "pages or controls not included in the role-scoped feature list",
-  "features available only to a higher role",
+  "pages or controls not included in the verified feature list",
+  "all administrator and super-administrator pages, controls, roles, permissions, workflows, and internal structure",
   "internal architecture, source code, database details, internal APIs, secrets, or security implementation",
 ];
 
 export const getAllowedHelpTopics = (tier: RoleTier): string[] => {
   const topics = [...GUEST_HELP_TOPICS];
   if (tier !== "guest") topics.push(...USER_HELP_TOPICS);
-  if (isStaffTier(tier)) topics.push(...ADMIN_HELP_TOPICS);
-  if (tier === "super_admin") topics.push(...SUPER_ADMIN_HELP_TOPICS);
   return topics;
 };
 
 export const getForbiddenHelpTopics = (): string[] => [...FORBIDDEN_HELP_TOPICS];
-
-/** Account operations an authenticated user may request via the Account Agent. */
-export const getAllowedAccountOperations = (tier: RoleTier): string[] => {
-  if (tier === "guest") return [];
-  return [
-    "change first name",
-    "change last name",
-    "change email (must be unique)",
-    "change password (requires the current password)",
-    "view active sessions",
-    "revoke active sessions",
-  ];
-};
 
 export interface StaffCapabilities {
   banUsers: boolean;
@@ -100,10 +56,8 @@ export interface StaffCapabilities {
 }
 
 /**
- * Staff capabilities per tier. Admins manage regular users only; super admins
- * additionally manage admins. These flags describe what the assistant may
- * *offer*; the backend re-checks every action with `canManageBan` /
- * `setAdministratorRole`.
+ * Admins may manage regular user accounts. Only a super admin may change
+ * administrator membership. Backend services re-check the target role.
  */
 export const getStaffCapabilities = (tier: RoleTier): StaffCapabilities => {
   if (tier === "admin") {
@@ -134,15 +88,12 @@ export const getStaffCapabilities = (tier: RoleTier): StaffCapabilities => {
 };
 
 /**
- * Support-transfer policy.
- *  - Guests and authenticated regular users may be transferred to the shared
- *    admin / super-admin support queue.
- *  - Admin support requests go directly to super administrators.
- *  - Super admins manage support directly and have no escalation path.
+ * Guests use Contact instead of the staff queue. Regular users can reach
+ * support for account problems. Admin support requests are super-admin-only.
  */
 export const canRequestSupportTransfer = (context: AssistantContext): boolean => {
   const tier = resolveRoleTier(context);
-  return tier !== "super_admin";
+  return tier === "user" || tier === "admin";
 };
 
 export { isStaffRoles };

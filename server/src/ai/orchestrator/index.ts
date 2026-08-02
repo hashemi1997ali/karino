@@ -23,6 +23,7 @@ import {
 } from "../fallback/offlineAssistant.ts";
 import { isStronglyMixedLanguage } from "../language.ts";
 import { getConfiguredProviderName } from "../providers/index.ts";
+import { resolveRoleTier } from "../policies/index.ts";
 import { triage } from "./triage.ts";
 
 interface EscalationDecision {
@@ -38,8 +39,20 @@ const HUMAN_PATTERN =
   /\b(human support|real person|support agent|live support|talk to (?:a )?human|menschlicher support|echter mensch|mitarbeiter|supportmitarbeiter)\b/i;
 const ACCESS_PATTERN =
   /\b(cannot log in|can't log in|unable to log in|account access|login problem|komme nicht rein|kann mich nicht anmelden|anmeldeproblem|kontozugriff)\b/i;
+const ACCOUNT_PATTERN =
+  /\b(account|profile|password|email change|session|device|konto|profil|passwort|e-mail ändern|sitzung|gerät)\b/i;
 
-const deterministicEscalation = (message: string): EscalationDecision | null => {
+const deterministicEscalation = (
+  message: string,
+  context: AssistantContext,
+): EscalationDecision | null => {
+  const tier = resolveRoleTier(context);
+  if (tier === "guest" || tier === "super_admin") return null;
+  if (tier === "admin") {
+    return HUMAN_PATTERN.test(message)
+      ? { reason: "human_requested", requiresSuperAdmin: true }
+      : null;
+  }
   if (BANNED_PATTERN.test(message)) {
     return { reason: "account_banned", requiresSuperAdmin: true };
   }
@@ -50,6 +63,9 @@ const deterministicEscalation = (message: string): EscalationDecision | null => 
     return { reason: "human_requested", requiresSuperAdmin: false };
   }
   if (ACCESS_PATTERN.test(message)) {
+    return { reason: "account_access", requiresSuperAdmin: false };
+  }
+  if (ACCOUNT_PATTERN.test(message)) {
     return { reason: "account_access", requiresSuperAdmin: false };
   }
   return null;
@@ -107,7 +123,7 @@ export const runOrchestrator = async (
       "offline",
       OFFLINE_PROVIDER,
       context,
-      deterministicEscalation(message),
+      deterministicEscalation(message, context),
     );
   }
 
@@ -115,7 +131,9 @@ export const runOrchestrator = async (
   const provider = output.usedLlm ? getConfiguredProviderName() : OFFLINE_PROVIDER;
   const agentId: ReplyAgentId = output.usedLlm ? decision.agent : "offline";
   const marked = parseEscalationMarker(output.reply);
-  const escalation = deterministicEscalation(message) ?? marked.decision;
+  const tier = resolveRoleTier(context);
+  const markedEscalation = tier === "user" || tier === "admin" ? marked.decision : null;
+  const escalation = deterministicEscalation(message, context) ?? markedEscalation;
 
   return finalize(marked.reply, agentId, provider, context, escalation);
 };

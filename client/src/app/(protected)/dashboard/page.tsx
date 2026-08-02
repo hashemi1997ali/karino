@@ -6,7 +6,7 @@ import { LOCALE_COOKIE_NAME, parseLocale } from "@/lib/preferences";
 
 export async function generateMetadata(): Promise<Metadata> {
   const locale = parseLocale((await cookies()).get(LOCALE_COOKIE_NAME)?.value);
-  return { title: locale === "de" ? "Übersicht" : "Dashboard" };
+  return { title: locale === "de" ? "Heute" : "Today" };
 }
 
 export default function DashboardPage() {

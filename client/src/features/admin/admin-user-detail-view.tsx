@@ -14,6 +14,7 @@ import {
   Trash2,
 } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -22,9 +23,16 @@ import { UserAvatar } from "@/components/user-avatar";
 import { Badge, Card } from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Dialog } from "@/components/ui/dialog";
+import {
+  AccountStatusBadge,
+  RoleBadge,
+  TaskPriorityBadge,
+  TaskStatusBadge,
+} from "@/components/ui/domain-badge";
 import { ErrorState, LoadingState } from "@/components/ui/states";
 import {
   banUserRequest,
+  deleteUserRequest,
   deleteUserTaskRequest,
   getUserRequest,
   getUserTasksRequest,
@@ -33,16 +41,12 @@ import {
   updateUserRequest,
   updateUserTaskRequest,
 } from "@/features/admin/api";
-import {
-  BanUserDialog,
-  EditUserDialog,
-} from "@/features/admin/admin-users-view";
+import { BanUserDialog, EditUserDialog } from "@/features/admin/admin-users-view";
 import { useAuth } from "@/features/auth/auth-provider";
 import type { ProfileFormValues } from "@/features/auth/schemas";
 import { TaskForm } from "@/features/tasks/task-form";
 import { getErrorMessage } from "@/lib/api-error";
 import {
-  getBanReasonLabel,
   getTaskPriorityLabel,
   getTaskStatusLabel,
   getUserRoleLabel,
@@ -80,6 +84,11 @@ const copy = {
     editUser: "Edit profile",
     banUser: "Ban user",
     unbanUser: "Unban user",
+    deleteUser: "Delete account",
+    deleteUserTitle: "Delete this user account?",
+    deleteUserDescription: (name: string) =>
+      `${name}'s account and all related tasks, chats, sessions, and assistant conversations will be permanently deleted.`,
+    userDeleted: "User and related data deleted.",
     userSaved: "User details saved.",
     bannedDone: "The account was banned.",
     unbannedDone: "The account was unbanned.",
@@ -112,6 +121,11 @@ const copy = {
     editUser: "Profil bearbeiten",
     banUser: "Benutzer sperren",
     unbanUser: "Sperre aufheben",
+    deleteUser: "Konto löschen",
+    deleteUserTitle: "Dieses Benutzerkonto löschen?",
+    deleteUserDescription: (name: string) =>
+      `Das Konto von ${name} und alle zugehörigen Aufgaben, Chats, Sitzungen und Assistent-Unterhaltungen werden dauerhaft gelöscht.`,
+    userDeleted: "Benutzer und zugehörige Daten gelöscht.",
     userSaved: "Benutzerdaten gespeichert.",
     bannedDone: "Das Konto wurde gesperrt.",
     unbannedDone: "Die Sperre wurde aufgehoben.",
@@ -119,6 +133,7 @@ const copy = {
 } as const;
 
 export function AdminUserDetailView({ userId }: { userId: string }) {
+  const router = useRouter();
   const { locale, intlLocale } = usePreferences();
   const t = copy[locale];
   const { user: currentUser, isSuperAdmin, updateUser: updateCurrentUser } = useAuth();
@@ -128,6 +143,7 @@ export function AdminUserDetailView({ userId }: { userId: string }) {
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [banningUser, setBanningUser] = useState<User | null>(null);
   const [unbanningUser, setUnbanningUser] = useState<User | null>(null);
+  const [deletingUser, setDeletingUser] = useState<User | null>(null);
 
   const userQuery = useQuery({
     queryKey: ["admin", "user", userId],
@@ -205,6 +221,15 @@ export function AdminUserDetailView({ userId }: { userId: string }) {
     },
     onError: (error) => toast.error(getErrorMessage(error, locale)),
   });
+  const deleteUserMutation = useMutation({
+    mutationFn: (user: User) => deleteUserRequest(getId(user)),
+    onSuccess: () => {
+      setDeletingUser(null);
+      toast.success(t.userDeleted);
+      router.replace("/admin/users");
+    },
+    onError: (error) => toast.error(getErrorMessage(error, locale)),
+  });
   if (userQuery.isPending) return <LoadingState label={t.loading} />;
   if (userQuery.isError) {
     return (
@@ -221,6 +246,7 @@ export function AdminUserDetailView({ userId }: { userId: string }) {
   const targetAdmin = user.roles.includes("admin");
   const mayManageUser = self || (!targetAdmin && !targetSuperAdmin) || isSuperAdmin;
   const mayBanUser = !self && !targetSuperAdmin && (!targetAdmin || isSuperAdmin);
+  const mayDeleteUser = isSuperAdmin && !self;
   const canChangeAdminRole = isSuperAdmin && !self && !targetSuperAdmin;
   const tasks = tasksQuery.data?.tasks ?? [];
   const formatDate = (value: string | null) =>
@@ -253,16 +279,14 @@ export function AdminUserDetailView({ userId }: { userId: string }) {
           <p className="mt-1 break-all text-sm text-[var(--muted)]">{user.email}</p>
           <div className="mt-4 flex flex-wrap gap-2">
             {user.roles.map((role) => (
-              <Badge key={role}>{getUserRoleLabel(role, locale)}</Badge>
+              <RoleBadge key={role} role={role}>
+                {getUserRoleLabel(role, locale)}
+              </RoleBadge>
             ))}
           </div>
           {mayManageUser && (
             <div className="mt-4 grid gap-2">
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => setEditingUser(user)}
-              >
+              <Button variant="secondary" size="sm" onClick={() => setEditingUser(user)}>
                 <Edit3 className="size-4" />
                 {t.editUser}
               </Button>
@@ -277,15 +301,17 @@ export function AdminUserDetailView({ userId }: { userId: string }) {
                     {t.unbanUser}
                   </Button>
                 ) : (
-                  <Button
-                    variant="danger"
-                    size="sm"
-                    onClick={() => setBanningUser(user)}
-                  >
+                  <Button variant="danger" size="sm" onClick={() => setBanningUser(user)}>
                     <Ban className="size-4" />
                     {t.banUser}
                   </Button>
                 ))}
+              {mayDeleteUser && (
+                <Button variant="danger" size="sm" onClick={() => setDeletingUser(user)}>
+                  <Trash2 className="size-4" />
+                  {t.deleteUser}
+                </Button>
+              )}
             </div>
           )}
           <dl className="mt-6 space-y-4 text-sm">
@@ -313,16 +339,10 @@ export function AdminUserDetailView({ userId }: { userId: string }) {
               <dt className="flex items-center gap-2 text-[var(--muted)]">
                 <ShieldCheck className="size-4" /> {t.status}
               </dt>
-              <dd
-                className={
-                  user.ban?.isBanned
-                    ? "font-black text-rose-600"
-                    : "font-black text-emerald-600"
-                }
-              >
-                {user.ban?.isBanned
-                  ? `${t.banned}: ${getBanReasonLabel(user.ban.reason, locale)}`
-                  : t.active}
+              <dd>
+                <AccountStatusBadge banned={Boolean(user.ban?.isBanned)}>
+                  {user.ban?.isBanned ? t.banned : t.active}
+                </AccountStatusBadge>
               </dd>
             </div>
           </dl>
@@ -378,9 +398,9 @@ export function AdminUserDetailView({ userId }: { userId: string }) {
                       <h3 className="min-w-0 break-words font-black" dir="auto">
                         {task.title}
                       </h3>
-                      <Badge className="shrink-0">
+                      <TaskStatusBadge status={task.status}>
                         {getTaskStatusLabel(task.status, locale)}
-                      </Badge>
+                      </TaskStatusBadge>
                     </div>
                     <p
                       className="mt-2 whitespace-pre-wrap break-words text-sm leading-6 text-[var(--muted)]"
@@ -390,18 +410,26 @@ export function AdminUserDetailView({ userId }: { userId: string }) {
                     </p>
                     <dl className="mt-4 grid gap-2 text-xs text-[var(--muted)]">
                       <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.5fr)] gap-3">
-                        <dt>{getTaskPriorityLabel(task.priority, locale)}</dt>
+                        <dt>
+                          <TaskPriorityBadge priority={task.priority}>
+                            {getTaskPriorityLabel(task.priority, locale)}
+                          </TaskPriorityBadge>
+                        </dt>
                         <dd className="text-right break-words">
                           {t.due}: {formatDate(task.dueDate)}
                         </dd>
                       </div>
                       <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.5fr)] gap-3">
                         <dt>{t.created}</dt>
-                        <dd className="text-right break-words">{formatDate(task.createdAt)}</dd>
+                        <dd className="text-right break-words">
+                          {formatDate(task.createdAt)}
+                        </dd>
                       </div>
                       <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.5fr)] gap-3">
                         <dt>{t.updated}</dt>
-                        <dd className="text-right break-words">{formatDate(task.updatedAt)}</dd>
+                        <dd className="text-right break-words">
+                          {formatDate(task.updatedAt)}
+                        </dd>
                       </div>
                       {task.completedAt && (
                         <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.5fr)] gap-3">
@@ -489,9 +517,7 @@ export function AdminUserDetailView({ userId }: { userId: string }) {
         onClose={() => setBanningUser(null)}
         onBan={(reason) =>
           banningUser
-            ? banMutation
-                .mutateAsync({ user: banningUser, reason })
-                .then(() => undefined)
+            ? banMutation.mutateAsync({ user: banningUser, reason }).then(() => undefined)
             : Promise.resolve()
         }
       />
@@ -504,6 +530,22 @@ export function AdminUserDetailView({ userId }: { userId: string }) {
         onConfirm={() =>
           unbanningUser
             ? unbanMutation.mutateAsync(unbanningUser).then(() => undefined)
+            : undefined
+        }
+      />
+      <ConfirmDialog
+        open={Boolean(deletingUser)}
+        onOpenChange={(open) => !open && setDeletingUser(null)}
+        title={t.deleteUserTitle}
+        description={t.deleteUserDescription(
+          `${deletingUser?.firstName ?? ""} ${deletingUser?.lastName ?? ""}`.trim(),
+        )}
+        confirmLabel={t.deleteUser}
+        confirmVariant="danger"
+        loading={deleteUserMutation.isPending}
+        onConfirm={() =>
+          deletingUser
+            ? deleteUserMutation.mutateAsync(deletingUser).then(() => undefined)
             : undefined
         }
       />

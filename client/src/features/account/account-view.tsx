@@ -7,13 +7,14 @@ import {
   Laptop,
   LogOut,
   MonitorSmartphone,
+  Palette,
   Pencil,
   Save,
   ShieldCheck,
   Smartphone,
   Trash2,
 } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
@@ -25,8 +26,10 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Field, Input } from "@/components/ui/form-controls";
 import { PageHeading } from "@/components/ui/page-heading";
 import { ErrorState, LoadingState } from "@/components/ui/states";
+import { ThemeSelector } from "@/components/ui/theme-selector";
 import {
   changePasswordRequest,
+  deleteAccountRequest,
   getSessionsRequest,
   logoutAllSessionsRequest,
   logoutOtherSessionsRequest,
@@ -95,6 +98,21 @@ interface AccountCopy {
   profileImage: string;
   chooseImage: string;
   removeImage: string;
+  appearanceTitle: string;
+  appearanceDescription: string;
+  lightTheme: string;
+  darkTheme: string;
+  systemTheme: string;
+  themeTitle: string;
+  languageTitle: string;
+  languageDescription: string;
+  english: string;
+  german: string;
+  deleteAccount: string;
+  deleteAccountTitle: string;
+  deleteAccountDescription: string;
+  deleteAccountHelp: string;
+  accountDeleted: string;
 }
 
 const copy = {
@@ -116,6 +134,22 @@ const copy = {
     profileImage: "Profile image",
     chooseImage: "Choose image",
     removeImage: "Remove image",
+    appearanceTitle: "Appearance",
+    appearanceDescription: "Choose how Karino looks on this device",
+    lightTheme: "Light",
+    darkTheme: "Dark",
+    systemTheme: "System",
+    themeTitle: "Theme",
+    languageTitle: "Language",
+    languageDescription: "Choose the language used across Karino",
+    english: "English",
+    german: "German",
+    deleteAccount: "Delete account",
+    deleteAccountTitle: "Permanently delete your account?",
+    deleteAccountDescription:
+      "Your profile, tasks, chats, assistant conversations, sessions, and related account data will be permanently deleted. This cannot be undone.",
+    deleteAccountHelp: "Permanently remove your account and all related data.",
+    accountDeleted: "Your account and related data were deleted.",
     saveChanges: "Save changes",
     passwordTitle: "Change password",
     passwordDescription: "Use your current password",
@@ -166,6 +200,22 @@ const copy = {
     profileImage: "Profilbild",
     chooseImage: "Bild auswählen",
     removeImage: "Bild entfernen",
+    appearanceTitle: "Darstellung",
+    appearanceDescription: "Wähle das Erscheinungsbild von Karino auf diesem Gerät",
+    lightTheme: "Hell",
+    darkTheme: "Dunkel",
+    systemTheme: "System",
+    themeTitle: "Design",
+    languageTitle: "Sprache",
+    languageDescription: "Wähle die Sprache für Karino",
+    english: "Englisch",
+    german: "Deutsch",
+    deleteAccount: "Konto löschen",
+    deleteAccountTitle: "Dein Konto dauerhaft löschen?",
+    deleteAccountDescription:
+      "Dein Profil, deine Aufgaben, Chats, Assistent-Unterhaltungen, Sitzungen und zugehörigen Kontodaten werden dauerhaft gelöscht. Dies kann nicht rückgängig gemacht werden.",
+    deleteAccountHelp: "Konto und alle zugehörigen Daten dauerhaft entfernen.",
+    accountDeleted: "Dein Konto und die zugehörigen Daten wurden gelöscht.",
     saveChanges: "Änderungen speichern",
     passwordTitle: "Passwort ändern",
     passwordDescription: "Aktuelles Passwort verwenden",
@@ -200,6 +250,7 @@ const copy = {
 } as const satisfies Record<Locale, AccountCopy>;
 
 type DeviceKind = keyof AccountCopy["devices"];
+type AccountTab = "profile" | "appearance" | "security" | "sessions";
 
 function deviceInfo(userAgent: string | null): {
   kind: DeviceKind;
@@ -224,17 +275,26 @@ const formatDateTime = (value: string, intlLocale: string): string => {
 
 export function AccountView() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const { user, updateUser, logout, endSessionLocally } = useAuth();
-  const { locale, intlLocale } = usePreferences();
+  const { locale, intlLocale, theme, setTheme, setLocale } = usePreferences();
   const t = copy[locale];
   const [confirmCurrent, setConfirmCurrent] = useState(false);
   const [confirmOthers, setConfirmOthers] = useState(false);
   const [confirmAll, setConfirmAll] = useState(false);
+  const [confirmDeleteAccount, setConfirmDeleteAccount] = useState(false);
   const [sessionToRevoke, setSessionToRevoke] = useState<RefreshSession | null>(null);
   const [profileImage, setProfileImage] = useState<File | null>(null);
   const [removeProfileImage, setRemoveProfileImage] = useState(false);
   const [processingImage, setProcessingImage] = useState(false);
+  const requestedTab = searchParams.get("tab");
+  const activeTab: AccountTab =
+    requestedTab === "appearance" ||
+    requestedTab === "security" ||
+    requestedTab === "sessions"
+      ? requestedTab
+      : "profile";
   const profileImagePreview = useMemo(
     () => (profileImage ? URL.createObjectURL(profileImage) : null),
     [profileImage],
@@ -338,10 +398,19 @@ export function AccountView() {
     onError: (error) => toast.error(getErrorMessage(error, locale)),
   });
 
+  const deleteAccountMutation = useMutation({
+    mutationFn: deleteAccountRequest,
+    onSuccess: () => {
+      setConfirmDeleteAccount(false);
+      endSessionLocally();
+      toast.success(t.accountDeleted);
+      router.replace("/");
+    },
+    onError: (error) => toast.error(getErrorMessage(error, locale)),
+  });
+
   const profileHasChanges =
-    profileForm.formState.isDirty ||
-    Boolean(profileImage) ||
-    removeProfileImage;
+    profileForm.formState.isDirty || Boolean(profileImage) || removeProfileImage;
   const submitProfile = profileForm.handleSubmit((values) => {
     if (!profileHasChanges) return;
     return profileMutation
@@ -359,285 +428,393 @@ export function AccountView() {
 
   return (
     <div>
-      <PageHeading eyebrow={t.eyebrow} title={t.title} description={t.description} />
+      <PageHeading title={t.title} description={t.description} />
 
-      <div className="mt-7 grid items-stretch gap-5 xl:grid-cols-2">
-        <Card className="h-full p-5 sm:p-6">
-          <div className="flex min-h-[4.5rem] items-center justify-between gap-3 border-b pb-4">
-            <div className="flex min-w-0 items-center gap-3">
-              <div className="relative shrink-0">
-                <UserAvatar
-                  user={user}
-                  className="size-14"
-                  imageSizes="56px"
-                  imageUrl={
-                    removeProfileImage ? null : (profileImagePreview ?? undefined)
-                  }
-                />
-                <label
-                  className={`focus-ring absolute -top-3 -right-3 grid size-11 cursor-pointer place-items-center rounded-full ${
-                    profileImage || processingImage
-                      ? "text-white"
-                      : "text-[var(--foreground)]"
-                  }`}
-                  title={t.chooseImage}
-                  aria-label={t.chooseImage}
-                >
-                  <span
-                    className={`grid size-7 place-items-center rounded-full border shadow-sm ${
-                    profileImage || processingImage
-                        ? "border-[var(--primary)] bg-[var(--primary)]"
-                        : "bg-[var(--surface)]"
-                    }`}
-                  >
-                    <Pencil className="size-3.5" />
-                  </span>
-                  <input
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp"
-                    className="sr-only"
-                    disabled={processingImage}
-                    onChange={async (event) => {
-                      const selectedFile = event.target.files?.[0];
-                      if (!selectedFile) return;
-                      setProcessingImage(true);
-                      try {
-                        const preparedImage =
-                          await prepareProfileImage(selectedFile);
-                        setProfileImage(preparedImage);
-                        setRemoveProfileImage(false);
-                      } catch (error) {
-                        toast.error(
-                          error instanceof Error
-                            ? error.message
-                            : "The profile image could not be processed.",
-                        );
-                      } finally {
-                        setProcessingImage(false);
-                        event.target.value = "";
-                      }
-                    }}
+      <div
+        className="mt-5 max-md:hidden gap-2 overflow-x-auto pb-1 md:flex"
+        role="tablist"
+        aria-label={t.title}
+      >
+        {[
+          { value: "profile" as const, label: t.profileTitle },
+          { value: "appearance" as const, label: t.appearanceTitle },
+          { value: "security" as const, label: t.passwordTitle },
+          { value: "sessions" as const, label: t.sessionsTitle },
+        ].map(({ value, label }) => (
+          <button
+            key={value}
+            type="button"
+            role="tab"
+            aria-selected={activeTab === value}
+            onClick={() => router.replace(`/account?tab=${value}`, { scroll: false })}
+            className={`focus-ring min-h-10 shrink-0 rounded-[var(--control-radius)] border px-4 text-sm font-semibold transition-colors ${
+              activeTab === value
+                ? "border-[var(--primary)] bg-[var(--primary)] text-[var(--on-primary)]"
+                : "border-[var(--border)] bg-[var(--surface)] text-[var(--foreground)] hover:bg-[var(--surface-muted)]"
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      <div className="mt-5">
+        {activeTab === "profile" && (
+          <Card className="h-full p-5 sm:p-6">
+            <div className="flex min-h-[4.5rem] items-center justify-between gap-3 border-b pb-4">
+              <div className="flex min-w-0 items-center gap-3">
+                <div className="relative shrink-0">
+                  <UserAvatar
+                    user={user}
+                    className="size-14"
+                    imageSizes="56px"
+                    imageUrl={
+                      removeProfileImage ? null : (profileImagePreview ?? undefined)
+                    }
                   />
-                </label>
+                  <label
+                    className={`focus-ring absolute -top-3 -right-3 grid size-11 cursor-pointer place-items-center rounded-full ${
+                      profileImage || processingImage
+                        ? "text-white"
+                        : "text-[var(--foreground)]"
+                    }`}
+                    title={t.chooseImage}
+                    aria-label={t.chooseImage}
+                  >
+                    <span
+                      className={`grid size-7 place-items-center rounded-full border shadow-sm ${
+                        profileImage || processingImage
+                          ? "border-[var(--primary)] bg-[var(--primary)]"
+                          : "bg-[var(--surface)]"
+                      }`}
+                    >
+                      <Pencil className="size-3.5" />
+                    </span>
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      className="sr-only"
+                      disabled={processingImage}
+                      onChange={async (event) => {
+                        const selectedFile = event.target.files?.[0];
+                        if (!selectedFile) return;
+                        setProcessingImage(true);
+                        try {
+                          const preparedImage = await prepareProfileImage(selectedFile);
+                          setProfileImage(preparedImage);
+                          setRemoveProfileImage(false);
+                        } catch (error) {
+                          toast.error(
+                            error instanceof Error
+                              ? error.message
+                              : "The profile image could not be processed.",
+                          );
+                        } finally {
+                          setProcessingImage(false);
+                          event.target.value = "";
+                        }
+                      }}
+                    />
+                  </label>
+                </div>
+                <div className="min-w-0">
+                  <h2 className="truncate font-black text-[var(--foreground)]">
+                    {t.profileTitle}
+                  </h2>
+                  <p className="mt-0.5 truncate text-xs text-[var(--muted)]">
+                    {t.profileDescription}
+                  </p>
+                </div>
               </div>
+              {!removeProfileImage && (user?.profileImage || profileImage) && (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="danger"
+                  className="min-h-11 shrink-0 rounded-full"
+                  onClick={() => {
+                    setProfileImage(null);
+                    setRemoveProfileImage(Boolean(user?.profileImage));
+                  }}
+                >
+                  <Trash2 className="size-4" />
+                  {t.removeImage}
+                </Button>
+              )}
+            </div>
+            <form onSubmit={submitProfile} className="mt-5 grid gap-3" noValidate>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Field
+                  label={t.firstName}
+                  error={profileForm.formState.errors.firstName?.message}
+                >
+                  <Input
+                    dir="auto"
+                    autoComplete="given-name"
+                    {...profileForm.register("firstName")}
+                  />
+                </Field>
+                <Field
+                  label={t.lastName}
+                  error={profileForm.formState.errors.lastName?.message}
+                >
+                  <Input
+                    dir="auto"
+                    autoComplete="family-name"
+                    {...profileForm.register("lastName")}
+                  />
+                </Field>
+              </div>
+              <Field label={t.email} error={profileForm.formState.errors.email?.message}>
+                <Input
+                  type="email"
+                  dir="ltr"
+                  autoComplete="email"
+                  {...profileForm.register("email")}
+                />
+              </Field>
+              <div className="mt-2 flex justify-end">
+                <Button
+                  type="submit"
+                  loading={profileMutation.isPending}
+                  disabled={processingImage || !profileHasChanges}
+                >
+                  <Save className="size-4" /> {t.saveChanges}
+                </Button>
+              </div>
+            </form>
+            <div className="mt-6 flex flex-col gap-3 border-t pt-5 sm:flex-row sm:items-center sm:justify-between">
               <div className="min-w-0">
-                <h2 className="truncate font-black text-[var(--foreground)]">
-                  {t.profileTitle}
-                </h2>
-                <p className="mt-0.5 truncate text-xs text-[var(--muted)]">
-                  {t.profileDescription}
+                <h3 className="text-sm font-semibold text-[var(--danger)]">
+                  {t.deleteAccount}
+                </h3>
+                <p className="mt-1 text-xs leading-5 text-[var(--muted)]">
+                  {t.deleteAccountHelp}
+                </p>
+              </div>
+              <Button
+                type="button"
+                variant="danger"
+                className="w-full shrink-0 sm:w-auto"
+                onClick={() => setConfirmDeleteAccount(true)}
+              >
+                <Trash2 className="size-4" />
+                {t.deleteAccount}
+              </Button>
+            </div>
+          </Card>
+        )}
+
+        {activeTab === "security" && (
+          <Card className="h-full p-5 sm:p-6">
+            <div className="flex min-h-[4.5rem] items-center gap-3 border-b pb-4">
+              <span className="grid size-10 place-items-center rounded-xl bg-amber-50 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300">
+                <KeyRound className="size-5" />
+              </span>
+              <div>
+                <h2 className="font-black text-[var(--foreground)]">{t.passwordTitle}</h2>
+                <p className="mt-0.5 text-xs text-[var(--muted)]">
+                  {t.passwordDescription}
                 </p>
               </div>
             </div>
-            {!removeProfileImage && (user?.profileImage || profileImage) && (
-              <Button
-                type="button"
-                size="sm"
-                variant="danger"
-                className="min-h-11 shrink-0 rounded-full"
-                onClick={() => {
-                  setProfileImage(null);
-                  setRemoveProfileImage(Boolean(user?.profileImage));
-                }}
-              >
-                <Trash2 className="size-4" />
-                {t.removeImage}
-              </Button>
-            )}
-          </div>
-          <form onSubmit={submitProfile} className="mt-5 grid gap-3" noValidate>
-            <div className="grid gap-3 sm:grid-cols-2">
+            <form onSubmit={submitPassword} className="mt-5 grid gap-3" noValidate>
               <Field
-                label={t.firstName}
-                error={profileForm.formState.errors.firstName?.message}
-              >
-                <Input
-                  dir="auto"
-                  autoComplete="given-name"
-                  {...profileForm.register("firstName")}
-                />
-              </Field>
-              <Field
-                label={t.lastName}
-                error={profileForm.formState.errors.lastName?.message}
-              >
-                <Input
-                  dir="auto"
-                  autoComplete="family-name"
-                  {...profileForm.register("lastName")}
-                />
-              </Field>
-            </div>
-            <Field label={t.email} error={profileForm.formState.errors.email?.message}>
-              <Input
-                type="email"
-                dir="ltr"
-                autoComplete="email"
-                {...profileForm.register("email")}
-              />
-            </Field>
-            <div className="mt-2 flex justify-end">
-              <Button
-                type="submit"
-                loading={profileMutation.isPending}
-                disabled={processingImage || !profileHasChanges}
-              >
-                <Save className="size-4" /> {t.saveChanges}
-              </Button>
-            </div>
-          </form>
-        </Card>
-
-        <Card className="h-full p-5 sm:p-6">
-          <div className="flex min-h-[4.5rem] items-center gap-3 border-b pb-4">
-            <span className="grid size-10 place-items-center rounded-xl bg-amber-50 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300">
-              <KeyRound className="size-5" />
-            </span>
-            <div>
-              <h2 className="font-black text-[var(--foreground)]">{t.passwordTitle}</h2>
-              <p className="mt-0.5 text-xs text-[var(--muted)]">
-                {t.passwordDescription}
-              </p>
-            </div>
-          </div>
-          <form onSubmit={submitPassword} className="mt-5 grid gap-3" noValidate>
-            <Field
-              label={t.currentPassword}
-              error={passwordForm.formState.errors.currentPassword?.message}
-            >
-              <Input
-                type="password"
-                dir="ltr"
-                autoComplete="current-password"
-                {...passwordForm.register("currentPassword")}
-              />
-            </Field>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <Field
-                label={t.newPassword}
-                error={passwordForm.formState.errors.newPassword?.message}
+                label={t.currentPassword}
+                error={passwordForm.formState.errors.currentPassword?.message}
               >
                 <Input
                   type="password"
                   dir="ltr"
-                  autoComplete="new-password"
-                  {...passwordForm.register("newPassword")}
+                  autoComplete="current-password"
+                  {...passwordForm.register("currentPassword")}
                 />
               </Field>
-              <Field
-                label={t.confirmPassword}
-                error={passwordForm.formState.errors.confirmPassword?.message}
-              >
-                <Input
-                  type="password"
-                  dir="ltr"
-                  autoComplete="new-password"
-                  {...passwordForm.register("confirmPassword")}
-                />
-              </Field>
-            </div>
-            <div className="mt-2 flex justify-end">
-              <Button type="submit" loading={passwordMutation.isPending}>
-                <ShieldCheck className="size-4" /> {t.changePassword}
-              </Button>
-            </div>
-          </form>
-        </Card>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Field
+                  label={t.newPassword}
+                  error={passwordForm.formState.errors.newPassword?.message}
+                >
+                  <Input
+                    type="password"
+                    dir="ltr"
+                    autoComplete="new-password"
+                    {...passwordForm.register("newPassword")}
+                  />
+                </Field>
+                <Field
+                  label={t.confirmPassword}
+                  error={passwordForm.formState.errors.confirmPassword?.message}
+                >
+                  <Input
+                    type="password"
+                    dir="ltr"
+                    autoComplete="new-password"
+                    {...passwordForm.register("confirmPassword")}
+                  />
+                </Field>
+              </div>
+              <div className="mt-2 flex justify-end">
+                <Button type="submit" loading={passwordMutation.isPending}>
+                  <ShieldCheck className="size-4" /> {t.changePassword}
+                </Button>
+              </div>
+            </form>
+          </Card>
+        )}
       </div>
 
-      <Card className="mt-5 p-5 sm:p-6">
-        <div className="flex flex-col justify-between gap-4 border-b pb-5 sm:flex-row sm:items-center">
-          <div className="flex items-center gap-3">
-            <span className="grid size-10 place-items-center rounded-xl bg-emerald-50 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300">
-              <MonitorSmartphone className="size-5" />
+      {activeTab === "appearance" && (
+        <Card className="mt-5 p-5 sm:p-6">
+          <div className="flex items-center gap-3 border-b pb-4">
+            <span className="grid size-10 place-items-center rounded-[10px] bg-[var(--primary-soft)] text-[var(--primary)]">
+              <Palette className="size-5" />
             </span>
             <div>
-              <h2 className="font-black text-[var(--foreground)]">{t.sessionsTitle}</h2>
+              <h2 className="font-semibold text-[var(--foreground)]">
+                {t.appearanceTitle}
+              </h2>
               <p className="mt-0.5 text-xs text-[var(--muted)]">
-                {t.sessionsDescription}
+                {t.appearanceDescription}
               </p>
             </div>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <Button
-              variant="secondary"
-              size="sm"
-              loading={othersMutation.isPending}
-              onClick={() => setConfirmOthers(true)}
+          <section className="mt-6 border-b pb-6">
+            <h3 className="text-sm font-semibold">{t.languageTitle}</h3>
+            <p className="mt-1 text-xs text-[var(--muted)]">{t.languageDescription}</p>
+            <div
+              className="mt-3 flex flex-wrap gap-2"
+              role="group"
+              aria-label={t.languageTitle}
             >
-              {t.signOutOthers}
-            </Button>
-            <Button variant="danger" size="sm" onClick={() => setConfirmAll(true)}>
-              {t.signOutAll}
-            </Button>
-          </div>
-        </div>
-
-        {sessionsQuery.isPending ? (
-          <LoadingState label={t.loadingSessions} />
-        ) : sessionsQuery.isError ? (
-          <ErrorState
-            message={getErrorMessage(sessionsQuery.error, locale)}
-            retry={() => void sessionsQuery.refetch()}
-          />
-        ) : (
-          <div className="mt-3 divide-y">
-            {sessionsQuery.data.map((session) => {
-              const device = deviceInfo(session.userAgent);
-              const DeviceIcon = device.icon;
-              return (
-                <article
-                  key={getId(session)}
-                  className="flex flex-col gap-3 py-4 first:pt-2 sm:flex-row sm:items-center"
+              {[
+                { value: "en" as const, label: t.english },
+                { value: "de" as const, label: t.german },
+              ].map(({ value, label }) => (
+                <Button
+                  key={value}
+                  type="button"
+                  variant={locale === value ? "primary" : "secondary"}
+                  aria-pressed={locale === value}
+                  onClick={() => setLocale(value)}
                 >
-                  <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-[var(--surface-muted)] text-[var(--muted)]">
-                    <DeviceIcon className="size-5" />
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <h3 className="text-sm font-bold text-[var(--foreground)]">
-                        {t.devices[device.kind]}
-                      </h3>
-                      {session.isCurrent && (
-                        <Badge className="bg-emerald-50 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300">
-                          {t.currentDevice}
-                        </Badge>
-                      )}
-                    </div>
-                    <p
-                      className="mt-1 truncate text-xs text-[var(--muted)]"
-                      title={session.userAgent ?? undefined}
-                    >
-                      <bdi dir="ltr">{session.ipAddress ?? t.ipUnavailable}</bdi> ·{" "}
-                      {t.lastUsed} {formatDateTime(session.lastUsedAt, intlLocale)}
-                    </p>
-                    <p className="mt-1 text-xs text-[var(--muted)] opacity-80">
-                      {t.expires}: {formatDateTime(session.expiresAt, intlLocale)}
-                    </p>
-                  </div>
-                  {session.isCurrent ? (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setConfirmCurrent(true)}
-                    >
-                      <LogOut className="size-4" /> {t.signOut}
-                    </Button>
-                  ) : (
-                    <Button
-                      variant="danger"
-                      size="sm"
-                      onClick={() => setSessionToRevoke(session)}
-                    >
-                      {t.closeSession}
-                    </Button>
-                  )}
-                </article>
-              );
-            })}
+                  {label}
+                </Button>
+              ))}
+            </div>
+          </section>
+          <section className="mt-6">
+            <h3 className="text-sm font-semibold">{t.themeTitle}</h3>
+            <ThemeSelector
+              value={theme}
+              onValueChange={setTheme}
+              labels={{
+                light: t.lightTheme,
+                dark: t.darkTheme,
+                system: t.systemTheme,
+              }}
+              ariaLabel={t.themeTitle}
+              className="mt-3 max-w-md"
+            />
+          </section>
+        </Card>
+      )}
+
+      {activeTab === "sessions" && (
+        <Card className="mt-5 p-5 sm:p-6">
+          <div className="flex flex-col justify-between gap-4 border-b pb-5 sm:flex-row sm:items-center">
+            <div className="flex items-center gap-3">
+              <span className="grid size-10 place-items-center rounded-xl bg-emerald-50 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300">
+                <MonitorSmartphone className="size-5" />
+              </span>
+              <div>
+                <h2 className="font-black text-[var(--foreground)]">{t.sessionsTitle}</h2>
+                <p className="mt-0.5 text-xs text-[var(--muted)]">
+                  {t.sessionsDescription}
+                </p>
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variant="secondary"
+                size="sm"
+                loading={othersMutation.isPending}
+                onClick={() => setConfirmOthers(true)}
+              >
+                {t.signOutOthers}
+              </Button>
+              <Button variant="danger" size="sm" onClick={() => setConfirmAll(true)}>
+                {t.signOutAll}
+              </Button>
+            </div>
           </div>
-        )}
-      </Card>
+
+          {sessionsQuery.isPending ? (
+            <LoadingState label={t.loadingSessions} />
+          ) : sessionsQuery.isError ? (
+            <ErrorState
+              message={getErrorMessage(sessionsQuery.error, locale)}
+              retry={() => void sessionsQuery.refetch()}
+            />
+          ) : (
+            <div className="mt-3 divide-y">
+              {sessionsQuery.data.map((session) => {
+                const device = deviceInfo(session.userAgent);
+                const DeviceIcon = device.icon;
+                return (
+                  <article
+                    key={getId(session)}
+                    className="flex flex-col gap-3 py-4 first:pt-2 sm:flex-row sm:items-center"
+                  >
+                    <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-[var(--surface-muted)] text-[var(--muted)]">
+                      <DeviceIcon className="size-5" />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h3 className="text-sm font-bold text-[var(--foreground)]">
+                          {t.devices[device.kind]}
+                        </h3>
+                        {session.isCurrent && (
+                          <Badge className="bg-emerald-50 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300">
+                            {t.currentDevice}
+                          </Badge>
+                        )}
+                      </div>
+                      <p
+                        className="mt-1 truncate text-xs text-[var(--muted)]"
+                        title={session.userAgent ?? undefined}
+                      >
+                        <bdi dir="ltr">{session.ipAddress ?? t.ipUnavailable}</bdi> ·{" "}
+                        {t.lastUsed} {formatDateTime(session.lastUsedAt, intlLocale)}
+                      </p>
+                      <p className="mt-1 text-xs text-[var(--muted)] opacity-80">
+                        {t.expires}: {formatDateTime(session.expiresAt, intlLocale)}
+                      </p>
+                    </div>
+                    {session.isCurrent ? (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setConfirmCurrent(true)}
+                      >
+                        <LogOut className="size-4" /> {t.signOut}
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="danger"
+                        size="sm"
+                        onClick={() => setSessionToRevoke(session)}
+                      >
+                        {t.closeSession}
+                      </Button>
+                    )}
+                  </article>
+                );
+              })}
+            </div>
+          )}
+        </Card>
+      )}
 
       <ConfirmDialog
         open={confirmCurrent}
@@ -681,6 +858,16 @@ export function AccountView() {
             return revokeMutation.mutateAsync(sessionToRevoke).then(() => undefined);
           }
         }}
+      />
+      <ConfirmDialog
+        open={confirmDeleteAccount}
+        onOpenChange={setConfirmDeleteAccount}
+        title={t.deleteAccountTitle}
+        description={t.deleteAccountDescription}
+        confirmLabel={t.deleteAccount}
+        confirmVariant="danger"
+        loading={deleteAccountMutation.isPending}
+        onConfirm={() => deleteAccountMutation.mutateAsync().then(() => undefined)}
       />
     </div>
   );

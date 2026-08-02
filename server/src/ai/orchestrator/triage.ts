@@ -63,17 +63,16 @@ const pickAgent = (
   message: string,
   tier: ReturnType<typeof resolveRoleTier>,
 ): ReplyAgentId => {
-  // Staff operations are only offered to admins / super admins.
-  if (isStaffTier(tier) && STAFF_PATTERN.test(message)) {
+  // Staff account operations are only offered to admins / super admins.
+  if (
+    isStaffTier(tier) &&
+    (STAFF_PATTERN.test(message) || ACCOUNT_PATTERN.test(message))
+  ) {
     return "staff";
   }
 
-  // Account operations / problems go to the Account Agent for every tier
-  // (guests get account-problem handling, users get account management).
-  if (ACCOUNT_PATTERN.test(message)) {
-    return "account";
-  }
-
-  // Remaining in-scope messages are handled by the role-aware website guide.
+  // Guests and regular users have no separate account agent. The website
+  // guide either answers allowed site questions, points guests to Contact, or
+  // lets the orchestrator transfer signed-in account issues to live support.
   return "website-help";
 };

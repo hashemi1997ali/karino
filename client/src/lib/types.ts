@@ -23,6 +23,9 @@ export interface User {
   email: string;
   roles: UserRole[];
   profileImage: { url: string; publicId: string } | null;
+  onboardingCompleted: boolean;
+  primaryUseCase: "personal" | "study" | "work" | "projects" | "other" | null;
+  planningStyle: "simple" | "daily" | "priority" | null;
   ban?: UserBan | null;
   createdAt: string;
   updatedAt: string;
@@ -65,6 +68,53 @@ export interface TaskSummary {
   medium: number;
   high: number;
   overdue: number;
+}
+
+export interface TodayDashboard {
+  generatedAt: string;
+  timeZone: string;
+  stats: {
+    tasksToday: number;
+    completed: number;
+    overdue: number;
+    completionRate: number;
+  };
+  focusTasks: Task[];
+  upcoming: Array<{
+    date: string;
+    count: number;
+  }>;
+  weeklyProgress: Array<{
+    date: string;
+    completed: number;
+  }>;
+  recentActivity: ActivityItem[];
+  dailyBrief: {
+    overdue: number;
+    highPriority: number;
+    dueToday: number;
+    scheduleConflicts: number;
+  };
+}
+
+export type ActivityType =
+  | "task_created"
+  | "task_updated"
+  | "task_completed"
+  | "task_deleted"
+  | "sign_in"
+  | "password_changed"
+  | "session_revoked"
+  | "support_opened"
+  | "support_resolved";
+
+export interface ActivityItem {
+  id?: string;
+  _id?: string;
+  type: ActivityType;
+  entityId: string | null;
+  label: string;
+  createdAt: string;
 }
 
 export interface RefreshSession {
@@ -132,6 +182,34 @@ export interface SupportChat {
   rating: SupportRating | null;
   assistantIdleExpiresAt: string | null;
   endedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type AssistantProposalStatus = "pending" | "creating" | "created" | "dismissed";
+
+export interface AssistantTaskProposal {
+  title: string;
+  description: string;
+  priority: TaskPriority;
+  dueDate: string | null;
+  status: AssistantProposalStatus;
+  taskId: string | null;
+}
+
+export interface AssistantMessage {
+  id: string;
+  sender: "user" | "assistant";
+  content: string;
+  taskProposal: AssistantTaskProposal | null;
+  createdAt: string;
+}
+
+export interface AssistantConversation {
+  id: string;
+  locale: "en" | "de";
+  subject: string;
+  messages: AssistantMessage[];
   createdAt: string;
   updatedAt: string;
 }

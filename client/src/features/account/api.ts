@@ -43,3 +43,6 @@ export const revokeSessionRequest = (id: string): Promise<void> =>
 
 export const logoutAllSessionsRequest = (): Promise<void> =>
   apiRequest<void>("/auth/sessions", { method: "DELETE" });
+
+export const deleteAccountRequest = (): Promise<void> =>
+  apiRequest<void>("/auth/me", { method: "DELETE" });

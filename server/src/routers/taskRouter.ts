@@ -4,6 +4,7 @@ import {
   createTask,
   deleteTask,
   getTaskById,
+  getTodayDashboard,
   getTaskSummary,
   getTasks,
   updateTask,
@@ -16,11 +17,9 @@ export const taskRouter = Router();
 taskRouter.use(authenticate, requireActiveSession);
 
 taskRouter.get("/summary", getTaskSummary);
+taskRouter.get("/dashboard", getTodayDashboard);
 
-taskRouter
-  .route("/")
-  .get(getTasks)
-  .post(validateByZod(createTaskSchema), createTask);
+taskRouter.route("/").get(getTasks).post(validateByZod(createTaskSchema), createTask);
 
 taskRouter
   .route("/:id")

@@ -3,9 +3,9 @@
  *
  * The assistant is composed of five logical components:
  *  - Triage Router      (internal only, never replies to the user)
- *  - Website Help Agent  (role-aware website and feature guidance)
- *  - Account Agent       (authenticated account actions)
- *  - Staff Agent         (admin / super_admin operations)
+ *  - Website Help Agent  (public and signed-in website guidance)
+ *  - Task Agent          (private planning guidance and task proposals)
+ *  - Staff Account Agent (admin / super_admin account operations)
  *  - Offline Assistant   (no LLM, predefined responses only)
  *
  * Guardrails (Language, Scope, Permission, Output) are applied centrally
@@ -16,7 +16,7 @@
 export type AssistantLocale = "en" | "de";
 
 /** Internal agent identifiers used for routing, logging and serialisation. */
-export type AgentId = "triage-router" | "website-help" | "account" | "staff" | "offline";
+export type AgentId = "triage-router" | "website-help" | "task" | "staff" | "offline";
 
 /**
  * The set of agent identifiers that can appear in a user-visible reply.
@@ -44,6 +44,26 @@ export interface AssistantContext {
   locale: AssistantLocale;
   /** MongoDB user id when authenticated, null for guests. */
   userId?: string | null;
+}
+
+export interface TaskContextItem {
+  title: string;
+  status: "todo" | "in-progress" | "done";
+  priority: "low" | "medium" | "high";
+  dueDate: string | null;
+}
+
+export interface TaskProposalDraft {
+  title: string;
+  description: string;
+  priority: "low" | "medium" | "high";
+  dueDate: Date | null;
+}
+
+export interface TaskAssistantResult {
+  reply: string;
+  provider: string;
+  proposal: TaskProposalDraft | null;
 }
 
 /** Result returned by the orchestrator to the caller (chatController). */

@@ -5,6 +5,7 @@ import type {
   TaskPriority,
   TaskStatus,
   TaskSummary,
+  TodayDashboard,
 } from "@/lib/types";
 
 export interface TaskFilters {
@@ -70,6 +71,14 @@ export const getTasksRequest = async (
 export const getTaskSummaryRequest = async (): Promise<TaskSummary> => {
   const data = await apiRequest<{ summary: TaskSummary }>("/tasks/summary");
   return data.summary;
+};
+
+export const getTodayDashboardRequest = async (): Promise<TodayDashboard> => {
+  const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+  const data = await apiRequest<{ dashboard: TodayDashboard }>(
+    `/tasks/dashboard?timeZone=${encodeURIComponent(timeZone)}`,
+  );
+  return data.dashboard;
 };
 
 export const createTaskRequest = async (values: TaskMutationValues): Promise<Task> => {

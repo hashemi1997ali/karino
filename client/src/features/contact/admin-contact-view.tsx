@@ -2,22 +2,28 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  ChevronLeft,
+  ChevronRight,
   Lightbulb,
   Mail,
   MailCheck,
   Send,
   WandSparkles,
 } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
-import { Badge, Card } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
+import { FormStatusBadge } from "@/components/ui/domain-badge";
 import { UserAvatar } from "@/components/user-avatar";
-import { Textarea } from "@/components/ui/form-controls";
 import { PageHeading } from "@/components/ui/page-heading";
 import { ErrorState, LoadingState } from "@/components/ui/states";
 import { ChatMessageBubble } from "@/features/chat/chat-message-bubble";
+import { ChatHistoryItem } from "@/features/chat/chat-history-item";
+import { ChatIconButton } from "@/features/chat/chat-icon-button";
+import { ChatSuggestionPanel } from "@/features/chat/chat-suggestion-panel";
+import { ChatThreadHeader } from "@/features/chat/chat-thread-header";
 import { DateGroupedMessageList } from "@/features/chat/date-grouped-message-list";
 import {
   getContactReplySuggestionsRequest,
@@ -37,6 +43,7 @@ const copy = {
     description: "Review contact messages and reply by email.",
     loading: "Loading contact messages…",
     empty: "There are no contact messages yet.",
+    back: "Back to messages",
     open: "Open",
     answered: "Answered",
     noSelection: "Select a contact message from the inbox.",
@@ -49,7 +56,8 @@ const copy = {
     previous: "Previous",
     next: "Next",
     page: "Page",
-    suggestions: "Suggested email replies",
+    suggestions: "Suggested replies",
+    hideSuggestions: "Hide suggested replies",
     improve: "Improve as email",
     improved: "The draft was expanded into a complete email.",
     history: "All form history",
@@ -60,6 +68,7 @@ const copy = {
     description: "Kontaktnachrichten lesen und per E-Mail beantworten.",
     loading: "Kontaktnachrichten werden geladen…",
     empty: "Es gibt noch keine Kontaktnachrichten.",
+    back: "Zurück zu Nachrichten",
     open: "Offen",
     answered: "Beantwortet",
     noSelection: "Wähle eine Nachricht aus dem Posteingang.",
@@ -72,7 +81,8 @@ const copy = {
     previous: "Zurück",
     next: "Weiter",
     page: "Seite",
-    suggestions: "E-Mail-Antwortvorschläge",
+    suggestions: "Antwortvorschläge",
+    hideSuggestions: "Antwortvorschläge ausblenden",
     improve: "Als E-Mail verbessern",
     improved: "Der Entwurf wurde zu einer vollständigen E-Mail erweitert.",
     history: "Gesamter Formularverlauf",
@@ -87,9 +97,10 @@ export function AdminContactView() {
   const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [mobileThreadOpen, setMobileThreadOpen] = useState(false);
   const [reply, setReply] = useState("");
   const [suggestions, setSuggestions] = useState<string[]>([]);
-  const endRef = useRef<HTMLDivElement>(null);
+  const messagesRef = useRef<HTMLDivElement>(null);
   const queryKey = ["admin", "contact", page] as const;
   const contactsQuery = useQuery({
     queryKey,
@@ -106,18 +117,20 @@ export function AdminContactView() {
       : (contacts[0]?.id ?? null);
   const selected = contacts.find((contact) => contact.id === effectiveSelectedId) ?? null;
   const formatMessageDate = (value: string) =>
-    new Intl.DateTimeFormat(intlLocale, { dateStyle: "medium" }).format(
-      new Date(value),
-    );
+    new Intl.DateTimeFormat(intlLocale, { dateStyle: "medium" }).format(new Date(value));
   const formatLastMessage = (contact: ContactSubmission) =>
     new Intl.DateTimeFormat(intlLocale, {
       dateStyle: "medium",
       timeStyle: "short",
     }).format(new Date(contact.messages.at(-1)?.createdAt ?? contact.updatedAt));
 
-  useEffect(() => {
-    endRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [effectiveSelectedId, selected?.messages.length]);
+  useLayoutEffect(() => {
+    const frame = window.requestAnimationFrame(() => {
+      const messages = messagesRef.current;
+      if (messages) messages.scrollTop = messages.scrollHeight;
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [effectiveSelectedId, mobileThreadOpen, selected?.messages.length]);
 
   const updateCache = (contact: ContactSubmission) => {
     queryClient.setQueryData<Awaited<ReturnType<typeof listContactSubmissionsRequest>>>(
@@ -163,10 +176,11 @@ export function AdminContactView() {
     if (!selected || !message || replyMutation.isPending) return;
     replyMutation.mutate({ id: selected.id, message });
   };
+  const threadOpen = mobileThreadOpen || contacts.length === 0;
 
   return (
-    <div className="lg:flex lg:h-[calc(100dvh-9.75rem)] lg:min-h-0 lg:flex-col lg:overflow-hidden">
-      <PageHeading eyebrow={t.eyebrow} title={t.title} description={t.description} />
+    <div className="md:flex md:h-[calc(100dvh-10.25rem)] md:min-h-0 md:flex-col md:overflow-hidden">
+      <PageHeading title={t.title} description={t.description} />
 
       {contactsQuery.isPending ? (
         <div className="mt-8">
@@ -185,93 +199,91 @@ export function AdminContactView() {
           {t.empty}
         </Card>
       ) : (
-        <div className="mt-7 grid items-start gap-5 lg:min-h-0 lg:flex-1 lg:grid-cols-[18rem_minmax(0,1fr)] xl:grid-cols-[20rem_minmax(0,1fr)]">
-          <Card className="flex h-[min(70dvh,46rem)] min-h-[32rem] flex-col overflow-hidden p-2 lg:h-full lg:min-h-0">
-            <p className="shrink-0 px-3 py-2 text-xs font-black uppercase tracking-[.08em] text-[var(--muted)]">
-              {t.history}
-            </p>
+        <div
+          className={cn(
+            "mt-5 grid min-h-[38rem] overflow-hidden rounded-[var(--container-radius)] border bg-[var(--surface)] md:min-h-0 md:flex-1 xl:grid-cols-[19rem_minmax(0,1fr)]",
+            threadOpen &&
+              "max-md:fixed max-md:inset-0 max-md:z-50 max-md:mt-0 max-md:h-dvh max-md:min-h-0 max-md:rounded-none max-md:border-0",
+          )}
+        >
+          <aside
+            className={cn(
+              "min-h-0 min-w-0 flex-col border-r",
+              threadOpen ? "max-xl:hidden xl:flex" : "flex",
+            )}
+          >
+            <div className="flex h-16 shrink-0 items-center border-b px-4">
+              <h2 className="text-sm font-semibold">{t.history}</h2>
+            </div>
             <div className="min-h-0 flex-1 overflow-y-auto">
               {contacts.map((contact) => (
-                <div
+                <ChatHistoryItem
                   key={contact.id}
-                  className={cn(
-                    "group relative h-[6.75rem] w-full border-b p-3 text-left transition-colors duration-200 last:border-b-0",
-                    effectiveSelectedId === contact.id
-                      ? "bg-[var(--primary-soft)] shadow-[inset_3px_0_0_var(--primary)]"
-                      : "hover:bg-[color-mix(in_srgb,var(--surface-muted)_78%,var(--primary-soft))]",
-                  )}
-                >
-                  <button
-                    type="button"
-                    className="focus-ring absolute inset-0 z-0 transition active:bg-[var(--primary-soft)]/60"
-                    onClick={() => {
-                      setSelectedId(contact.id);
-                      setSuggestions([]);
-                      setReply("");
-                    }}
-                    aria-label={`Open form: ${contact.firstName} ${contact.lastName}`}
-                    aria-current={effectiveSelectedId === contact.id ? "true" : undefined}
-                  />
-                  <div className="pointer-events-none relative z-10">
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="truncate text-sm font-black">
-                      {contact.firstName} {contact.lastName}
-                    </p>
-                    <Badge
-                      className={
-                        contact.status === "open" ? "text-amber-700" : "text-emerald-700"
-                      }
-                    >
+                  selected={effectiveSelectedId === contact.id}
+                  title={`${contact.firstName} ${contact.lastName}`}
+                  date={formatLastMessage(contact)}
+                  dateTime={contact.updatedAt}
+                  topBadge={
+                    <FormStatusBadge status={contact.status}>
                       {contact.status === "open" ? t.open : t.answered}
-                    </Badge>
-                  </div>
-                  <p className="mt-1 truncate text-xs text-[var(--muted)]">
-                    {contact.email}
-                  </p>
-                  <div className="mt-1 flex items-center justify-between gap-2">
-                    <time className="truncate text-xs text-[var(--muted)]">
-                      {formatLastMessage(contact)}
-                    </time>
-                  </div>
-                  </div>
-                </div>
+                    </FormStatusBadge>
+                  }
+                  onClick={() => {
+                    setSelectedId(contact.id);
+                    setSuggestions([]);
+                    setReply("");
+                    setMobileThreadOpen(true);
+                  }}
+                  aria-label={`Open form: ${contact.firstName} ${contact.lastName}`}
+                  aria-current={effectiveSelectedId === contact.id ? "true" : undefined}
+                />
               ))}
             </div>
             {contactsQuery.data && contactsQuery.data.pagination.totalPages > 1 && (
               <div className="flex shrink-0 items-center justify-between gap-2 border-t p-2 text-xs">
-                <Button
-                  size="sm"
-                  variant="ghost"
+                <ChatIconButton
                   disabled={!contactsQuery.data.pagination.hasPreviousPage}
                   onClick={() => setPage((current) => Math.max(1, current - 1))}
+                  aria-label={t.previous}
+                  title={t.previous}
                 >
-                  {t.previous}
-                </Button>
+                  <ChevronLeft className="size-4" />
+                </ChatIconButton>
                 <span className="text-[var(--muted)]">
                   {t.page} {contactsQuery.data.pagination.page} /{" "}
                   {contactsQuery.data.pagination.totalPages}
                 </span>
-                <Button
-                  size="sm"
-                  variant="ghost"
+                <ChatIconButton
                   disabled={!contactsQuery.data.pagination.hasNextPage}
                   onClick={() => setPage((current) => current + 1)}
+                  aria-label={t.next}
+                  title={t.next}
                 >
-                  {t.next}
-                </Button>
+                  <ChevronRight className="size-4" />
+                </ChatIconButton>
               </div>
             )}
-          </Card>
+          </aside>
 
-          <Card className="relative flex h-[min(70dvh,46rem)] min-h-[32rem] flex-col overflow-hidden lg:h-full lg:min-h-0">
+          <section
+            className={cn(
+              "relative min-h-0 min-w-0 flex-col",
+              threadOpen ? "flex" : "max-xl:hidden xl:flex",
+            )}
+          >
             {!selected ? (
               <div className="grid flex-1 place-items-center text-sm text-[var(--muted)]">
                 {t.noSelection}
               </div>
             ) : (
               <>
-                <div className="flex min-h-[4.75rem] shrink-0 flex-wrap items-center justify-between gap-3 border-b bg-[var(--surface-muted)] p-4">
-                  <div className="flex min-w-0 items-center gap-3">
+                <ChatThreadHeader
+                  backLabel={t.back}
+                  onBack={() => {
+                    setSuggestions([]);
+                    setMobileThreadOpen(false);
+                  }}
+                  avatar={
                     <UserAvatar
                       user={{
                         firstName: selected.firstName,
@@ -279,19 +291,20 @@ export function AdminContactView() {
                         profileImage: null,
                       }}
                     />
-                    <div className="min-w-0">
-                      <p className="truncate font-black">
-                        {selected.firstName} {selected.lastName}
-                      </p>
-                      <p className="truncate text-xs text-[var(--muted)]">
-                        {selected.email}
-                      </p>
-                    </div>
-                  </div>
-                  <Badge>{selected.status === "open" ? t.open : t.answered}</Badge>
-                </div>
-                <div className="relative min-h-0 flex-1">
-                  <div className="absolute inset-0 overflow-y-auto px-4 pb-4">
+                  }
+                  title={`${selected.firstName} ${selected.lastName}`.trim()}
+                  subtitle={selected.email}
+                  meta={
+                    <FormStatusBadge status={selected.status}>
+                      {selected.status === "open" ? t.open : t.answered}
+                    </FormStatusBadge>
+                  }
+                />
+                <div className="relative isolate min-h-0 flex-1 overflow-hidden">
+                  <div
+                    ref={messagesRef}
+                    className="absolute inset-0 overflow-y-auto px-4 pb-4"
+                  >
                     <DateGroupedMessageList
                       items={selected.messages}
                       formatDate={formatMessageDate}
@@ -306,8 +319,8 @@ export function AdminContactView() {
                             name={firstNameOnly(message.senderName)}
                             nameHref={
                               message.sender === "staff" && message.senderId
-                                  ? `/admin/users/${message.senderId}`
-                                  : undefined
+                                ? `/admin/users/${message.senderId}`
+                                : undefined
                             }
                           />
                           {message.sender === "staff" && message.emailMessageId && (
@@ -318,34 +331,22 @@ export function AdminContactView() {
                         </div>
                       )}
                     />
-                    <div ref={endRef} />
                   </div>
-                  {suggestions.length > 0 && (
-                    <div className="absolute inset-0 z-20 flex flex-col bg-[var(--surface)]">
-                      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-4">
-                        {suggestions.map((suggestion) => (
-                          <button
-                            key={suggestion}
-                            type="button"
-                            onClick={() => {
-                              setReply(suggestion);
-                              setSuggestions([]);
-                            }}
-                            className="focus-ring block w-full whitespace-pre-wrap rounded-2xl border bg-[var(--surface-muted)] p-4 text-left text-sm leading-6 hover:border-[var(--primary)]"
-                          >
-                            {suggestion}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
+                  <ChatSuggestionPanel
+                    suggestions={suggestions}
+                    onSelect={(suggestion) => {
+                      setReply(suggestion);
+                      setSuggestions([]);
+                    }}
+                  />
                 </div>
-                <div className="shrink-0 border-t p-3">
+                <footer className="shrink-0 border-t bg-[var(--surface)] p-3 max-md:pb-[max(0.75rem,env(safe-area-inset-bottom))]">
                   <div className="mb-2 flex flex-wrap gap-2">
                     <Button
                       variant="secondary"
                       size="sm"
                       loading={suggestionsMutation.isPending}
+                      aria-expanded={suggestions.length > 0}
                       onClick={() => {
                         if (suggestions.length > 0) {
                           setSuggestions([]);
@@ -355,20 +356,23 @@ export function AdminContactView() {
                       }}
                     >
                       <Lightbulb className="size-4" />
-                      {t.suggestions}
+                      {suggestions.length > 0 ? t.hideSuggestions : t.suggestions}
                     </Button>
                   </div>
-                  <div className="flex items-end gap-2">
-                    <Textarea
+                  <div className="flex items-end gap-2 rounded-[var(--control-radius)] border bg-[var(--background)] p-2 focus-within:border-[var(--primary)]">
+                    <textarea
                       value={reply}
                       onChange={(event) => setReply(event.target.value)}
                       placeholder={t.reply}
-                      className="min-h-12 max-h-32 flex-1 resize-y"
+                      aria-label={t.reply}
+                      dir="auto"
+                      rows={1}
+                      className="min-h-11 max-h-32 min-w-0 flex-1 resize-none bg-transparent px-2 py-2.5 text-base leading-6 outline-none placeholder:text-[var(--muted)] sm:text-sm"
                     />
                     <Button
                       variant="secondary"
                       size="icon"
-                      className="size-12 shrink-0 rounded-full"
+                      className="size-11 shrink-0 rounded-full"
                       disabled={!reply.trim()}
                       loading={rewriteMutation.isPending}
                       onClick={() => {
@@ -384,7 +388,7 @@ export function AdminContactView() {
                     </Button>
                     <Button
                       size="icon"
-                      className="size-12 shrink-0 rounded-full"
+                      className="size-11 shrink-0 rounded-full"
                       disabled={!reply.trim()}
                       loading={replyMutation.isPending}
                       onClick={sendReply}
@@ -394,11 +398,10 @@ export function AdminContactView() {
                       <Send className="size-4" />
                     </Button>
                   </div>
-                </div>
+                </footer>
               </>
             )}
-          </Card>
-
+          </section>
         </div>
       )}
     </div>

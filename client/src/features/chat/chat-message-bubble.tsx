@@ -1,5 +1,8 @@
-import { cn } from "@/lib/utils";
 import Link from "next/link";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+
+import { cn } from "@/lib/utils";
 
 export function ChatMessageBubble({
   id,
@@ -8,6 +11,7 @@ export function ChatMessageBubble({
   name,
   nameHref,
   createdAt,
+  markdown = false,
 }: {
   id?: string;
   direction: "incoming" | "outgoing" | "system";
@@ -15,6 +19,7 @@ export function ChatMessageBubble({
   name?: string | null;
   nameHref?: string | null;
   createdAt?: string | Date | null;
+  markdown?: boolean;
 }) {
   if (direction === "system") {
     return (
@@ -73,17 +78,43 @@ export function ChatMessageBubble({
               {name}
             </p>
           ))}
-        <p
-          className="whitespace-pre-wrap break-words [overflow-wrap:anywhere]"
-          dir="auto"
-        >
-          {content}
-        </p>
+        {markdown ? (
+          <div className="chat-markdown break-words [overflow-wrap:anywhere]" dir="auto">
+            <ReactMarkdown
+              remarkPlugins={[remarkGfm]}
+              components={{
+                a: ({ href, children }) => {
+                  const external = href?.startsWith("http");
+                  return (
+                    <a
+                      href={href}
+                      target={external ? "_blank" : undefined}
+                      rel={external ? "noreferrer noopener" : undefined}
+                    >
+                      {children}
+                    </a>
+                  );
+                },
+              }}
+            >
+              {content}
+            </ReactMarkdown>
+          </div>
+        ) : (
+          <p
+            className="whitespace-pre-wrap break-words [overflow-wrap:anywhere]"
+            dir="auto"
+          >
+            {content}
+          </p>
+        )}
         {time && (
           <p
             className={cn(
               "mt-1 text-right text-xs leading-none",
-              direction === "outgoing" ? "text-current opacity-70" : "text-[var(--muted)]",
+              direction === "outgoing"
+                ? "text-current opacity-70"
+                : "text-[var(--muted)]",
             )}
           >
             {time}

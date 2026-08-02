@@ -41,8 +41,7 @@ const germanApiMessages: Record<string, string> = {
   "Invalid session ID": "Die Sitzungs-ID ist ungültig.",
   "Invalid access token": "Deine Anmeldung ist ungültig.",
   "User no longer exists": "Das Benutzerkonto existiert nicht mehr.",
-  "At least one task field must be provided":
-    "Ändere mindestens ein Aufgabenfeld.",
+  "At least one task field must be provided": "Ändere mindestens ein Aufgabenfeld.",
   "Active session not found": "Die aktive Sitzung wurde nicht gefunden.",
   "Refresh authentication is required": "Bitte melde dich erneut an.",
   "Invalid refresh session": "Die Sitzung ist ungültig.",
@@ -57,8 +56,7 @@ const germanApiMessages: Record<string, string> = {
   "Validation failed": "Bitte überprüfe deine Eingaben.",
   "A record with this value already exists":
     "Ein Eintrag mit diesem Wert existiert bereits.",
-  "Profile image cannot exceed 5 MB":
-    "Das Profilbild darf höchstens 5 MB groß sein.",
+  "Profile image cannot exceed 5 MB": "Das Profilbild darf höchstens 5 MB groß sein.",
   "Only JPG, PNG and WEBP profile images are allowed":
     "Nur JPG-, PNG- und WEBP-Profilbilder sind erlaubt.",
   "Profile image upload is unavailable because Cloudinary is not configured":

@@ -58,7 +58,7 @@ export function RegisterForm() {
   } = useForm<RegisterFormValues>({ resolver: zodResolver(schema) });
 
   useEffect(() => {
-    if (status === "authenticated") router.replace("/dashboard");
+    if (status === "authenticated") router.replace("/onboarding");
   }, [status, router]);
 
   useEffect(() => clearErrors(), [locale, clearErrors]);
@@ -72,7 +72,7 @@ export function RegisterForm() {
         password: formValues.password,
       });
       toast.success(t.success);
-      router.replace("/dashboard");
+      router.replace("/onboarding");
     } catch (error) {
       toast.error(getErrorMessage(error, locale));
     }

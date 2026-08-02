@@ -4,11 +4,7 @@ import multer from "multer";
 import { AppError } from "#utils";
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
-const allowedMimeTypes = new Set([
-  "image/jpeg",
-  "image/png",
-  "image/webp",
-]);
+const allowedMimeTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
 
 const isCloudinaryConfigured = (): boolean =>
   Boolean(
@@ -30,9 +26,7 @@ export const profileImageUpload = multer({
   limits: { fileSize: MAX_FILE_SIZE, files: 1 },
   fileFilter: (_request, file, callback) => {
     if (!allowedMimeTypes.has(file.mimetype)) {
-      callback(
-        new AppError("Only JPG, PNG and WEBP profile images are allowed", 400),
-      );
+      callback(new AppError("Only JPG, PNG and WEBP profile images are allowed", 400));
       return;
     }
 

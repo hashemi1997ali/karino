@@ -4,3 +4,6 @@ export * from "./assistantService.ts";
 export * from "./roleService.ts";
 export * from "./chatLifecycleService.ts";
 export * from "./emailService.ts";
+export * from "./activityService.ts";
+export * from "./todayDashboardService.ts";
+export * from "./accountDeletionService.ts";

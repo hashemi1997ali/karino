@@ -20,7 +20,10 @@ const callAnthropic = async (
       system: request.systemPrompt,
       max_tokens: request.maxTokens,
       temperature: request.temperature,
-      messages: [...request.history.slice(-16), { role: "user", content: request.message }],
+      messages: [
+        ...request.history.slice(-16),
+        { role: "user", content: request.message },
+      ],
     }),
   });
 

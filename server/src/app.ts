@@ -3,7 +3,15 @@ import express from "express";
 
 import "#db";
 import { errorHandler, notFound, timeLogger } from "#middlewares";
-import { adminRouter, authRouter, chatRouter, contactRouter, taskRouter } from "#routers";
+import {
+  activityRouter,
+  adminRouter,
+  assistantRouter,
+  authRouter,
+  chatRouter,
+  contactRouter,
+  taskRouter,
+} from "#routers";
 import { startAssistantChatLifecycle } from "#services";
 import { getNonNegativeIntegerEnv } from "#utils";
 
@@ -31,7 +39,9 @@ app.get("/", (_request, response) => {
 
 app.use("/auth", authRouter);
 app.use("/tasks", taskRouter);
+app.use("/activity", activityRouter);
 app.use("/admin", adminRouter);
+app.use("/assistant", assistantRouter);
 app.use("/chat", chatRouter);
 app.use("/contact", contactRouter);
 

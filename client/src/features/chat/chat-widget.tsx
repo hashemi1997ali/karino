@@ -19,6 +19,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Input, Textarea } from "@/components/ui/form-controls";
+import { avatarFrameClassName } from "@/components/user-avatar";
 import { useAuth } from "@/features/auth/auth-provider";
 import {
   createChatRequest,
@@ -32,6 +33,7 @@ import {
   type ChatTurnResult,
 } from "@/features/chat/api";
 import { ChatMessageBubble } from "@/features/chat/chat-message-bubble";
+import { ChatIconButton } from "@/features/chat/chat-icon-button";
 import { DateGroupedMessageList } from "@/features/chat/date-grouped-message-list";
 import { getErrorMessage } from "@/lib/api-error";
 import {
@@ -47,11 +49,12 @@ const copy = {
   en: {
     title: "AI Assistant",
     subtitle: "AI first, human support when needed",
+    guestSubtitle: "General website guidance",
     open: "Open assistant",
     close: "Close assistant",
     newChat: "New chat",
     history: "Chat history",
-    welcome: "Hello! 👋 I'm the AI Assistant. How can I help you today?",
+    welcome: "Hello! I'm the AI Assistant. How can I help you today?",
     placeholder: "Write a message…",
     staffPlaceholder: "Ask a question or use /ban, /unban, /user…",
     send: "Send",
@@ -67,8 +70,8 @@ const copy = {
       "The current conversation will be closed before a new chat is opened.",
     endAndStart: "End and start new",
     signIn:
-      "Sign in for account-specific help. Guest conversations can still be transferred to support automatically.",
-    signInAction: "Sign in",
+      "For account access, a banned account, or personal help, send a request through the public Contact form. The private task assistant is available after sign-in.",
+    signInAction: "Open Contact",
     rate: "Rate this chat",
     reason: "What went well or badly?",
     submitRating: "Submit rating",
@@ -83,11 +86,12 @@ const copy = {
   de: {
     title: "AI Assistant",
     subtitle: "Zuerst KI, bei Bedarf menschlicher Support",
+    guestSubtitle: "Allgemeine Website-Hilfe",
     open: "Assistent öffnen",
     close: "Assistent schließen",
     newChat: "Neuer Chat",
     history: "Chatverlauf",
-    welcome: "Hallo! 👋 Ich bin der AI Assistant. Wie kann ich dir heute helfen?",
+    welcome: "Hallo! Ich bin der AI Assistant. Wie kann ich dir heute helfen?",
     placeholder: "Nachricht schreiben…",
     staffPlaceholder: "Frage stellen oder /ban, /unban, /user verwenden…",
     send: "Senden",
@@ -103,8 +107,8 @@ const copy = {
       "Die aktuelle Unterhaltung wird geschlossen, bevor ein neuer Chat geöffnet wird.",
     endAndStart: "Beenden und neu starten",
     signIn:
-      "Melde dich für kontospezifische Hilfe an. Gast-Chats können trotzdem automatisch an den Support übertragen werden.",
-    signInAction: "Anmelden",
+      "Nutze bei Kontozugriff, einer Kontosperre oder für persönliche Hilfe das öffentliche Kontaktformular. Der private Aufgabenassistent ist nach der Anmeldung verfügbar.",
+    signInAction: "Kontakt öffnen",
     rate: "Chat bewerten",
     reason: "Was war gut oder schlecht?",
     submitRating: "Bewertung senden",
@@ -146,9 +150,7 @@ export function ChatWidget() {
   const firstNameOnly = (name: string | null | undefined) =>
     name?.trim().split(/\s+/)[0] ?? "";
   const formatMessageDate = (value: string) =>
-    new Intl.DateTimeFormat(intlLocale, { dateStyle: "medium" }).format(
-      new Date(value),
-    );
+    new Intl.DateTimeFormat(intlLocale, { dateStyle: "medium" }).format(new Date(value));
   const [endIntent, setEndIntent] = useState<"end" | "new" | null>(null);
   const [rating, setRating] = useState(5);
   const [ratingReason, setRatingReason] = useState("");
@@ -301,8 +303,7 @@ export function ChatWidget() {
   const messages = activeChat?.messages ?? [];
   const visibleMessages = messages.filter(
     (message) =>
-      message.sender !== "system" ||
-      !isInternalSupportTransferMessage(message.content),
+      message.sender !== "system" || !isInternalSupportTransferMessage(message.content),
   );
   const pendingMessagePersisted =
     pendingUserMessage !== null &&
@@ -338,10 +339,13 @@ export function ChatWidget() {
   ];
   const disabledInput = activeChat?.status === "ended";
   const canEnd = Boolean(activeChat && activeChat.status !== "ended");
-  const hasMobileNavigation = ["/dashboard", "/tasks", "/account", "/admin"].some(
-    (route) => pathname === route || pathname.startsWith(`${route}/`),
-  );
-
+  const hasMobileNavigation = [
+    "/dashboard",
+    "/tasks",
+    "/assistant",
+    "/account",
+    "/admin",
+  ].some((route) => pathname === route || pathname.startsWith(`${route}/`));
   const clearForNewChat = () => {
     if (status === "authenticated") setSelectedId(null);
     else setGuestChat(null);
@@ -376,23 +380,28 @@ export function ChatWidget() {
 
       {open && (
         <section className="chat-panel surface-shadow fixed z-40 flex min-h-0 flex-col overflow-hidden rounded-[var(--container-radius)] border bg-[var(--surface)]">
-          <header className="flex shrink-0 items-center gap-3 border-b border-white/10 bg-[var(--navigation)] p-4 text-white">
-            <span className="grid size-10 place-items-center rounded-xl bg-[var(--highlight)] text-[var(--on-highlight)]">
+          <header className="flex h-16 shrink-0 items-center gap-3 border-b bg-[var(--surface-muted)]/55 px-3 text-[var(--foreground)]">
+            <span
+              className={avatarFrameClassName("text-[var(--primary)]")}
+              aria-label={t.title}
+            >
               <Bot className="size-5" />
             </span>
             <div className="min-w-0 flex-1">
-              <h2 className="truncate font-black">{t.title}</h2>
-              <p className="truncate text-xs text-white/70">
+              <h2 className="truncate text-sm font-semibold">{t.title}</h2>
+              <p className="mt-0.5 truncate text-xs text-[var(--muted)]">
                 {activeChat?.status === "active" && activeChat.assignedToName
                   ? t.active(firstNameOnly(activeChat.assignedToName))
                   : activeChat?.status === "open"
                     ? t.waiting
-                    : t.subtitle}
+                    : status === "anonymous"
+                      ? t.guestSubtitle
+                      : t.subtitle}
               </p>
             </div>
             <button
               type="button"
-              className="focus-ring grid size-10 place-items-center rounded-full transition-colors hover:bg-white/10"
+              className="focus-ring grid size-10 shrink-0 place-items-center rounded-full border bg-[var(--surface)] text-[var(--foreground)] transition-colors hover:border-[var(--primary)] hover:bg-[var(--primary-soft)] hover:text-[var(--primary)]"
               onClick={() => setOpen(false)}
               aria-label={t.close}
               title={t.close}
@@ -421,15 +430,14 @@ export function ChatWidget() {
                   </option>
                 ))}
               </select>
-              <button
-                type="button"
+              <ChatIconButton
+                bare
                 onClick={requestNewChat}
-                className="focus-ring grid size-11 place-items-center rounded-xl border bg-[var(--surface)]"
                 aria-label={t.newChat}
                 title={t.newChat}
               >
                 <Plus className="size-4" />
-              </button>
+              </ChatIconButton>
             </div>
           )}
 
@@ -451,6 +459,7 @@ export function ChatWidget() {
                       ? getLocalizedSupportSystemMessage(message.content, locale)
                       : message.content
                   }
+                  markdown={message.sender === "ai"}
                   createdAt={message.createdAt}
                   name={
                     message.sender === "ai" && message.senderName
@@ -465,7 +474,7 @@ export function ChatWidget() {
             {!activeChat && status === "anonymous" && (
               <p className="rounded-xl bg-[var(--surface-muted)] p-3 text-xs leading-5 text-[var(--muted)]">
                 {t.signIn}{" "}
-                <Link href="/login" className="font-bold text-[var(--primary)]">
+                <Link href="/contact" className="font-bold text-[var(--primary)]">
                   {t.signInAction}
                 </Link>
               </p>

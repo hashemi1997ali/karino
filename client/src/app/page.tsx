@@ -10,7 +10,6 @@ import {
   Layers3,
   LockKeyhole,
   Paperclip,
-  Sparkles,
   TimerReset,
   Users,
   Zap,
@@ -24,13 +23,13 @@ import { usePreferences } from "@/providers/preferences-provider";
 
 const copy = {
   en: {
-    heroEyebrow: "A calmer way to get things done",
-    heroTitle: "Turn a busy mind into",
-    heroAccent: "a clear day.",
+    heroEyebrow: "AI-powered productivity workspace",
+    heroTitle: "Stay focused.",
+    heroAccent: "Karino handles the rest.",
     heroDescription:
       "Karino keeps your tasks, deadlines, and progress in one focused workspace—simple enough for today, powerful enough for every day.",
-    start: "Start planning",
-    viewTasks: "Open my workspace",
+    start: "Start for free",
+    viewTasks: "Explore features",
     benefits: ["Free to start", "Private by design", "Ready on every screen"],
     live: "Live workspace",
     today: "Tuesday, July 16",
@@ -53,7 +52,7 @@ const copy = {
     features: [
       {
         title: "Plan with context",
-        description: "Priorities, dates, status, and files stay attached to the work.",
+        description: "Priorities, due dates, and status stay connected to every task.",
       },
       {
         title: "See momentum",
@@ -73,6 +72,10 @@ const copy = {
       "Choose the work that matters now",
       "Finish with visible progress",
     ],
+    securityTitle: "Security that stays out of your way.",
+    securityDescription:
+      "Review active devices, revoke individual sessions, or sign out everywhere without weakening your everyday workflow.",
+    securityItems: ["Secure sessions", "Device management", "Remote sign-out"],
     footer: "Made for clearer days and quieter minds.",
     contact: "Contact",
   },
@@ -128,6 +131,10 @@ const copy = {
       "Jetzt Wichtiges auswählen",
       "Mit sichtbarem Fortschritt abschließen",
     ],
+    securityTitle: "Sicherheit, die nicht im Weg steht.",
+    securityDescription:
+      "Prüfe aktive Geräte, widerrufe einzelne Sitzungen oder melde dich überall ab – ohne deinen Arbeitsfluss zu stören.",
+    securityItems: ["Sichere Sitzungen", "Geräteverwaltung", "Remote-Abmeldung"],
     footer: "Für klarere Tage und ruhigere Gedanken gemacht.",
     contact: "Kontakt",
   },
@@ -143,36 +150,31 @@ export default function HomePage() {
     <div className="min-h-dvh overflow-hidden">
       <PublicHeader />
       <main id="main-content" tabIndex={-1}>
-        <section className="paper-grid relative border-b">
-          <div className="absolute inset-0 -z-10 bg-[linear-gradient(110deg,color-mix(in_srgb,var(--background)_96%,transparent)_45%,color-mix(in_srgb,var(--primary-soft)_70%,transparent))]" />
-          <div className="mx-auto grid max-w-[88rem] items-center gap-14 px-4 py-16 sm:px-6 sm:py-24 lg:grid-cols-[1.04fr_.96fr] lg:px-8 lg:py-28">
+        <section className="border-b">
+          <div className="mx-auto grid max-w-[78rem] items-center gap-12 px-4 py-14 sm:px-6 sm:py-20 lg:grid-cols-[1fr_1.1fr] lg:px-8">
             <div>
-              <span className="eyebrow rounded-full border border-[var(--foreground)]/15 bg-[var(--surface)] px-4 py-2 text-[var(--foreground)] shadow-sm">
-                <Sparkles className="size-4 text-[var(--primary)]" />
+              <span className="inline-flex rounded-full bg-[var(--primary-soft)] px-3 py-2 text-xs font-semibold text-[var(--primary)]">
                 {t.heroEyebrow}
               </span>
-              <h1 className="text-balance mt-7 max-w-3xl text-5xl leading-[.94] font-black tracking-[-0.065em] text-[var(--foreground)] sm:text-7xl xl:text-[5.8rem]">
-                {t.heroTitle}{" "}
-                <span className="relative mt-2 inline-block rotate-[-1deg] rounded-[1.25rem] bg-[var(--highlight)] px-3 py-1 text-[var(--on-highlight)] shadow-sm">
-                  {t.heroAccent}
-                </span>
+              <h1 className="text-balance mt-7 max-w-2xl text-4xl leading-[1.08] font-bold tracking-[-0.04em] text-[var(--foreground)] sm:text-5xl">
+                {t.heroTitle} <span>{t.heroAccent}</span>
               </h1>
-              <p className="mt-8 max-w-xl text-base leading-8 text-[var(--muted)] sm:text-lg">
+              <p className="mt-5 max-w-xl text-base leading-7 text-[var(--muted)]">
                 {t.heroDescription}
               </p>
-              <div className="mt-9 flex flex-col gap-3 sm:flex-row">
-                <Link href="/register" className={buttonClassName({ size: "lg" })}>
+              <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+                <Link href="/register" className={buttonClassName({ size: "md" })}>
                   {t.start}
                   <ArrowRight className="size-4" />
                 </Link>
                 <Link
-                  href="/login?next=/tasks"
-                  className={buttonClassName({ variant: "secondary", size: "lg" })}
+                  href="#features"
+                  className={buttonClassName({ variant: "secondary", size: "md" })}
                 >
                   {t.viewTasks}
                 </Link>
               </div>
-              <div className="mt-9 flex flex-wrap gap-x-6 gap-y-3 text-sm font-semibold text-[var(--muted)]">
+              <div className="mt-4 flex flex-wrap gap-x-6 gap-y-3 text-xs text-[var(--muted)]">
                 {t.benefits.map((item) => (
                   <span key={item} className="inline-flex items-center gap-2">
                     <Check className="size-4 text-[var(--success)]" strokeWidth={3} />
@@ -182,9 +184,8 @@ export default function HomePage() {
               </div>
             </div>
 
-            <div className="relative mx-auto w-full max-w-2xl lg:pl-8">
-              <div className="absolute -right-8 -top-8 size-40 rotate-6 rounded-[2rem] bg-[var(--highlight)] opacity-70 blur-2xl" />
-              <div className="relative rotate-[1deg] rounded-[var(--container-radius)] border border-white/10 bg-[var(--navigation)] p-4 text-white shadow-xl sm:p-6">
+            <div className="mx-auto w-full max-w-2xl rounded-[1.5rem] bg-[var(--surface-strong)] p-4">
+              <div className="rounded-[var(--container-radius)] bg-[var(--surface)] p-4 text-[var(--foreground)] sm:p-5">
                 <div className="flex items-center justify-between border-b border-white/10 pb-5">
                   <div className="flex items-center gap-3">
                     <span className="grid size-10 place-items-center rounded-2xl bg-[var(--primary)]">
@@ -279,7 +280,7 @@ export default function HomePage() {
                 return (
                   <article
                     key={title}
-                    className={`group relative min-h-72 overflow-hidden rounded-[var(--container-radius)] border p-6 transition-colors duration-200 ${index === 0 ? "bg-[var(--highlight)] text-[var(--on-highlight)]" : index === 1 ? "bg-[var(--surface)]" : "bg-[var(--navigation)] text-white"}`}
+                    className={`group relative min-h-72 overflow-hidden rounded-[var(--container-radius)] border p-6 transition-colors duration-200 ${index === 0 ? "bg-[var(--highlight)] text-[var(--on-highlight)]" : index === 1 ? "bg-[var(--surface)]" : "bg-[var(--surface-strong)] text-white"}`}
                   >
                     <span
                       className={`grid size-12 place-items-center rounded-2xl border ${index === 0 ? "border-black/10 bg-black/5" : index === 2 ? "border-white/10 bg-white/8 text-[var(--highlight)]" : "bg-[var(--primary-soft)] text-[var(--primary)]"}`}
@@ -315,7 +316,32 @@ export default function HomePage() {
           </div>
         </section>
 
-        <section id="workflow" className="pb-20 sm:pb-28">
+        <section id="security" className="border-y bg-[var(--surface)] py-16 sm:py-20">
+          <div className="mx-auto grid max-w-[88rem] gap-8 px-4 sm:px-6 lg:grid-cols-[1fr_1.15fr] lg:items-center lg:px-8">
+            <div>
+              <LockKeyhole className="size-7 text-[var(--primary)]" />
+              <h2 className="mt-4 text-3xl font-bold tracking-[-0.03em]">
+                {t.securityTitle}
+              </h2>
+              <p className="mt-3 max-w-xl leading-7 text-[var(--muted)]">
+                {t.securityDescription}
+              </p>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-3">
+              {t.securityItems.map((item) => (
+                <div
+                  key={item}
+                  className="rounded-[var(--container-radius)] border bg-[var(--background)] p-5"
+                >
+                  <CheckCircle2 className="size-5 text-[var(--success)]" />
+                  <p className="mt-4 text-sm font-semibold">{item}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section id="workflow" className="py-20 sm:py-28">
           <div className="mx-auto max-w-[88rem] px-4 sm:px-6 lg:px-8">
             <div className="paper-grid overflow-hidden rounded-[var(--container-radius)] border bg-[var(--primary)] p-6 text-[var(--on-primary)] shadow-lg sm:p-10 lg:p-14">
               <div className="grid gap-12 lg:grid-cols-[.9fr_1.1fr] lg:items-center">

@@ -188,7 +188,9 @@ const getContactWritingContext = async (request: Parameters<RequestHandler>[0]) 
       authenticated: true,
       locale: contact.locale,
       staffName: staff.firstName,
-      staffRole: isSuperAdminRoles(staff.roles) ? ("super_admin" as const) : ("admin" as const),
+      staffRole: isSuperAdminRoles(staff.roles)
+        ? ("super_admin" as const)
+        : ("admin" as const),
       customerRoles: [],
     },
   };

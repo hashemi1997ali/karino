@@ -14,6 +14,7 @@ export function Dialog({
   description,
   children,
   className,
+  variant = "modal",
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -21,6 +22,7 @@ export function Dialog({
   description?: string;
   children: ReactNode;
   className?: string;
+  variant?: "modal" | "drawer";
 }) {
   const { locale } = usePreferences();
   return (
@@ -29,16 +31,18 @@ export function Dialog({
         <DialogPrimitive.Overlay className="fixed inset-0 z-[100] bg-slate-950/45 backdrop-blur-sm data-[state=closed]:animate-out data-[state=open]:animate-in" />
         <DialogPrimitive.Content
           className={cn(
-            "surface-shadow fixed inset-x-3 top-1/2 z-[100] max-h-[92vh] -translate-y-1/2 overflow-y-auto rounded-[var(--container-radius)] border bg-[var(--surface)] p-5 outline-none sm:inset-x-auto sm:left-1/2 sm:w-[min(92vw,36rem)] sm:-translate-x-1/2 sm:p-6",
+            variant === "drawer"
+              ? "surface-shadow fixed inset-0 z-[100] overflow-y-auto bg-[var(--surface)] p-5 outline-none sm:inset-y-0 sm:left-auto sm:right-0 sm:w-[min(92vw,32rem)] sm:border-l sm:p-6"
+              : "surface-shadow fixed inset-x-3 top-1/2 z-[100] max-h-[92vh] -translate-y-1/2 overflow-y-auto rounded-[var(--container-radius)] border bg-[var(--surface)] p-5 outline-none sm:inset-x-auto sm:left-1/2 sm:w-[min(92vw,36rem)] sm:-translate-x-1/2 sm:p-6",
             className,
           )}
         >
           <div className="mb-5 pr-10">
-            <DialogPrimitive.Title className="text-lg font-bold text-slate-950">
+            <DialogPrimitive.Title className="text-lg font-bold text-[var(--foreground)]">
               {title}
             </DialogPrimitive.Title>
             {description && (
-              <DialogPrimitive.Description className="mt-1 text-sm leading-6 text-slate-500">
+              <DialogPrimitive.Description className="mt-1 text-sm leading-6 text-[var(--muted)]">
                 {description}
               </DialogPrimitive.Description>
             )}

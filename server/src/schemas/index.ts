@@ -1,4 +1,5 @@
 export * from "./adminSchema.ts";
+export * from "./assistantSchema.ts";
 export * from "./authSchema.ts";
 export * from "./taskSchema.ts";
 export * from "./chatSchema.ts";

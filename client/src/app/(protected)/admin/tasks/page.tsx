@@ -1,5 +1,11 @@
-import { redirect } from "next/navigation";
+import { Suspense } from "react";
+
+import { TasksView } from "@/features/tasks/tasks-view";
 
 export default function AdminTasksPage() {
-  redirect("/admin/users");
+  return (
+    <Suspense>
+      <TasksView admin />
+    </Suspense>
+  );
 }

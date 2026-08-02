@@ -14,6 +14,26 @@ export interface AdminUserDetail {
   stats: { taskCount: number; activeSessionCount: number };
 }
 
+export interface AdminOverview {
+  totalUsers: number;
+  activeUsers: number;
+  totalTasks: number;
+  openTasks: number;
+  overdueTasks: number;
+  waitingSupport: number;
+  unansweredContacts: number;
+  bannedUsers: number;
+  weeklyProgress: Array<{ date: string; completed: number }>;
+  recentActivity: Array<{
+    _id: string;
+    type: import("@/lib/types").ActivityType;
+    label: string;
+    createdAt: string;
+  }>;
+}
+
+export const getAdminOverviewRequest = () => apiRequest<AdminOverview>("/admin/overview");
+
 export const getUsersRequest = async (
   filters: UserFilters,
 ): Promise<{ users: User[]; pagination: Pagination }> => {

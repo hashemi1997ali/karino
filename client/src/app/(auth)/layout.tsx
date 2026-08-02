@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft } from "lucide-react";
+import { CheckCircle2, Circle, Sparkles } from "lucide-react";
 import Link from "next/link";
 
 import { Logo } from "@/components/logo";
@@ -9,20 +9,24 @@ import { usePreferences } from "@/providers/preferences-provider";
 
 const copy = {
   en: {
-    home: "Home",
-    eyebrow: "Task management without the clutter",
-    title: "Start every day with a clear plan.",
+    title: "Everything you need to stay organized.",
     description:
-      "Tasks, priorities, profile images, and secure sessions—all together in one fast, simple workspace.",
-    qualities: ["Secure", "Fast", "Responsive"],
+      "Plan tasks, track progress and get help from your personal AI assistant.",
+    today: "Today",
+    tasks: ["Ship the landing page", "Reply to support", "Plan next sprint"],
+    suggestion: "AI suggestion",
+    suggestionText: "Reschedule two overdue tasks?",
+    home: "Back to home",
   },
   de: {
-    home: "Startseite",
-    eyebrow: "Aufgaben verwalten, ohne Chaos",
-    title: "Starte jeden Tag mit einem klaren Plan.",
+    title: "Alles, was du brauchst, um organisiert zu bleiben.",
     description:
-      "Aufgaben, Prioritäten, Anhänge und sichere Sitzungen – vereint in einem schnellen, einfachen Arbeitsbereich.",
-    qualities: ["Sicher", "Schnell", "Responsiv"],
+      "Plane Aufgaben, verfolge Fortschritte und nutze deinen persönlichen KI-Assistenten.",
+    today: "Heute",
+    tasks: ["Landingpage veröffentlichen", "Support antworten", "Sprint planen"],
+    suggestion: "KI-Vorschlag",
+    suggestionText: "Zwei überfällige Aufgaben neu planen?",
+    home: "Zur Startseite",
   },
 } as const;
 
@@ -34,48 +38,67 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
     <main
       id="main-content"
       tabIndex={-1}
-      className="grid min-h-dvh bg-[var(--background)] lg:grid-cols-[1fr_1.05fr]"
+      className="grid min-h-dvh bg-[var(--background)] lg:grid-cols-2"
     >
-      <section className="paper-grid flex min-h-dvh flex-col px-4 py-6 sm:px-8 lg:px-14">
-        <div className="flex items-center justify-between">
-          <Logo />
+      <aside className="max-lg:hidden min-h-dvh flex-col bg-[#15151f] px-10 py-10 text-white lg:flex xl:px-16">
+        <Logo inverse />
+        <div className="mx-auto flex w-full max-w-xl flex-1 flex-col justify-center py-12">
+          <h1 className="max-w-lg text-4xl leading-[1.15] font-bold tracking-[-0.035em]">
+            {t.title}
+          </h1>
+          <p className="mt-5 max-w-xl text-base leading-7 text-white/70">
+            {t.description}
+          </p>
+          <div className="mt-12 rounded-[var(--container-radius)] border border-white/15 bg-white/[.055] p-5">
+            <h2 className="font-semibold">{t.today}</h2>
+            <div className="mt-5 space-y-3">
+              {t.tasks.map((task, index) => (
+                <div
+                  key={task}
+                  className="flex items-center gap-3 rounded-[var(--control-radius)] bg-white/[.055] p-3.5"
+                >
+                  {index === 2 ? (
+                    <CheckCircle2 className="size-5 text-[var(--primary)]" />
+                  ) : (
+                    <Circle className="size-5 text-white/75" />
+                  )}
+                  <div>
+                    <p className="text-sm font-semibold">{task}</p>
+                    <p className="mt-1 text-xs text-white/55">Today · High priority</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="mt-3 ml-auto max-w-60 rounded-[var(--control-radius)] bg-[var(--primary)] p-4">
+              <p className="flex items-center gap-2 text-xs font-semibold">
+                <Sparkles className="size-4" />
+                {t.suggestion}
+              </p>
+              <p className="mt-2 text-xs text-white/80">{t.suggestionText}</p>
+            </div>
+          </div>
+        </div>
+      </aside>
+
+      <section className="flex min-h-dvh flex-col px-4 py-5 sm:px-8 lg:px-14">
+        <div className="flex items-center justify-between lg:justify-end">
+          <div className="lg:hidden">
+            <Logo />
+          </div>
           <div className="flex items-center gap-2">
             <PreferencesControls />
             <Link
               href="/"
-              className="focus-ring inline-flex items-center gap-2 rounded-full px-3 py-2 text-sm font-bold text-[var(--muted)] hover:bg-[var(--surface-muted)] hover:text-[var(--primary)]"
+              className="focus-ring rounded-[var(--control-radius)] px-3 py-2 text-sm font-medium text-[var(--muted)] hover:bg-[var(--surface-muted)] hover:text-[var(--foreground)]"
             >
-              <ArrowLeft className="size-4" />
-              <span className="hidden sm:inline">{t.home}</span>
+              {t.home}
             </Link>
           </div>
         </div>
-        <div className="mx-auto flex w-full max-w-md flex-1 items-center py-12">
+        <div className="mx-auto flex w-full max-w-lg flex-1 items-center py-10">
           {children}
         </div>
       </section>
-      <aside className="relative m-3 hidden overflow-hidden rounded-[var(--container-radius)] bg-[var(--navigation)] p-14 text-white lg:flex lg:flex-col lg:justify-end">
-        <div className="paper-grid absolute inset-0 opacity-10" />
-        <div className="absolute -left-24 -top-24 size-96 rounded-full bg-[var(--primary)]/35 blur-3xl" />
-        <div className="absolute -bottom-32 -right-24 size-96 rounded-full bg-[var(--highlight)]/15 blur-3xl" />
-        <div className="relative max-w-xl">
-          <span className="eyebrow text-[var(--highlight)]">{t.eyebrow}</span>
-          <h2 className="mt-5 text-5xl leading-[1.02] font-black tracking-[-0.05em]">
-            {t.title}
-          </h2>
-          <p className="mt-5 leading-8 text-slate-300">{t.description}</p>
-          <div className="mt-10 grid grid-cols-3 gap-3 text-center">
-            {t.qualities.map((item) => (
-              <div
-                key={item}
-                className="rounded-[1.4rem] border border-white/10 bg-white/6 p-4 font-bold"
-              >
-                {item}
-              </div>
-            ))}
-          </div>
-        </div>
-      </aside>
     </main>
   );
 }
