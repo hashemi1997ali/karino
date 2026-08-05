@@ -1,6 +1,22 @@
 import { apiRequest } from "@/lib/api-client";
 import type { ChatStatus, Pagination, SupportChat } from "@/lib/types";
 
+export interface ChatHistoryItem {
+  role: "user" | "assistant";
+  content: string;
+}
+
+export interface AssistantChatTurnResult {
+  message: SupportChat["messages"][number];
+  provider: string | null;
+  available: boolean;
+  support: {
+    available: boolean;
+    reason: SupportChat["escalationReason"];
+    requiresSuperAdmin: boolean;
+  };
+}
+
 export interface ChatEscalationResult {
   requested: boolean;
   completed: boolean;
@@ -21,13 +37,34 @@ export interface EndChatResult {
 export const guestChatRequest = (
   message: string,
   locale: "en" | "de",
-  chatId?: string,
-): Promise<ChatTurnResult> =>
-  apiRequest<ChatTurnResult>("/chat/guest", {
+  history: ChatHistoryItem[],
+): Promise<AssistantChatTurnResult> =>
+  apiRequest<AssistantChatTurnResult>("/chat/guest", {
     method: "POST",
     auth: false,
-    json: { message, locale, ...(chatId ? { chatId } : {}) },
+    json: { message, locale, history },
   });
+
+export const createGuestSupportChatRequest = (
+  history: ChatHistoryItem[],
+  locale: "en" | "de",
+  reason: SupportChat["escalationReason"],
+): Promise<SupportChat> =>
+  apiRequest<{ chat: SupportChat }>("/chat/guest/support", {
+    method: "POST",
+    auth: false,
+    json: { history, locale, reason: reason ?? "human_requested" },
+  }).then((data) => data.chat);
+
+export const sendGuestMessageRequest = (
+  id: string,
+  message: string,
+): Promise<SupportChat> =>
+  apiRequest<{ chat: SupportChat }>(`/chat/guest/${id}/messages`, {
+    method: "POST",
+    auth: false,
+    json: { message },
+  }).then((data) => data.chat);
 
 export const getGuestChatRequest = async (id: string): Promise<SupportChat> => {
   const data = await apiRequest<{ chat: SupportChat }>(`/chat/guest/${id}`, {
@@ -51,11 +88,22 @@ export const listChatsRequest = async (): Promise<SupportChat[]> => {
 export const createChatRequest = (
   message: string,
   locale: "en" | "de",
-): Promise<ChatTurnResult> =>
-  apiRequest<ChatTurnResult>("/chat", {
+  history: ChatHistoryItem[],
+): Promise<AssistantChatTurnResult> =>
+  apiRequest<AssistantChatTurnResult>("/chat", {
     method: "POST",
-    json: { message, locale },
+    json: { message, locale, history },
   });
+
+export const createSupportChatRequest = (
+  history: ChatHistoryItem[],
+  locale: "en" | "de",
+  reason: SupportChat["escalationReason"],
+): Promise<SupportChat> =>
+  apiRequest<{ chat: SupportChat }>("/chat/support", {
+    method: "POST",
+    json: { history, locale, reason: reason ?? "human_requested" },
+  }).then((data) => data.chat);
 
 export const sendChatMessageRequest = (
   id: string,

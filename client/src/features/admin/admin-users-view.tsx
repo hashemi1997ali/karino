@@ -23,7 +23,7 @@ import { createProfileSchema, type ProfileFormValues } from "@/features/auth/sch
 import { getErrorMessage } from "@/lib/api-error";
 import { getBanReasonLabel } from "@/lib/domain-labels";
 import type { BanReason, User } from "@/lib/types";
-import { getId } from "@/lib/utils";
+import { formatNumber, getId } from "@/lib/utils";
 import { usePreferences } from "@/providers/preferences-provider";
 
 const banReasons: BanReason[] = [
@@ -91,6 +91,7 @@ const copy = {
     previous: "Previous",
     next: "Next",
     page: "Page",
+    of: "of",
     users: "users",
     viewProfile: "Open profile and tasks",
     bannedReason: "Reason",
@@ -150,6 +151,7 @@ const copy = {
     previous: "Zurück",
     next: "Weiter",
     page: "Seite",
+    of: "von",
     users: "Benutzer",
     viewProfile: "Profil und Aufgaben öffnen",
     bannedReason: "Grund",
@@ -313,7 +315,7 @@ export function BanUserDialog({
 }
 
 export function AdminUsersView() {
-  const { locale } = usePreferences();
+  const { locale, intlLocale } = usePreferences();
   const t = copy[locale];
   const { user: currentUser } = useAuth();
   const [search, setSearch] = useState("");
@@ -399,7 +401,7 @@ export function AdminUsersView() {
           </Card>
         ) : (
           <>
-            <div className="grid items-start gap-4 lg:grid-cols-2 min-[70rem]:hidden">
+            <div className="grid items-start gap-4 lg:grid-cols-2 xl:hidden">
               {users.map((user) => {
                 const id = getId(user);
                 const self = id === currentUser?.id || id === currentUser?._id;
@@ -417,41 +419,16 @@ export function AdminUsersView() {
                     <span
                       className={`absolute inset-y-0 left-0 w-1.5 ${
                         isBanned
-                          ? "bg-rose-500"
-                          : superAdmin || admin
-                            ? "bg-[var(--primary)]"
-                            : "bg-sky-500"
+                          ? "bg-rose-700 dark:bg-rose-300"
+                          : superAdmin
+                            ? "bg-violet-700 dark:bg-violet-300"
+                            : admin
+                              ? "bg-indigo-700 dark:bg-indigo-300"
+                              : "bg-slate-700 dark:bg-slate-300"
                       }`}
                       aria-hidden="true"
                     />
-                    <div className="flex min-w-0 items-start gap-3">
-                      <UserAvatar user={user} className="size-11" imageSizes="44px" />
-                      <div className="min-w-0 flex-1">
-                        <Link
-                          href={`/admin/users/${id}`}
-                          className="focus-ring flex min-h-11 min-w-0 items-center rounded-[var(--control-radius)] text-sm font-bold hover:text-[var(--primary)]"
-                          title={t.viewProfile}
-                          dir="auto"
-                        >
-                          <span className="truncate">
-                            {user.firstName} {user.lastName}
-                            {self && (
-                              <span className="ms-1 text-xs font-normal text-[var(--muted)]">
-                                ({t.you})
-                              </span>
-                            )}
-                          </span>
-                        </Link>
-                        <p
-                          className="truncate text-xs text-[var(--muted)]"
-                          dir="ltr"
-                          title={user.email}
-                        >
-                          {user.email}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="mt-4 flex flex-wrap items-center gap-2 border-t pt-3">
+                    <div className="flex flex-wrap items-center gap-2">
                       <RoleBadge role={roleValue}>{roleLabel}</RoleBadge>
                       <AccountStatusBadge
                         banned={isBanned}
@@ -464,11 +441,36 @@ export function AdminUsersView() {
                         {isBanned ? t.banned : t.active}
                       </AccountStatusBadge>
                     </div>
+                    <div className="mt-4 flex min-w-0 items-center gap-3">
+                      <UserAvatar user={user} className="size-11" imageSizes="44px" />
+                      <div className="flex min-h-11 min-w-0 flex-1 flex-col justify-center">
+                        <Link
+                          href={`/admin/users/${id}`}
+                          className="focus-ring min-w-0 truncate rounded-[var(--control-radius)] text-sm font-bold hover:text-[var(--primary)]"
+                          title={t.viewProfile}
+                          dir="auto"
+                        >
+                          {user.firstName} {user.lastName}
+                          {self && (
+                            <span className="ms-1 text-xs font-normal text-[var(--muted)]">
+                              ({t.you})
+                            </span>
+                          )}
+                        </Link>
+                        <p
+                          className="mt-1 truncate text-xs text-[var(--muted)]"
+                          dir="ltr"
+                          title={user.email}
+                        >
+                          {user.email}
+                        </p>
+                      </div>
+                    </div>
                   </Card>
                 );
               })}
             </div>
-            <Card className="hidden overflow-hidden min-[70rem]:block">
+            <Card className="hidden overflow-hidden xl:block">
               <div className="grid grid-cols-[minmax(12rem,1.3fr)_minmax(12rem,1.25fr)_7rem_7rem] gap-3 border-b bg-[var(--surface-muted)] px-4 py-3 text-xs font-semibold text-[var(--muted)]">
                 <span>{t.users}</span>
                 <span>{t.email}</span>
@@ -483,11 +485,24 @@ export function AdminUsersView() {
                   const admin = user.roles.includes("admin");
                   const roleLabel = superAdmin ? t.superAdmin : admin ? t.admin : t.user;
                   const roleValue = superAdmin ? "super_admin" : admin ? "admin" : "user";
+                  const isBanned = Boolean(user.ban?.isBanned);
                   return (
                     <article
                       key={id}
-                      className="grid min-w-0 grid-cols-[minmax(12rem,1.3fr)_minmax(12rem,1.25fr)_7rem_7rem] items-center gap-3 p-4 transition-colors hover:bg-[var(--surface-muted)]"
+                      className="relative grid min-w-0 grid-cols-[minmax(12rem,1.3fr)_minmax(12rem,1.25fr)_7rem_7rem] items-center gap-3 overflow-hidden p-4 transition-colors hover:bg-[var(--surface-muted)]"
                     >
+                      <span
+                        className={`absolute inset-y-0 left-0 w-1.5 ${
+                          isBanned
+                            ? "bg-rose-700 dark:bg-rose-300"
+                            : superAdmin
+                              ? "bg-violet-700 dark:bg-violet-300"
+                              : admin
+                                ? "bg-indigo-700 dark:bg-indigo-300"
+                                : "bg-slate-700 dark:bg-slate-300"
+                        }`}
+                        aria-hidden="true"
+                      />
                       <div className="flex min-w-0 items-center gap-3">
                         <UserAvatar user={user} className="size-9" imageSizes="36px" />
                         <Link
@@ -511,14 +526,14 @@ export function AdminUsersView() {
                       </p>
                       <RoleBadge role={roleValue}>{roleLabel}</RoleBadge>
                       <AccountStatusBadge
-                        banned={Boolean(user.ban?.isBanned)}
+                        banned={isBanned}
                         title={
                           user.ban?.isBanned
                             ? `${t.bannedReason}: ${getBanReasonLabel(user.ban.reason, locale)}`
                             : undefined
                         }
                       >
-                        {user.ban?.isBanned ? t.banned : t.active}
+                        {isBanned ? t.banned : t.active}
                       </AccountStatusBadge>
                     </article>
                   );
@@ -530,9 +545,11 @@ export function AdminUsersView() {
       </div>
 
       {pagination && pagination.totalPages > 1 && (
-        <div className="mt-5 flex items-center justify-between text-sm">
+        <div className="mt-7 flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-[var(--surface)] p-3 text-sm">
           <span className="text-[var(--muted)]">
-            {pagination.total} {t.users} · {t.page} {pagination.page}
+            {t.page} {formatNumber(pagination.page, intlLocale)} {t.of}{" "}
+            {formatNumber(pagination.totalPages, intlLocale)} ·{" "}
+            {formatNumber(pagination.total, intlLocale)} {t.users}
           </span>
           <div className="flex gap-2">
             <Button

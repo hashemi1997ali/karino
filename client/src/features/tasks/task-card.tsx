@@ -8,6 +8,7 @@ import {
   Edit3,
   LoaderCircle,
   Trash2,
+  UserRound,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -27,8 +28,6 @@ const copy = {
     priority: { low: "Low", medium: "Medium", high: "High" },
     edit: "Edit",
     delete: "Delete",
-    noDescription: "No description has been added to this task.",
-    noDueDate: "No due date",
     completedOn: "Completed on",
     overdue: "Overdue",
     quickStatus: "Quick status",
@@ -45,8 +44,6 @@ const copy = {
     },
     edit: "Bearbeiten",
     delete: "Löschen",
-    noDescription: "Für diese Aufgabe wurde keine Beschreibung hinterlegt.",
-    noDueDate: "Kein Fälligkeitsdatum",
     completedOn: "Erledigt am",
     overdue: "Überfällig",
     quickStatus: "Schnellstatus",
@@ -76,6 +73,12 @@ const quickStatusClasses: Record<TaskStatus, string> = {
   done: "bg-emerald-50 text-emerald-700 shadow-sm dark:bg-emerald-500/15 dark:text-emerald-300",
 };
 
+const statusStripeClasses: Record<TaskStatus, string> = {
+  todo: "bg-slate-700 dark:bg-slate-300",
+  "in-progress": "bg-amber-700 dark:bg-amber-300",
+  done: "bg-emerald-700 dark:bg-emerald-300",
+};
+
 const statusOrder: TaskStatus[] = ["todo", "in-progress", "done"];
 
 export function TaskCard({
@@ -92,8 +95,8 @@ export function TaskCard({
   task: Task;
   showOwner?: boolean;
   referenceTime: number;
-  onEdit: () => void;
-  onDelete: () => void;
+  onEdit?: () => void;
+  onDelete?: () => void;
   onStatusChange?: (status: TaskStatus) => void;
   statusUpdating?: boolean;
   compact?: boolean;
@@ -116,19 +119,16 @@ export function TaskCard({
   return (
     <Card
       className={cn(
-        "group relative flex flex-col overflow-hidden transition-colors duration-200 hover:border-[var(--primary)]/50",
+        "relative flex flex-col overflow-hidden transition-colors duration-200 hover:border-[var(--primary)]/50",
         compact ? "min-h-0 p-4" : "min-h-72 p-5",
       )}
     >
       <span
         className={cn(
           "absolute inset-y-0 left-0 w-1.5",
-          task.priority === "high"
-            ? "bg-rose-500"
-            : task.priority === "medium"
-              ? "bg-[var(--primary)]"
-              : "bg-sky-500",
+          overdue ? "bg-rose-600 dark:bg-rose-300" : statusStripeClasses[task.status],
         )}
+        aria-hidden="true"
       />
       <div className="flex items-start gap-3">
         <div className="min-w-0 flex-1">
@@ -157,40 +157,48 @@ export function TaskCard({
           </div>
           <h3
             className={cn(
-              "line-clamp-2 font-bold tracking-tight text-[var(--foreground)]",
-              compact ? "mt-3 text-sm leading-5" : "mt-4 text-lg leading-7",
+              "font-bold tracking-tight text-[var(--foreground)]",
+              compact
+                ? "mt-3 truncate text-sm leading-5"
+                : "mt-4 line-clamp-2 text-lg leading-7",
             )}
             dir="auto"
           >
             {task.title}
           </h3>
         </div>
-        <div className="flex shrink-0 gap-1 opacity-100 transition sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
-          <button
-            onClick={onEdit}
-            className="focus-ring grid size-11 place-items-center rounded-full text-[var(--muted)] hover:bg-[var(--primary-soft)] hover:text-[var(--primary)]"
-            aria-label={`${t.edit}: ${task.title}`}
-          >
-            <Edit3 className="size-4" />
-          </button>
-          <button
-            onClick={onDelete}
-            className="focus-ring grid size-11 place-items-center rounded-xl text-slate-500 hover:bg-rose-50 hover:text-rose-700 dark:hover:bg-rose-500/15 dark:hover:text-rose-300"
-            aria-label={`${t.delete}: ${task.title}`}
-          >
-            <Trash2 className="size-4" />
-          </button>
-        </div>
+        {(onEdit || onDelete) && (
+          <div className="flex shrink-0 gap-1">
+            {onEdit && (
+              <button
+                onClick={onEdit}
+                className="focus-ring grid size-11 place-items-center rounded-full text-[var(--muted)] hover:bg-[var(--primary-soft)] hover:text-[var(--primary)]"
+                aria-label={`${t.edit}: ${task.title}`}
+              >
+                <Edit3 className="size-4" />
+              </button>
+            )}
+            {onDelete && (
+              <button
+                onClick={onDelete}
+                className="focus-ring grid size-11 place-items-center rounded-xl text-slate-500 hover:bg-rose-50 hover:text-rose-700 dark:hover:bg-rose-500/15 dark:hover:text-rose-300"
+                aria-label={`${t.delete}: ${task.title}`}
+              >
+                <Trash2 className="size-4" />
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       <p
         className={cn(
-          "mt-2 flex-1 text-sm text-[var(--muted)]",
-          compact ? "line-clamp-2 leading-5" : "line-clamp-3 leading-7",
+          "mt-2 min-h-5 flex-1 text-sm text-[var(--muted)]",
+          compact ? "truncate leading-5" : "line-clamp-3 leading-7",
         )}
         dir="auto"
       >
-        {task.description || t.noDescription}
+        {task.description || "—"}
       </p>
 
       {onStatusChange && !compact && (
@@ -244,7 +252,7 @@ export function TaskCard({
       >
         <div
           className={cn(
-            "flex min-w-0 items-start gap-2",
+            "flex min-w-0 items-start gap-2 leading-5",
             overdue && "font-bold text-rose-600 dark:text-rose-300",
           )}
         >
@@ -255,13 +263,13 @@ export function TaskCard({
                 {formatDateTime(task.dueDate, intlLocale)}
               </time>
             ) : (
-              t.noDueDate
+              "—"
             )}
             {overdue && <span> · {t.overdue}</span>}
           </span>
         </div>
         {task.status === "done" && task.completedAt && (
-          <div className="flex min-w-0 items-start gap-2 text-emerald-700 dark:text-emerald-300">
+          <div className="flex min-w-0 items-start gap-2 leading-5 text-emerald-700 dark:text-emerald-300">
             <CheckCircle2 className="mt-0.5 size-4 shrink-0" />
             <span className="min-w-0">
               {t.completedOn}{" "}
@@ -271,8 +279,8 @@ export function TaskCard({
             </span>
           </div>
         )}
-        {showUpdatedAt && (
-          <div className="flex min-w-0 items-start gap-2">
+        {showUpdatedAt && !(task.status === "done" && task.completedAt) && (
+          <div className="flex min-w-0 items-start gap-2 leading-5">
             <Clock3 className="mt-0.5 size-4 shrink-0" />
             <span className="min-w-0">
               {t.updated}{" "}
@@ -283,15 +291,16 @@ export function TaskCard({
           </div>
         )}
         {showOwner && owner && (
-          <Link
-            href={`/admin/users/${getId(owner)}`}
-            className="focus-ring inline-flex min-h-11 min-w-0 items-center rounded-[var(--control-radius)] font-bold text-[var(--foreground)] hover:text-[var(--primary)]"
-            dir="auto"
-          >
-            <span className="truncate">
+          <div className="flex min-w-0 items-start gap-2 leading-5">
+            <UserRound className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+            <Link
+              href={`/admin/users/${getId(owner)}`}
+              className="focus-ring min-w-0 truncate rounded-[var(--control-radius)] font-bold text-[var(--foreground)] hover:text-[var(--primary)]"
+              dir="auto"
+            >
               {owner.firstName} {owner.lastName}
-            </span>
-          </Link>
+            </Link>
+          </div>
         )}
       </div>
       <span className="sr-only">

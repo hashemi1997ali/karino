@@ -8,9 +8,7 @@ import {
   CheckSquare2,
   Edit3,
   Monitor,
-  Pencil,
   RotateCcw,
-  ShieldCheck,
   Trash2,
 } from "lucide-react";
 import Link from "next/link";
@@ -20,15 +18,10 @@ import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { UserAvatar } from "@/components/user-avatar";
-import { Badge, Card } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Dialog } from "@/components/ui/dialog";
-import {
-  AccountStatusBadge,
-  RoleBadge,
-  TaskPriorityBadge,
-  TaskStatusBadge,
-} from "@/components/ui/domain-badge";
+import { AccountStatusBadge, RoleBadge } from "@/components/ui/domain-badge";
 import { ErrorState, LoadingState } from "@/components/ui/states";
 import {
   banUserRequest,
@@ -44,37 +37,28 @@ import {
 import { BanUserDialog, EditUserDialog } from "@/features/admin/admin-users-view";
 import { useAuth } from "@/features/auth/auth-provider";
 import type { ProfileFormValues } from "@/features/auth/schemas";
+import { TaskCard } from "@/features/tasks/task-card";
 import { TaskForm } from "@/features/tasks/task-form";
+import { TaskTable } from "@/features/tasks/task-table";
 import { getErrorMessage } from "@/lib/api-error";
-import {
-  getTaskPriorityLabel,
-  getTaskStatusLabel,
-  getUserRoleLabel,
-} from "@/lib/domain-labels";
+import { getBanReasonLabel, getUserRoleLabel } from "@/lib/domain-labels";
 import type { BanReason, Task, User } from "@/lib/types";
-import { getId } from "@/lib/utils";
+import { formatNumber, getId } from "@/lib/utils";
 import { usePreferences } from "@/providers/preferences-provider";
 
 const copy = {
   en: {
     back: "Back to users",
-    profile: "User profile",
-    tasks: "User tasks",
+    tasks: "Tasks",
     tasksHeading: (name: string) => `${name}'s tasks`,
     taskCount: "Tasks",
     sessions: "Active sessions",
     joined: "Joined",
-    status: "Account status",
     active: "Active",
     banned: "Banned",
-    banIps: "Session IPs linked to this ban",
-    noBanIps: "No matching session document currently exists.",
+    banReason: "Ban reason",
     noTasks: "This user has no tasks yet.",
     loading: "Loading user profile…",
-    due: "Due",
-    completed: "Completed",
-    created: "Created",
-    updated: "Updated",
     edit: "Edit task",
     delete: "Delete task",
     deleteTitle: "Delete this user's task?",
@@ -92,26 +76,23 @@ const copy = {
     userSaved: "User details saved.",
     bannedDone: "The account was banned.",
     unbannedDone: "The account was unbanned.",
+    page: "Page",
+    of: "of",
+    previous: "Previous",
+    next: "Next",
   },
   de: {
     back: "Zurück zu Benutzern",
-    profile: "Benutzerprofil",
-    tasks: "Aufgaben des Benutzers",
+    tasks: "Aufgaben",
     tasksHeading: (name: string) => `Aufgaben von ${name}`,
     taskCount: "Aufgaben",
     sessions: "Aktive Sitzungen",
     joined: "Registriert",
-    status: "Kontostatus",
     active: "Aktiv",
     banned: "Gesperrt",
-    banIps: "Mit dieser Sperre verknüpfte Sitzungs-IPs",
-    noBanIps: "Derzeit existiert kein passendes Sitzungsdokument.",
+    banReason: "Sperrgrund",
     noTasks: "Dieser Benutzer hat noch keine Aufgaben.",
     loading: "Benutzerprofil wird geladen…",
-    due: "Fällig",
-    completed: "Erledigt",
-    created: "Erstellt",
-    updated: "Aktualisiert",
     edit: "Aufgabe bearbeiten",
     delete: "Aufgabe löschen",
     deleteTitle: "Diese Benutzeraufgabe löschen?",
@@ -129,6 +110,10 @@ const copy = {
     userSaved: "Benutzerdaten gespeichert.",
     bannedDone: "Das Konto wurde gesperrt.",
     unbannedDone: "Die Sperre wurde aufgehoben.",
+    page: "Seite",
+    of: "von",
+    previous: "Zurück",
+    next: "Weiter",
   },
 } as const;
 
@@ -144,15 +129,17 @@ export function AdminUserDetailView({ userId }: { userId: string }) {
   const [banningUser, setBanningUser] = useState<User | null>(null);
   const [unbanningUser, setUnbanningUser] = useState<User | null>(null);
   const [deletingUser, setDeletingUser] = useState<User | null>(null);
+  const [taskPage, setTaskPage] = useState(1);
 
   const userQuery = useQuery({
     queryKey: ["admin", "user", userId],
     queryFn: () => getUserRequest(userId),
   });
   const tasksQuery = useQuery({
-    queryKey: ["admin", "user", userId, "tasks"],
-    queryFn: () => getUserTasksRequest(userId),
+    queryKey: ["admin", "user", userId, "tasks", taskPage],
+    queryFn: () => getUserTasksRequest(userId, taskPage, 10),
   });
+  const taskPagination = tasksQuery.data?.pagination;
 
   const updateMutation = useMutation({
     mutationFn: ({
@@ -173,6 +160,9 @@ export function AdminUserDetailView({ userId }: { userId: string }) {
     mutationFn: (taskId: string) => deleteUserTaskRequest(userId, taskId),
     onSuccess: async () => {
       setDeletingTask(null);
+      const remainingTotal = Math.max(0, (taskPagination?.total ?? 1) - 1);
+      const lastPage = Math.max(1, Math.ceil(remainingTotal / 10));
+      if (taskPage > lastPage) setTaskPage(lastPage);
       toast.success(t.deleted);
       await queryClient.invalidateQueries({ queryKey: ["admin", "user", userId] });
     },
@@ -244,6 +234,7 @@ export function AdminUserDetailView({ userId }: { userId: string }) {
   const self = currentUser ? getId(currentUser) === getId(user) : false;
   const targetSuperAdmin = user.roles.includes("super_admin");
   const targetAdmin = user.roles.includes("admin");
+  const highestRole = targetSuperAdmin ? "super_admin" : targetAdmin ? "admin" : "user";
   const mayManageUser = self || (!targetAdmin && !targetSuperAdmin) || isSuperAdmin;
   const mayBanUser = !self && !targetSuperAdmin && (!targetAdmin || isSuperAdmin);
   const mayDeleteUser = isSuperAdmin && !self;
@@ -267,111 +258,119 @@ export function AdminUserDetailView({ userId }: { userId: string }) {
         {t.back}
       </Link>
 
-      <div className="mt-6 grid min-w-0 gap-5 xl:grid-cols-[20rem_minmax(0,1fr)]">
-        <Card className="h-fit p-5">
-          <UserAvatar user={user} className="size-16" imageSizes="64px" />
-          <p className="mt-4 text-xs font-black tracking-[.12em] text-[var(--primary)] uppercase">
-            {t.profile}
-          </p>
-          <h1 className="mt-1 text-2xl font-black">
-            {user.firstName} {user.lastName}
-          </h1>
-          <p className="mt-1 break-all text-sm text-[var(--muted)]">{user.email}</p>
-          <div className="mt-4 flex flex-wrap gap-2">
-            {user.roles.map((role) => (
-              <RoleBadge key={role} role={role}>
-                {getUserRoleLabel(role, locale)}
-              </RoleBadge>
-            ))}
-          </div>
-          {mayManageUser && (
-            <div className="mt-4 grid gap-2">
-              <Button variant="secondary" size="sm" onClick={() => setEditingUser(user)}>
-                <Edit3 className="size-4" />
-                {t.editUser}
-              </Button>
-              {mayBanUser &&
-                (user.ban?.isBanned ? (
+      <div className="mt-6 min-w-0">
+        <Card className="min-w-0 overflow-hidden p-5 md:p-6">
+          <div className="min-w-0">
+            <div className="min-w-0">
+              <div className="flex min-w-0 items-start justify-between gap-3">
+                <div className="flex min-w-0 flex-wrap items-center gap-2">
+                  <RoleBadge role={highestRole}>
+                    {getUserRoleLabel(highestRole, locale)}
+                  </RoleBadge>
+                  <AccountStatusBadge banned={Boolean(user.ban?.isBanned)}>
+                    {user.ban?.isBanned ? t.banned : t.active}
+                  </AccountStatusBadge>
+                </div>
+                {mayManageUser && (
                   <Button
                     variant="secondary"
                     size="sm"
-                    onClick={() => setUnbanningUser(user)}
+                    className="size-11 shrink-0 px-0 sm:w-auto sm:px-3"
+                    onClick={() => setEditingUser(user)}
+                    aria-label={t.editUser}
+                    title={t.editUser}
                   >
-                    <RotateCcw className="size-4" />
-                    {t.unbanUser}
+                    <Edit3 className="size-4" />
+                    <span className="hidden sm:inline">{t.editUser}</span>
                   </Button>
-                ) : (
-                  <Button variant="danger" size="sm" onClick={() => setBanningUser(user)}>
-                    <Ban className="size-4" />
-                    {t.banUser}
-                  </Button>
-                ))}
-              {mayDeleteUser && (
-                <Button variant="danger" size="sm" onClick={() => setDeletingUser(user)}>
-                  <Trash2 className="size-4" />
-                  {t.deleteUser}
-                </Button>
+                )}
+              </div>
+
+              <div className="mt-4 flex min-w-0 items-center gap-4">
+                <UserAvatar user={user} className="size-16 shrink-0" imageSizes="64px" />
+                <div className="min-w-0">
+                  <h1 className="break-words text-2xl font-black">
+                    {user.firstName} {user.lastName}
+                  </h1>
+                  <p className="mt-1 break-all text-sm text-[var(--muted)]">
+                    {user.email}
+                  </p>
+                </div>
+              </div>
+
+              {user.ban?.isBanned && (
+                <p className="mt-3 w-fit max-w-full rounded-xl bg-rose-50 px-3 py-2 text-xs text-rose-700 dark:bg-rose-500/15 dark:text-rose-300">
+                  <span className="font-black">{t.banReason}:</span>{" "}
+                  {getBanReasonLabel(user.ban.reason, locale)}
+                </p>
+              )}
+
+              {(mayBanUser || mayDeleteUser) && (
+                <div className="mt-5 grid gap-2 sm:flex sm:flex-wrap">
+                  {mayBanUser &&
+                    (user.ban?.isBanned ? (
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        className="w-full sm:w-auto"
+                        onClick={() => setUnbanningUser(user)}
+                      >
+                        <RotateCcw className="size-4" />
+                        {t.unbanUser}
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="danger"
+                        size="sm"
+                        className="w-full sm:w-auto"
+                        onClick={() => setBanningUser(user)}
+                      >
+                        <Ban className="size-4" />
+                        {t.banUser}
+                      </Button>
+                    ))}
+                  {mayDeleteUser && (
+                    <Button
+                      variant="danger"
+                      size="sm"
+                      className="w-full sm:w-auto"
+                      onClick={() => setDeletingUser(user)}
+                    >
+                      <Trash2 className="size-4" />
+                      {t.deleteUser}
+                    </Button>
+                  )}
+                </div>
               )}
             </div>
-          )}
-          <dl className="mt-6 space-y-4 text-sm">
-            <div className="flex items-center justify-between gap-3">
-              <dt className="flex items-center gap-2 text-[var(--muted)]">
-                <CheckSquare2 className="size-4" /> {t.taskCount}
-              </dt>
-              <dd className="font-black">{stats.taskCount}</dd>
-            </div>
-            <div className="flex items-center justify-between gap-3">
-              <dt className="flex items-center gap-2 text-[var(--muted)]">
-                <Monitor className="size-4" /> {t.sessions}
-              </dt>
-              <dd className="font-black">{stats.activeSessionCount}</dd>
-            </div>
-            <div className="flex items-center justify-between gap-3">
-              <dt className="flex items-center gap-2 text-[var(--muted)]">
-                <Calendar className="size-4" /> {t.joined}
-              </dt>
-              <dd className="min-w-0 text-right font-black break-words">
-                {formatDate(user.createdAt)}
-              </dd>
-            </div>
-            <div className="flex items-center justify-between gap-3">
-              <dt className="flex items-center gap-2 text-[var(--muted)]">
-                <ShieldCheck className="size-4" /> {t.status}
-              </dt>
-              <dd>
-                <AccountStatusBadge banned={Boolean(user.ban?.isBanned)}>
-                  {user.ban?.isBanned ? t.banned : t.active}
-                </AccountStatusBadge>
-              </dd>
-            </div>
-          </dl>
-          {user.ban?.isBanned && (
-            <div className="mt-5 rounded-2xl border bg-[var(--surface-muted)] p-3">
-              <p className="text-xs font-black">{t.banIps}</p>
-              {user.ban.sessionIps.length > 0 ? (
-                <ul className="mt-2 space-y-1 font-mono text-xs">
-                  {user.ban.sessionIps.map((ip) => (
-                    <li key={ip}>{ip}</li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="mt-2 text-xs text-[var(--muted)]">{t.noBanIps}</p>
-              )}
-            </div>
-          )}
+
+            <dl className="mt-6 grid gap-2 text-sm xl:grid-cols-3">
+              <div className="flex min-h-12 items-center justify-between gap-3 rounded-xl bg-[var(--surface-muted)] px-3 py-2.5">
+                <dt className="flex min-w-0 items-center gap-2 text-[var(--muted)]">
+                  <CheckSquare2 className="size-4 shrink-0" /> {t.taskCount}
+                </dt>
+                <dd className="shrink-0 font-black">{stats.taskCount}</dd>
+              </div>
+              <div className="flex min-h-12 items-center justify-between gap-3 rounded-xl bg-[var(--surface-muted)] px-3 py-2.5">
+                <dt className="flex min-w-0 items-center gap-2 text-[var(--muted)]">
+                  <Monitor className="size-4 shrink-0" /> {t.sessions}
+                </dt>
+                <dd className="shrink-0 font-black">{stats.activeSessionCount}</dd>
+              </div>
+              <div className="flex min-h-12 items-center justify-between gap-3 rounded-xl bg-[var(--surface-muted)] px-3 py-2.5">
+                <dt className="flex min-w-0 items-center gap-2 text-[var(--muted)]">
+                  <Calendar className="size-4 shrink-0" /> {t.joined}
+                </dt>
+                <dd className="shrink-0 text-right text-xs font-black whitespace-nowrap">
+                  {formatDate(user.createdAt)}
+                </dd>
+              </div>
+            </dl>
+          </div>
         </Card>
 
-        <div id="tasks" className="min-w-0 scroll-mt-6">
-          <div className="flex items-end justify-between gap-3">
-            <div>
-              <p className="eyebrow text-[var(--primary)]">{t.tasks}</p>
-              <h2 className="mt-2 text-2xl font-black">
-                {t.tasksHeading(user.firstName)}
-              </h2>
-            </div>
-            <Badge>{tasks.length}</Badge>
-          </div>
+        <div id="tasks" className="mt-8 min-w-0 scroll-mt-6">
+          <h2 className="text-2xl font-black">{t.tasksHeading(user.firstName)}</h2>
 
           {tasksQuery.isPending ? (
             <div className="mt-5">
@@ -389,80 +388,82 @@ export function AdminUserDetailView({ userId }: { userId: string }) {
               {t.noTasks}
             </Card>
           ) : (
-            <div className="mt-5 grid min-w-0 grid-cols-[repeat(auto-fit,minmax(min(100%,22rem),1fr))] gap-3">
-              {tasks.map((task) => {
-                const taskId = getId(task);
-                return (
-                  <Card key={taskId} className="min-w-0 overflow-hidden p-4">
-                    <div className="flex items-start justify-between gap-3">
-                      <h3 className="min-w-0 break-words font-black" dir="auto">
-                        {task.title}
-                      </h3>
-                      <TaskStatusBadge status={task.status}>
-                        {getTaskStatusLabel(task.status, locale)}
-                      </TaskStatusBadge>
-                    </div>
-                    <p
-                      className="mt-2 whitespace-pre-wrap break-words text-sm leading-6 text-[var(--muted)]"
-                      dir="auto"
-                    >
-                      {task.description || "—"}
-                    </p>
-                    <dl className="mt-4 grid gap-2 text-xs text-[var(--muted)]">
-                      <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.5fr)] gap-3">
-                        <dt>
-                          <TaskPriorityBadge priority={task.priority}>
-                            {getTaskPriorityLabel(task.priority, locale)}
-                          </TaskPriorityBadge>
-                        </dt>
-                        <dd className="text-right break-words">
-                          {t.due}: {formatDate(task.dueDate)}
-                        </dd>
-                      </div>
-                      <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.5fr)] gap-3">
-                        <dt>{t.created}</dt>
-                        <dd className="text-right break-words">
-                          {formatDate(task.createdAt)}
-                        </dd>
-                      </div>
-                      <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.5fr)] gap-3">
-                        <dt>{t.updated}</dt>
-                        <dd className="text-right break-words">
-                          {formatDate(task.updatedAt)}
-                        </dd>
-                      </div>
-                      {task.completedAt && (
-                        <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.5fr)] gap-3">
-                          <dt>{t.completed}</dt>
-                          <dd className="text-right break-words">
-                            {formatDate(task.completedAt)}
-                          </dd>
-                        </div>
+            <div className="mt-5">
+              <div className="grid min-w-0 items-start gap-4 lg:grid-cols-2 xl:hidden">
+                {tasks.map((task) => {
+                  const taskId = getId(task);
+                  return (
+                    <TaskCard
+                      key={taskId}
+                      task={task}
+                      referenceTime={tasksQuery.dataUpdatedAt}
+                      showUpdatedAt
+                      compact
+                      onEdit={isSuperAdmin ? () => setEditingTask(task) : undefined}
+                      onDelete={isSuperAdmin ? () => setDeletingTask(task) : undefined}
+                      onStatusChange={
+                        isSuperAdmin
+                          ? (status) =>
+                              updateMutation.mutate({ taskId, values: { status } })
+                          : undefined
+                      }
+                      statusUpdating={Boolean(
+                        updateMutation.isPending &&
+                        updateMutation.variables?.taskId === taskId,
                       )}
-                    </dl>
-                    {isSuperAdmin && (
-                      <div className="mt-4 grid gap-2 border-t pt-3 2xl:grid-cols-2">
-                        <Button
-                          size="sm"
-                          variant="secondary"
-                          className="w-full min-w-0 rounded-full px-2"
-                          onClick={() => setEditingTask(task)}
-                        >
-                          <Pencil className="size-4" /> {t.edit}
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="danger"
-                          className="w-full min-w-0 rounded-full px-2"
-                          onClick={() => setDeletingTask(task)}
-                        >
-                          <Trash2 className="size-4" /> {t.delete}
-                        </Button>
-                      </div>
-                    )}
-                  </Card>
-                );
-              })}
+                    />
+                  );
+                })}
+              </div>
+              <TaskTable
+                tasks={tasks}
+                referenceTime={tasksQuery.dataUpdatedAt}
+                onEdit={isSuperAdmin ? setEditingTask : undefined}
+                onDelete={isSuperAdmin ? setDeletingTask : undefined}
+                onStatusChange={
+                  isSuperAdmin
+                    ? (task, status) =>
+                        updateMutation.mutate({
+                          taskId: getId(task),
+                          values: { status },
+                        })
+                    : undefined
+                }
+                isStatusUpdating={(task) =>
+                  Boolean(
+                    updateMutation.isPending &&
+                    updateMutation.variables?.taskId === getId(task),
+                  )
+                }
+              />
+            </div>
+          )}
+
+          {taskPagination && taskPagination.totalPages > 1 && (
+            <div className="mt-7 flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-[var(--surface)] p-3 text-sm">
+              <span className="text-[var(--muted)]">
+                {t.page} {formatNumber(taskPagination.page, intlLocale)} {t.of}{" "}
+                {formatNumber(taskPagination.totalPages, intlLocale)} ·{" "}
+                {formatNumber(taskPagination.total, intlLocale)} {t.tasks}
+              </span>
+              <div className="flex gap-2">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  disabled={!taskPagination.hasPreviousPage}
+                  onClick={() => setTaskPage((value) => Math.max(1, value - 1))}
+                >
+                  {t.previous}
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  disabled={!taskPagination.hasNextPage}
+                  onClick={() => setTaskPage((value) => value + 1)}
+                >
+                  {t.next}
+                </Button>
+              </div>
             </div>
           )}
         </div>

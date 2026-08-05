@@ -27,7 +27,7 @@ import type { AssistantContext, AssistantLocale, GuardrailResult } from "../type
  *
  * If the message is clearly in another script (Cyrillic, CJK, Arabic, …)
  * or contains a high density of non-English/German words, the guardrail
- * flags it so the Offline Assistant can respond with a polite refusal.
+ * flags it so the orchestrator can return a polite predefined refusal.
  */
 const EN_DE_STOPWORDS = new Set([
   // English
@@ -189,8 +189,8 @@ export const detectWrongLanguage = (message: string): boolean => {
 
 /**
  * Language guardrail — applied to the **inbound** user message.
- * If the message is in an unsupported language the orchestrator routes to
- * the Offline Assistant which replies with a polite refusal.
+ * If the message is in an unsupported language the orchestrator returns a
+ * polite predefined refusal without invoking a provider.
  */
 export const languageGuardrail = (message: string): GuardrailResult => {
   if (detectWrongLanguage(message)) {

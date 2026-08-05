@@ -1,4 +1,3 @@
-export * from "./activityController.ts";
 export * from "./adminController.ts";
 export * from "./assistantController.ts";
 export * from "./authController.ts";

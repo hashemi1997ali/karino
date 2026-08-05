@@ -10,7 +10,6 @@ import {
   type IAssistantMessage,
   type IUser,
 } from "#models";
-import { recordActivity } from "#services";
 import { AppError } from "#utils";
 
 const validateObjectId = (value: unknown, label: string): string => {
@@ -106,7 +105,7 @@ export const createAssistantConversation: RequestHandler = async (request, respo
       locale,
       userId: String(user._id),
     },
-    tasks: await loadTaskContext(String(user._id)),
+    getTaskContext: () => loadTaskContext(String(user._id)),
   });
 
   const conversation = await AssistantConversation.create({
@@ -162,7 +161,7 @@ export const sendAssistantMessage: RequestHandler = async (request, response) =>
       locale,
       userId: String(user._id),
     },
-    tasks: await loadTaskContext(String(user._id)),
+    getTaskContext: () => loadTaskContext(String(user._id)),
   });
 
   conversation.locale = locale;
@@ -236,12 +235,6 @@ export const confirmAssistantTask: RequestHandler = async (request, response) =>
       dueDate: proposal.dueDate,
       status: "todo",
       completedAt: null,
-    });
-    await recordActivity({
-      userId: String(user._id),
-      type: "task_created",
-      entityId: task.id,
-      label: task.title,
     });
     const conversation = await AssistantConversation.findOneAndUpdate(
       { _id: conversationId, user: user._id },

@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Bot,
   CircleStop,
+  Headset,
   History,
   MessageCircle,
   Plus,
@@ -11,7 +12,6 @@ import {
   Star,
   X,
 } from "lucide-react";
-import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -23,14 +23,18 @@ import { avatarFrameClassName } from "@/components/user-avatar";
 import { useAuth } from "@/features/auth/auth-provider";
 import {
   createChatRequest,
+  createGuestSupportChatRequest,
+  createSupportChatRequest,
   endChatRequest,
   endGuestChatRequest,
   getGuestChatRequest,
   guestChatRequest,
   listChatsRequest,
   rateChatRequest,
+  sendGuestMessageRequest,
   sendChatMessageRequest,
-  type ChatTurnResult,
+  type AssistantChatTurnResult,
+  type ChatHistoryItem,
 } from "@/features/chat/api";
 import { ChatMessageBubble } from "@/features/chat/chat-message-bubble";
 import { ChatIconButton } from "@/features/chat/chat-icon-button";
@@ -48,7 +52,7 @@ import { usePreferences } from "@/providers/preferences-provider";
 const copy = {
   en: {
     title: "AI Assistant",
-    subtitle: "AI first, human support when needed",
+    subtitle: "AI guidance with live support available",
     guestSubtitle: "General website guidance",
     open: "Open assistant",
     close: "Close assistant",
@@ -65,13 +69,7 @@ const copy = {
     endTitle: "End this chat?",
     endDescription:
       "You can start a new chat afterwards, but this conversation will be closed.",
-    newChatTitle: "End this chat and start a new one?",
-    newChatDescription:
-      "The current conversation will be closed before a new chat is opened.",
-    endAndStart: "End and start new",
-    signIn:
-      "For account access, a banned account, or personal help, send a request through the public Contact form. The private task assistant is available after sign-in.",
-    signInAction: "Open Contact",
+    liveChat: "Continue with live support",
     rate: "Rate this chat",
     reason: "What went well or badly?",
     submitRating: "Submit rating",
@@ -85,7 +83,7 @@ const copy = {
   },
   de: {
     title: "AI Assistant",
-    subtitle: "Zuerst KI, bei Bedarf menschlicher Support",
+    subtitle: "KI-Hilfe mit verfügbarem Live-Support",
     guestSubtitle: "Allgemeine Website-Hilfe",
     open: "Assistent öffnen",
     close: "Assistent schließen",
@@ -102,13 +100,7 @@ const copy = {
     endTitle: "Diesen Chat beenden?",
     endDescription:
       "Danach kannst du einen neuen Chat starten, diese Unterhaltung wird jedoch geschlossen.",
-    newChatTitle: "Diesen Chat beenden und einen neuen starten?",
-    newChatDescription:
-      "Die aktuelle Unterhaltung wird geschlossen, bevor ein neuer Chat geöffnet wird.",
-    endAndStart: "Beenden und neu starten",
-    signIn:
-      "Nutze bei Kontozugriff, einer Kontosperre oder für persönliche Hilfe das öffentliche Kontaktformular. Der private Aufgabenassistent ist nach der Anmeldung verfügbar.",
-    signInAction: "Kontakt öffnen",
+    liveChat: "Mit Live-Support fortfahren",
     rate: "Chat bewerten",
     reason: "Was war gut oder schlecht?",
     submitRating: "Bewertung senden",
@@ -147,14 +139,20 @@ export function ChatWidget() {
   } | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [guestChat, setGuestChat] = useState<SupportChat | null>(null);
+  const [draftMessages, setDraftMessages] = useState<ChatMessage[]>([]);
+  const [supportOffer, setSupportOffer] = useState<
+    AssistantChatTurnResult["support"] | null
+  >(null);
   const firstNameOnly = (name: string | null | undefined) =>
     name?.trim().split(/\s+/)[0] ?? "";
   const formatMessageDate = (value: string) =>
     new Intl.DateTimeFormat(intlLocale, { dateStyle: "medium" }).format(new Date(value));
-  const [endIntent, setEndIntent] = useState<"end" | "new" | null>(null);
+  const [endIntent, setEndIntent] = useState<"end" | null>(null);
   const [rating, setRating] = useState(5);
   const [ratingReason, setRatingReason] = useState("");
-  const [welcomeCreatedAt] = useState(() => new Date().toISOString());
+  const [welcomeCreatedAt, setWelcomeCreatedAt] = useState(() =>
+    new Date().toISOString(),
+  );
   const endRef = useRef<HTMLDivElement>(null);
 
   const chatsQuery = useQuery({
@@ -179,10 +177,22 @@ export function ChatWidget() {
 
   const activeChat =
     status === "authenticated" ? selectedChat : (guestPollQuery.data ?? guestChat);
+  const transcriptHistory: ChatHistoryItem[] = draftMessages
+    .filter(
+      (item) =>
+        (item.sender === "user" || item.sender === "ai") &&
+        item.content.trim().length > 0,
+    )
+    .slice(-40)
+    .map((item) => ({
+      role: item.sender === "user" ? "user" : "assistant",
+      content: item.content,
+    }));
+  const assistantHistory = transcriptHistory.slice(-20);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [activeChat?.messages.length, open, pendingUserMessage]);
+  }, [activeChat?.messages.length, draftMessages.length, open, pendingUserMessage]);
 
   const updateChatCache = (chat: SupportChat) => {
     queryClient.setQueryData<SupportChat[]>(["chat", "own"], (current = []) => [
@@ -197,55 +207,90 @@ export function ChatWidget() {
     setGuestChat(chat);
   };
 
-  const handleTurnResult = (result: ChatTurnResult, kind: "guest" | "authenticated") => {
-    if (kind === "guest") updateGuestChat(result.chat);
-    else updateChatCache(result.chat);
-    if (result.escalation.completed) toast.success(t.escalationDone);
-  };
-
   const sendMutation = useMutation<
-    { kind: "guest" | "authenticated"; result: ChatTurnResult },
+    | {
+        kind: "assistant";
+        result: AssistantChatTurnResult;
+        userMessage: ChatMessage;
+      }
+    | { kind: "support"; chat: SupportChat },
     Error,
-    string
+    { message: string; createdAt: string }
   >({
-    mutationFn: async (message) => {
-      if (status !== "authenticated") {
-        return {
-          kind: "guest",
-          result: await guestChatRequest(
-            message,
-            locale,
-            guestChat?.status === "ended" ? undefined : guestChat?.id,
-          ),
-        };
+    mutationFn: async ({ message, createdAt }) => {
+      if (activeChat?.status === "open" || activeChat?.status === "active") {
+        const chat =
+          activeChat.origin === "guest"
+            ? await sendGuestMessageRequest(activeChat.id, message)
+            : (await sendChatMessageRequest(activeChat.id, message, locale)).chat;
+        return { kind: "support" as const, chat };
       }
-      if (!selectedChat || selectedChat.status === "ended") {
-        return {
-          kind: "authenticated",
-          result: await createChatRequest(message, locale),
-        };
-      }
+      const result =
+        status !== "authenticated"
+          ? await guestChatRequest(message, locale, assistantHistory)
+          : await createChatRequest(message, locale, assistantHistory);
       return {
-        kind: "authenticated",
-        result: await sendChatMessageRequest(selectedChat.id, message, locale),
+        kind: "assistant" as const,
+        result,
+        userMessage: {
+          id: `local-user-${createdAt}`,
+          sender: "user" as const,
+          senderId: null,
+          senderName: null,
+          content: message,
+          createdAt,
+        },
       };
     },
-    onSuccess: ({ result, kind }) => {
+    onSuccess: (payload) => {
       setPendingUserMessage(null);
-      handleTurnResult(result, kind);
+      if (payload.kind === "support") {
+        if (payload.chat.origin === "guest") updateGuestChat(payload.chat);
+        else updateChatCache(payload.chat);
+        return;
+      }
+      setDraftMessages((current) => [
+        ...current,
+        payload.userMessage,
+        ...(payload.result.message.content.trim() ? [payload.result.message] : []),
+      ]);
+      setSupportOffer(payload.result.support.available ? payload.result.support : null);
     },
-    onError: (error, message) => {
+    onError: (error, { message }) => {
       setPendingUserMessage(null);
       setInput((current) => current || message);
       toast.error(getErrorMessage(error, locale));
     },
   });
 
+  const transferMutation = useMutation({
+    mutationFn: async () => {
+      const reason = supportOffer?.reason ?? "human_requested";
+      if (status !== "authenticated") {
+        return {
+          kind: "guest" as const,
+          chat: await createGuestSupportChatRequest(transcriptHistory, locale, reason),
+        };
+      }
+      return {
+        kind: "authenticated" as const,
+        chat: await createSupportChatRequest(transcriptHistory, locale, reason),
+      };
+    },
+    onSuccess: ({ chat, kind }) => {
+      if (kind === "guest") updateGuestChat(chat);
+      else updateChatCache(chat);
+      setDraftMessages([]);
+      setSupportOffer(null);
+      toast.success(t.escalationDone);
+    },
+    onError: (error) => toast.error(getErrorMessage(error, locale)),
+  });
+
   const endMutation = useMutation({
     mutationFn: async (chat: SupportChat) =>
       chat.origin === "guest" ? endGuestChatRequest(chat.id) : endChatRequest(chat.id),
     onSuccess: ({ chat, deleted }) => {
-      const shouldStartNew = endIntent === "new";
       if (deleted) {
         if (chat.origin === "guest") {
           queryClient.removeQueries({
@@ -262,10 +307,6 @@ export function ChatWidget() {
       } else {
         if (chat.origin === "guest") updateGuestChat(chat);
         else updateChatCache(chat);
-      }
-      if (shouldStartNew && !deleted) {
-        if (status === "authenticated") setSelectedId(null);
-        else setGuestChat(null);
       }
       setInput("");
       setPendingUserMessage(null);
@@ -289,18 +330,19 @@ export function ChatWidget() {
   const submitMessage = () => {
     const message = input.trim();
     if (!message || disabledInput || sendMutation.isPending) return;
+    const createdAt = new Date().toISOString();
     setPendingUserMessage({
       content: message,
-      createdAt: new Date().toISOString(),
+      createdAt,
       previousMatchingMessages: messages.filter(
         (item) => item.sender === "user" && item.content === message,
       ).length,
     });
     setInput("");
-    sendMutation.mutate(message);
+    sendMutation.mutate({ message, createdAt });
   };
 
-  const messages = activeChat?.messages ?? [];
+  const messages = activeChat?.messages ?? draftMessages;
   const visibleMessages = messages.filter(
     (message) =>
       message.sender !== "system" || !isInternalSupportTransferMessage(message.content),
@@ -323,6 +365,7 @@ export function ChatWidget() {
             content: t.welcome,
             createdAt: welcomeCreatedAt,
           },
+          ...visibleMessages,
         ]),
     ...(pendingUserMessage && !pendingMessagePersisted
       ? [
@@ -338,7 +381,7 @@ export function ChatWidget() {
       : []),
   ];
   const disabledInput = activeChat?.status === "ended";
-  const canEnd = Boolean(activeChat && activeChat.status !== "ended");
+  const canEnd = activeChat?.status === "active";
   const hasMobileNavigation = [
     "/dashboard",
     "/tasks",
@@ -349,17 +392,14 @@ export function ChatWidget() {
   const clearForNewChat = () => {
     if (status === "authenticated") setSelectedId(null);
     else setGuestChat(null);
+    setDraftMessages([]);
+    setSupportOffer(null);
+    setWelcomeCreatedAt(new Date().toISOString());
     setInput("");
     setPendingUserMessage(null);
   };
 
-  const requestNewChat = () => {
-    if (canEnd) {
-      setEndIntent("new");
-      return;
-    }
-    clearForNewChat();
-  };
+  const requestNewChat = () => clearForNewChat();
 
   return (
     <>
@@ -440,6 +480,18 @@ export function ChatWidget() {
               </ChatIconButton>
             </div>
           )}
+          {status !== "authenticated" && (
+            <div className="flex shrink-0 justify-end border-b bg-[var(--surface-muted)] p-2">
+              <ChatIconButton
+                bare
+                onClick={requestNewChat}
+                aria-label={t.newChat}
+                title={t.newChat}
+              >
+                <Plus className="size-4" />
+              </ChatIconButton>
+            </div>
+          )}
 
           <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overscroll-contain px-4 pb-4">
             <DateGroupedMessageList
@@ -471,14 +523,6 @@ export function ChatWidget() {
                 />
               )}
             />
-            {!activeChat && status === "anonymous" && (
-              <p className="rounded-xl bg-[var(--surface-muted)] p-3 text-xs leading-5 text-[var(--muted)]">
-                {t.signIn}{" "}
-                <Link href="/contact" className="font-bold text-[var(--primary)]">
-                  {t.signInAction}
-                </Link>
-              </p>
-            )}
             {sendMutation.isPending && (
               <ChatMessageBubble direction="incoming" content="•••" />
             )}
@@ -529,6 +573,20 @@ export function ChatWidget() {
           )}
 
           <footer className="shrink-0 border-t bg-[var(--surface)] p-3 pb-[max(.75rem,env(safe-area-inset-bottom))]">
+            {!activeChat && supportOffer?.available && (
+              <div className="mb-3">
+                <Button
+                  className="w-full"
+                  size="sm"
+                  loading={transferMutation.isPending}
+                  disabled={transcriptHistory.length === 0}
+                  onClick={() => transferMutation.mutate()}
+                >
+                  <Headset className="size-4" />
+                  {t.liveChat}
+                </Button>
+              </div>
+            )}
             {canEnd && (
               <div className="mb-2 flex justify-end">
                 <Button
@@ -543,12 +601,6 @@ export function ChatWidget() {
                   {t.end}
                 </Button>
               </div>
-            )}
-            {disabledInput && (
-              <Button className="mb-2 w-full" onClick={requestNewChat}>
-                <Plus className="size-4" />
-                {t.newChat}
-              </Button>
             )}
             <div className="flex gap-2">
               <Input
@@ -586,9 +638,9 @@ export function ChatWidget() {
       <ConfirmDialog
         open={endIntent !== null}
         onOpenChange={(dialogOpen) => !dialogOpen && setEndIntent(null)}
-        title={endIntent === "new" ? t.newChatTitle : t.endTitle}
-        description={endIntent === "new" ? t.newChatDescription : t.endDescription}
-        confirmLabel={endIntent === "new" ? t.endAndStart : t.end}
+        title={t.endTitle}
+        description={t.endDescription}
+        confirmLabel={t.end}
         loading={endMutation.isPending}
         onConfirm={() => {
           if (activeChat) endMutation.mutate(activeChat);

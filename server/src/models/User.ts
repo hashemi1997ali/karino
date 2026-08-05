@@ -19,7 +19,6 @@ export interface IUserBan {
   isBanned: boolean;
   reason: BanReason;
   bannedAt: Date;
-  sessionIps: string[];
 }
 
 export interface IUserProfileImage {
@@ -35,9 +34,6 @@ export interface IUser {
   roles: string[];
   profileImage: IUserProfileImage | null;
   ban: IUserBan | null;
-  onboardingCompleted: boolean;
-  primaryUseCase: "personal" | "study" | "work" | "projects" | "other" | null;
-  planningStyle: "simple" | "daily" | "priority" | null;
   createdAt: Date;
   updatedAt: Date;
   comparePassword(candidatePassword: string): Promise<boolean>;
@@ -92,25 +88,9 @@ const userSchema = new Schema<IUser>(
           isBanned: { type: Boolean, required: true, default: true },
           reason: { type: String, enum: BAN_REASONS, required: true },
           bannedAt: { type: Date, required: true, default: Date.now },
-          sessionIps: { type: [String], default: [] },
         },
         { _id: false },
       ),
-      default: null,
-    },
-    onboardingCompleted: {
-      type: Boolean,
-      required: true,
-      default: true,
-    },
-    primaryUseCase: {
-      type: String,
-      enum: ["personal", "study", "work", "projects", "other"],
-      default: null,
-    },
-    planningStyle: {
-      type: String,
-      enum: ["simple", "daily", "priority"],
       default: null,
     },
   },

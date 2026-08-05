@@ -35,7 +35,7 @@ export interface TaskMutationValues {
 const toQuery = (filters: TaskFilters): string => {
   const query = new URLSearchParams();
   query.set("page", String(filters.page));
-  query.set("limit", String(filters.limit ?? 9));
+  query.set("limit", String(filters.limit ?? 10));
   if (filters.search) query.set("search", filters.search);
   if (filters.status) query.set("status", filters.status);
   if (filters.priority) query.set("priority", filters.priority);
@@ -60,7 +60,7 @@ export const getTasksRequest = async (
     pagination: data.pagination ?? {
       total: data.total ?? data.tasks.length,
       page: filters.page,
-      limit: filters.limit ?? 9,
+      limit: filters.limit ?? 10,
       totalPages: 1,
       hasNextPage: false,
       hasPreviousPage: filters.page > 1,

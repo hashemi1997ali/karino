@@ -2,7 +2,6 @@ import { Router } from "express";
 
 import {
   changePassword,
-  completeOnboarding,
   deleteMe,
   forgotPassword,
   getSessions,
@@ -33,7 +32,6 @@ import {
   changePasswordSchema,
   forgotPasswordSchema,
   loginSchema,
-  onboardingSchema,
   registerSchema,
   resetPasswordSchema,
   updateProfileSchema,
@@ -85,14 +83,6 @@ authRouter
     updateMe,
   )
   .delete(authenticate, requireActiveSession, deleteMe);
-
-authRouter.patch(
-  "/me/onboarding",
-  authenticate,
-  requireActiveSession,
-  validateByZod(onboardingSchema),
-  completeOnboarding,
-);
 
 authRouter.patch(
   "/me/password",

@@ -1,6 +1,11 @@
 import { outputGuardrail } from "../guardrails/index.ts";
+import { aiUnavailableReply } from "../fallback/unavailable.ts";
 import { isStronglyMixedLanguage } from "../language.ts";
-import { runProviders } from "../providers/index.ts";
+import {
+  runProviders,
+  type ProviderToolCall,
+  type ProviderToolDefinition,
+} from "../providers/index.ts";
 import type {
   AssistantContext,
   AssistantHistoryMessage,
@@ -8,91 +13,69 @@ import type {
   TaskContextItem,
   TaskProposalDraft,
 } from "../types.ts";
-import { OFFLINE_PROVIDER } from "./base.ts";
-
-const CREATE_INTENT =
-  /\b(create|add|make|set up|new)\s+(?:me\s+)?(?:a\s+)?task\b|\btask\s+(?:for|to)\b|\b(erstelle|erstellen|anlegen|hinzufÃ¼gen)\b.*\b(aufgabe|task)\b/i;
-const TASK_SCOPE =
-  /\b(task|tasks|todo|to-do|priority|prioriti[sz]e|plan|planning|schedule|deadline|due|overdue|focus|workload|project|day|week|productiv|aufgabe|aufgaben|prioritÃ¤t|priorisieren|planen|planung|termin|fÃ¤llig|Ã¼berfÃ¤llig|fokus|projekt|tag|woche)\b/i;
-const OTHER_DOMAIN =
-  /\b(account|login|password|ban|banned|admin|support|contact|profile|email|weather|news|code|recipe|konto|anmeldung|passwort|gesperrt|administrator|kontakt|profil|wetter|nachrichten|rezept)\b/i;
-const TASK_FOLLOW_UP =
-  /^(yes|no|okay|ok|sure|what about|which one|make it|change it|move it|that|this|it|tomorrow|today|next week|how should i|why|ja|nein|okay|was ist mit|welche|mach es|ändere|verschiebe|das|dies|morgen|heute|nächste woche|wie soll ich|warum)\b/i;
+import { UNAVAILABLE_PROVIDER } from "./base.ts";
 
 const localised = (locale: "en" | "de", english: string, german: string): string =>
   locale === "de" ? german : english;
 
-const normaliseTitle = (message: string): string => {
-  let title = message
-    .replace(
-      /\b(can|could|would)\s+you\s+(please\s+)?(create|add|make|set up)\s+(me\s+)?(a\s+)?task\s*(for|to)?\s*/i,
-      "",
-    )
-    .replace(
-      /\b(please\s+)?(create|add|make|set up)\s+(me\s+)?(a\s+)?task\s*(for|to)?\s*/i,
-      "",
-    )
-    .replace(
-      /\b(bitte\s+)?(erstelle|erstellen|anlegen|hinzufÃ¼gen)\b.*?\baufgabe\b\s*/i,
-      "",
-    )
-    .replace(/[.!?]+$/g, "")
-    .trim();
-
-  if (title.length < 3) title = message.replace(/[.!?]+$/g, "").trim();
-  if (title.length < 3) title = "New task";
-  return `${title.charAt(0).toUpperCase()}${title.slice(1)}`.slice(0, 100);
+const GET_TASK_CONTEXT_TOOL: ProviderToolDefinition = {
+  name: "get_task_context",
+  description:
+    "Get the signed-in user's current task titles, statuses, priorities, and due dates when they are needed to answer a planning question.",
+  inputSchema: {
+    type: "object",
+    properties: {},
+    additionalProperties: false,
+  },
 };
 
-const fallbackProposal = (message: string): TaskProposalDraft | null => {
-  if (!CREATE_INTENT.test(message)) return null;
-  const priority = /\b(high|urgent|important|hoch|dringend|wichtig)\b/i.test(message)
-    ? "high"
-    : /\b(low|whenever|niedrig|irgendwann)\b/i.test(message)
-      ? "low"
-      : "medium";
-  return {
-    title: normaliseTitle(message),
-    description: "",
-    priority,
-    dueDate: null,
-  };
+const PROPOSE_TASK_TOOL: ProviderToolDefinition = {
+  name: "propose_task",
+  description:
+    "Prepare exactly one task draft for explicit user confirmation. This does not create the task.",
+  inputSchema: {
+    type: "object",
+    properties: {
+      title: { type: "string", minLength: 3, maxLength: 100 },
+      description: { type: "string", maxLength: 2000 },
+      priority: { type: "string", enum: ["low", "medium", "high"] },
+      dueDate: {
+        anyOf: [{ type: "string", format: "date-time" }, { type: "null" }],
+      },
+    },
+    required: ["title", "description", "priority", "dueDate"],
+    additionalProperties: false,
+  },
 };
 
-const parseProposal = (
-  text: string,
-): {
-  reply: string;
-  proposal: TaskProposalDraft | null;
-} => {
-  const marker = "[TASK_PROPOSAL]";
-  const markerIndex = text.lastIndexOf(marker);
-  if (markerIndex === -1) return { reply: text.trim(), proposal: null };
+const parseProposalToolCall = (calls: ProviderToolCall[]): TaskProposalDraft | null => {
+  const call = calls.find((item) => item.name === PROPOSE_TASK_TOOL.name);
+  if (!call || !call.arguments || typeof call.arguments !== "object") return null;
+  const value = call.arguments as Record<string, unknown>;
+  const title = typeof value.title === "string" ? value.title.trim() : "";
+  const description =
+    typeof value.description === "string" ? value.description.trim() : "";
+  const priority =
+    value.priority === "low" || value.priority === "medium" || value.priority === "high"
+      ? value.priority
+      : null;
+  const dueDate =
+    typeof value.dueDate === "string" && !Number.isNaN(Date.parse(value.dueDate))
+      ? new Date(value.dueDate)
+      : value.dueDate === null
+        ? null
+        : undefined;
 
-  const reply = text.slice(0, markerIndex).trim();
-  const raw = text.slice(markerIndex + marker.length).trim();
-  try {
-    const value = JSON.parse(raw) as Record<string, unknown>;
-    const title = typeof value.title === "string" ? value.title.trim() : "";
-    const description =
-      typeof value.description === "string" ? value.description.trim() : "";
-    const priority =
-      value.priority === "low" || value.priority === "high" ? value.priority : "medium";
-    const dueDate =
-      typeof value.dueDate === "string" && !Number.isNaN(Date.parse(value.dueDate))
-        ? new Date(value.dueDate)
-        : null;
-
-    if (title.length < 3 || title.length > 100 || description.length > 2000) {
-      return { reply, proposal: null };
-    }
-    return {
-      reply,
-      proposal: { title, description, priority, dueDate },
-    };
-  } catch {
-    return { reply, proposal: null };
+  if (
+    title.length < 3 ||
+    title.length > 100 ||
+    description.length > 2000 ||
+    priority === null ||
+    dueDate === undefined
+  ) {
+    return null;
   }
+  return { title, description, priority, dueDate };
 };
 
 const taskContextText = (tasks: TaskContextItem[]): string =>
@@ -106,23 +89,22 @@ const taskContextText = (tasks: TaskContextItem[]): string =>
         .join("\n")
     : "- No existing tasks";
 
-const buildPrompt = (context: AssistantContext, tasks: TaskContextItem[]): string => {
+const buildPrompt = (context: AssistantContext): string => {
   const language = context.locale === "de" ? "German" : "English";
   return [
     `You are the private Karino Task Agent. Reply only in ${language}.`,
     "Be friendly, practical, concise, and supportive.",
     "Your only scope is the signed-in user's tasks: planning, prioritising, scheduling, productivity guidance, and proposing a new task.",
+    "Respond naturally to brief greetings, thanks, farewells, and questions about your capabilities, then gently guide the conversation toward tasks and planning.",
     "Do not answer questions about accounts, login, bans, support, staff/admin features, website architecture, general knowledge, news, coding, medical, legal, or financial topics.",
     "If a request is outside task scope, politely say that this private assistant only helps with tasks and planning.",
     "You may use the task list below as context, but never claim to see anything else.",
     "Never edit, delete, complete, or create a task directly.",
-    "When the user clearly asks to create a task, propose exactly one task and ask them to review and confirm it.",
-    "For a task proposal, end your response with exactly this marker followed by valid JSON on the same final line:",
-    '[TASK_PROPOSAL]{"title":"3-100 chars","description":"","priority":"low|medium|high","dueDate":"ISO date or null"}',
-    "Do not emit the marker for advice, planning, or questions that do not request task creation.",
+    "Call get_task_context only when current tasks are needed to answer the request.",
+    "When the user clearly asks to create a task, call propose_task exactly once and ask them to review and confirm the returned draft.",
+    "Never print tool arguments or a task-proposal JSON object in the conversational reply.",
     "Do not say a task was created. The application creates it only after a separate user confirmation.",
     `Current UTC date: ${new Date().toISOString()}.`,
-    `Current task context:\n${taskContextText(tasks)}`,
   ].join("\n");
 };
 
@@ -130,63 +112,72 @@ export const runTaskAgent = async ({
   message,
   history,
   context,
-  tasks,
+  getTaskContext,
 }: {
   message: string;
   history: AssistantHistoryMessage[];
   context: AssistantContext;
-  tasks: TaskContextItem[];
+  getTaskContext: () => Promise<TaskContextItem[]>;
 }): Promise<TaskAssistantResult> => {
-  const scopedFollowUp = history.length > 0 && TASK_FOLLOW_UP.test(message.trim());
-  if (
-    (OTHER_DOMAIN.test(message) && !TASK_SCOPE.test(message)) ||
-    (!TASK_SCOPE.test(message) && !CREATE_INTENT.test(message) && !scopedFollowUp)
-  ) {
-    return {
-      reply: localised(
-        context.locale,
-        "I can only help with your tasks, planning, priorities, and task creation.",
-        "Ich kann dir nur bei deinen Aufgaben, deiner Planung, PrioritÃ¤ten und beim Erstellen von Aufgaben helfen.",
-      ),
-      provider: OFFLINE_PROVIDER,
-      proposal: null,
-    };
-  }
-
-  const result = await runProviders({
-    systemPrompt: buildPrompt(context, tasks),
+  const systemPrompt = buildPrompt(context);
+  let result = await runProviders({
+    systemPrompt,
     history,
     message,
     temperature: 0.2,
     maxTokens: 700,
+    tools: [GET_TASK_CONTEXT_TOOL, PROPOSE_TASK_TOOL],
   });
 
-  let reply: string;
-  let proposal: TaskProposalDraft | null;
-  if (result) {
-    const parsed = parseProposal(result.text);
-    reply = parsed.reply;
-    proposal = parsed.proposal ?? fallbackProposal(message);
-  } else {
-    proposal = fallbackProposal(message);
-    reply = proposal
-      ? localised(
-          context.locale,
-          "I prepared a task draft. Review it below and confirm only if it looks right.",
-          "Ich habe einen Aufgabenentwurf vorbereitet. PrÃ¼fe ihn unten und bestÃ¤tige ihn nur, wenn alles stimmt.",
-        )
-      : localised(
-          context.locale,
-          "The task assistant is temporarily unavailable. I can still create a simple task draft if you ask me to create a task.",
-          "Der Aufgabenassistent ist vorÃ¼bergehend nicht verfÃ¼gbar. Ich kann trotzdem einen einfachen Aufgabenentwurf vorbereiten, wenn du mich bittest, eine Aufgabe zu erstellen.",
-        );
+  if (!result) {
+    return {
+      reply: aiUnavailableReply(context.locale),
+      provider: UNAVAILABLE_PROVIDER,
+      proposal: null,
+    };
   }
 
+  let proposal = parseProposalToolCall(result.toolCalls);
+  if (
+    !proposal &&
+    result.toolCalls.some((call) => call.name === GET_TASK_CONTEXT_TOOL.name)
+  ) {
+    const tasks = await getTaskContext();
+    result = await runProviders({
+      systemPrompt: [
+        systemPrompt,
+        "The backend executed get_task_context. Use this trusted result to answer the original request:",
+        taskContextText(tasks),
+      ].join("\n"),
+      history,
+      message,
+      temperature: 0.2,
+      maxTokens: 700,
+      tools: [PROPOSE_TASK_TOOL],
+    });
+    if (!result) {
+      return {
+        reply: aiUnavailableReply(context.locale),
+        provider: UNAVAILABLE_PROVIDER,
+        proposal: null,
+      };
+    }
+    proposal = parseProposalToolCall(result.toolCalls);
+  }
+
+  let reply = result.text.trim();
   if (proposal && !reply) {
     reply = localised(
       context.locale,
       "Review this task draft and confirm it when you are ready.",
-      "PrÃ¼fe diesen Aufgabenentwurf und bestÃ¤tige ihn, wenn du bereit bist.",
+      "Prüfe diesen Aufgabenentwurf und bestätige ihn, wenn du bereit bist.",
+    );
+  }
+  if (!reply) {
+    reply = localised(
+      context.locale,
+      "I could not complete that request. Please rephrase it and try again.",
+      "Ich konnte diese Anfrage nicht abschließen. Bitte formuliere sie neu und versuche es erneut.",
     );
   }
 
@@ -196,7 +187,7 @@ export const runTaskAgent = async ({
     : localised(
         context.locale,
         "I can prepare a task draft, but I need your confirmation before it is created.",
-        "Ich kann einen Aufgabenentwurf vorbereiten, benÃ¶tige aber deine BestÃ¤tigung, bevor er erstellt wird.",
+        "Ich kann einen Aufgabenentwurf vorbereiten, benötige aber deine Bestätigung, bevor er erstellt wird.",
       );
 
   return {
@@ -207,7 +198,7 @@ export const runTaskAgent = async ({
           "Ich kann dir beim Planen, Priorisieren oder Erstellen eines Aufgabenentwurfs helfen.",
         )
       : safeReply,
-    provider: result?.provider ?? OFFLINE_PROVIDER,
+    provider: result.provider,
     proposal,
   };
 };

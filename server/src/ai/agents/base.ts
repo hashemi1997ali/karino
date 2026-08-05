@@ -16,15 +16,15 @@ import type {
 } from "../types.ts";
 import { resolveRoleTier, type RoleTier } from "../policies/index.ts";
 import { runProviders } from "../providers/index.ts";
-import { runOfflineAssistant } from "../fallback/offlineAssistant.ts";
+import { aiUnavailableReply } from "../fallback/unavailable.ts";
 
 export interface Agent {
   readonly id: ReplyAgentId;
   run(input: AgentInput): Promise<AgentOutput>;
 }
 
-/** The provider name reported when no LLM produced the reply. */
-export const OFFLINE_PROVIDER = "offline";
+/** Provider-state label reported when no LLM produced the reply. */
+export const UNAVAILABLE_PROVIDER = "unavailable";
 
 /** Common guardrail / behaviour rules injected into every agent prompt. */
 export const commonPromptRules = (locale: AssistantLocale): string => {
@@ -47,8 +47,7 @@ export const commonPromptRules = (locale: AssistantLocale): string => {
 
 /**
  * Runs the given system prompt through the provider chain. If every provider
- * is unavailable, returns the offline reply so the assistant degrades
- * gracefully instead of failing.
+ * is unavailable, returns only the disabled-assistance message.
  */
 export const completeOrFallback = async (
   systemPrompt: string,
@@ -61,7 +60,11 @@ export const completeOrFallback = async (
   });
 
   if (result) return { reply: result.text, usedLlm: true };
-  return { reply: runOfflineAssistant(input), usedLlm: false };
+  return {
+    reply: aiUnavailableReply(input.context.locale),
+    usedLlm: false,
+    unavailable: true,
+  };
 };
 
 export const tierOf = (context: AssistantContext): RoleTier => resolveRoleTier(context);

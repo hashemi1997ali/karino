@@ -12,7 +12,6 @@ export interface UserBan {
   isBanned: boolean;
   reason: BanReason;
   bannedAt: string;
-  sessionIps: string[];
 }
 
 export interface User {
@@ -23,9 +22,6 @@ export interface User {
   email: string;
   roles: UserRole[];
   profileImage: { url: string; publicId: string } | null;
-  onboardingCompleted: boolean;
-  primaryUseCase: "personal" | "study" | "work" | "projects" | "other" | null;
-  planningStyle: "simple" | "daily" | "priority" | null;
   ban?: UserBan | null;
   createdAt: string;
   updatedAt: string;
@@ -88,33 +84,12 @@ export interface TodayDashboard {
     date: string;
     completed: number;
   }>;
-  recentActivity: ActivityItem[];
   dailyBrief: {
     overdue: number;
     highPriority: number;
     dueToday: number;
     scheduleConflicts: number;
   };
-}
-
-export type ActivityType =
-  | "task_created"
-  | "task_updated"
-  | "task_completed"
-  | "task_deleted"
-  | "sign_in"
-  | "password_changed"
-  | "session_revoked"
-  | "support_opened"
-  | "support_resolved";
-
-export interface ActivityItem {
-  id?: string;
-  _id?: string;
-  type: ActivityType;
-  entityId: string | null;
-  label: string;
-  createdAt: string;
 }
 
 export interface RefreshSession {

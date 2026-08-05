@@ -1,34 +1,55 @@
 import { z } from "zod";
 
 const contentSchema = z.string().trim().min(1).max(4000);
+const historyItemSchema = z
+  .object({
+    role: z.enum(["user", "assistant"]),
+    content: z.string().trim().max(4000),
+  })
+  .strict();
+const withoutEmptyHistoryItems = <T extends { content: string }>(items: T[]): T[] =>
+  items.filter((item) => item.content.length > 0);
+const assistantHistorySchema = z
+  .array(historyItemSchema)
+  .max(20)
+  .transform(withoutEmptyHistoryItems)
+  .optional()
+  .default([]);
+
+const supportReasonSchema = z.enum([
+  "account_banned",
+  "account_access",
+  "security",
+  "human_requested",
+  "permission",
+  "unresolved",
+]);
 
 export const guestAssistantSchema = z
   .object({
     message: contentSchema,
-    history: z
-      .array(
-        z
-          .object({
-            role: z.enum(["user", "assistant"]),
-            content: contentSchema,
-          })
-          .strict(),
-      )
-      .max(20)
-      .optional()
-      .default([]),
+    history: assistantHistorySchema,
     locale: z.enum(["en", "de"]).optional().default("en"),
-    chatId: z
-      .string()
-      .regex(/^[a-f\d]{24}$/i)
-      .optional(),
   })
   .strict();
 
 export const createChatSchema = z
   .object({
     message: contentSchema,
+    history: assistantHistorySchema,
     locale: z.enum(["en", "de"]).optional().default("en"),
+  })
+  .strict();
+
+export const createSupportChatSchema = z
+  .object({
+    locale: z.enum(["en", "de"]).optional().default("en"),
+    history: z
+      .array(historyItemSchema)
+      .max(40)
+      .transform(withoutEmptyHistoryItems)
+      .refine((items) => items.length > 0, "Conversation history is required"),
+    reason: supportReasonSchema.optional().default("human_requested"),
   })
   .strict();
 

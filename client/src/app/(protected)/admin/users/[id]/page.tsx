@@ -15,5 +15,5 @@ export default async function AdminUserPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  return <AdminUserDetailView userId={id} />;
+  return <AdminUserDetailView key={id} userId={id} />;
 }

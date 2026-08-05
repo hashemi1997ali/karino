@@ -11,8 +11,8 @@ export { staffAgent } from "./staffAgent.ts";
 export { runTaskAgent } from "./taskAgent.ts";
 
 /**
- * LLM-backed agents keyed by id. The "offline" agent has no entry here — it is
- * handled directly by the orchestrator through the fallback module.
+ * LLM-backed agents keyed by id. Provider unavailability is handled as a
+ * response state and is not registered as an agent.
  */
 export const AGENTS: Partial<Record<ReplyAgentId, Agent>> = {
   "website-help": websiteHelpAgent,

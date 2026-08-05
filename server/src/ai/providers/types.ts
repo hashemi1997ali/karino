@@ -3,10 +3,27 @@
  *
  * Every LLM backend implements the {@link ChatProvider} interface so the
  * orchestrator can iterate over a prioritised list and fall back to the next
- * provider (and finally to the Offline Assistant) when one fails.
+ * provider when one fails.
  */
 
 import type { AssistantHistoryMessage } from "../types.ts";
+
+export interface ProviderToolDefinition {
+  name: string;
+  description: string;
+  inputSchema: Record<string, unknown>;
+}
+
+export interface ProviderToolCall {
+  id: string;
+  name: string;
+  arguments: unknown;
+}
+
+export interface ProviderCompletion {
+  text: string;
+  toolCalls: ProviderToolCall[];
+}
 
 /** Parameters passed to a single provider completion call. */
 export interface ProviderRequest {
@@ -15,6 +32,7 @@ export interface ProviderRequest {
   message: string;
   temperature: number;
   maxTokens: number;
+  tools?: ProviderToolDefinition[];
 }
 
 /**
@@ -30,5 +48,5 @@ export interface ProviderRequest {
 export interface ChatProvider {
   readonly name: string;
   isConfigured(): boolean;
-  complete(request: ProviderRequest): Promise<string>;
+  complete(request: ProviderRequest): Promise<ProviderCompletion>;
 }

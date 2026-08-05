@@ -4,7 +4,6 @@ import express from "express";
 import "#db";
 import { errorHandler, notFound, timeLogger } from "#middlewares";
 import {
-  activityRouter,
   adminRouter,
   assistantRouter,
   authRouter,
@@ -39,7 +38,6 @@ app.get("/", (_request, response) => {
 
 app.use("/auth", authRouter);
 app.use("/tasks", taskRouter);
-app.use("/activity", activityRouter);
 app.use("/admin", adminRouter);
 app.use("/assistant", assistantRouter);
 app.use("/chat", chatRouter);

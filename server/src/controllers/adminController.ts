@@ -2,7 +2,6 @@ import type { RequestHandler } from "express";
 import mongoose, { type QueryFilter, type SortOrder } from "mongoose";
 
 import {
-  Activity,
   ContactSubmission,
   RefreshSession,
   PasswordReset,
@@ -14,13 +13,7 @@ import {
   User,
 } from "#models";
 import { deleteProfileImageFromCloudinary, uploadProfileImage } from "#middlewares";
-import {
-  banUser,
-  deleteUserAccount,
-  getLiveBanSessionIps,
-  setAdministratorRole,
-  unbanUser,
-} from "#services";
+import { banUser, deleteUserAccount, setAdministratorRole, unbanUser } from "#services";
 import {
   AppError,
   applyTaskStatusTransition,
@@ -52,20 +45,17 @@ const requireAdminId = (userId: string | undefined): string => {
   return userId;
 };
 
-const serializeUser = (
-  user: {
-    _id: unknown;
-    firstName: string;
-    lastName: string;
-    email: string;
-    roles: string[];
-    profileImage?: { url: string; publicId: string } | null;
-    createdAt: Date;
-    updatedAt: Date;
-    ban?: IUser["ban"];
-  },
-  liveSessionIps?: string[],
-) => ({
+const serializeUser = (user: {
+  _id: unknown;
+  firstName: string;
+  lastName: string;
+  email: string;
+  roles: string[];
+  profileImage?: { url: string; publicId: string } | null;
+  createdAt: Date;
+  updatedAt: Date;
+  ban?: IUser["ban"];
+}) => ({
   id: String(user._id),
   firstName: user.firstName,
   lastName: user.lastName,
@@ -79,7 +69,6 @@ const serializeUser = (
         isBanned: user.ban.isBanned,
         reason: user.ban.reason,
         bannedAt: user.ban.bannedAt,
-        sessionIps: liveSessionIps ?? user.ban.sessionIps ?? [],
       }
     : null,
 });
@@ -152,7 +141,6 @@ export const getAdminOverview: RequestHandler = async (_request, response) => {
     unansweredContacts,
     bannedUsers,
     weeklyCompleted,
-    recentActivity,
   ] = await Promise.all([
     User.countDocuments(),
     User.countDocuments({ $or: [{ ban: null }, { "ban.isBanned": { $ne: true } }] }),
@@ -177,11 +165,6 @@ export const getAdminOverview: RequestHandler = async (_request, response) => {
         },
       },
     ]),
-    Activity.find()
-      .sort({ createdAt: -1 })
-      .limit(4)
-      .select("type label createdAt")
-      .lean(),
   ]);
   const weeklyMap = new Map(weeklyCompleted.map((entry) => [entry._id, entry.count]));
   const weeklyProgress = Array.from({ length: 7 }, (_, index) => {
@@ -203,7 +186,6 @@ export const getAdminOverview: RequestHandler = async (_request, response) => {
       unansweredContacts,
       bannedUsers,
       weeklyProgress,
-      recentActivity,
     },
   });
 };
@@ -357,21 +339,10 @@ export const getAdminUsers: RequestHandler = async (request, response) => {
     User.countDocuments(filter),
   ]);
 
-  const liveIps = new Map<string, string[]>(
-    await Promise.all(
-      users
-        .filter((user) => user.ban?.isBanned)
-        .map(
-          async (user) =>
-            [String(user._id), await getLiveBanSessionIps(user._id)] as const,
-        ),
-    ),
-  );
-
   response.status(200).json({
     success: true,
     data: {
-      users: users.map((user) => serializeUser(user, liveIps.get(String(user._id)))),
+      users: users.map((user) => serializeUser(user)),
       pagination: createPagination(total, query.page, query.limit),
     },
   });
@@ -395,14 +366,10 @@ export const getAdminUserById: RequestHandler = async (request, response) => {
     }),
   ]);
 
-  const liveSessionIps = user.ban?.isBanned
-    ? await getLiveBanSessionIps(user._id)
-    : undefined;
-
   response.status(200).json({
     success: true,
     data: {
-      user: serializeUser(user, liveSessionIps),
+      user: serializeUser(user),
       stats: { taskCount, activeSessionCount },
     },
   });
@@ -513,7 +480,7 @@ export const updateAdminRole: RequestHandler = async (request, response) => {
       ? "Administrator role enabled successfully"
       : "Administrator role removed successfully",
     data: {
-      user: serializeUser(result.user, await getLiveBanSessionIps(result.user._id)),
+      user: serializeUser(result.user),
       sessionsRevoked: result.sessionsRevoked,
     },
   });

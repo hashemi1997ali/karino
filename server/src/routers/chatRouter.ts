@@ -3,6 +3,8 @@ import { Router } from "express";
 import {
   claimStaffChat,
   createChat,
+  createGuestSupportChat,
+  createSupportChat,
   endGuestChat,
   endOwnChat,
   endStaffChat,
@@ -15,6 +17,7 @@ import {
   listStaffChats,
   rateOwnChat,
   rewriteStaffMessage,
+  sendGuestMessage,
   sendOwnMessage,
   sendStaffMessage,
   transferStaffChat,
@@ -30,6 +33,7 @@ import {
 } from "#middlewares";
 import {
   createChatSchema,
+  createSupportChatSchema,
   guestAssistantSchema,
   rateChatSchema,
   sendChatMessageSchema,
@@ -44,6 +48,18 @@ chatRouter.post(
   guestChatRateLimiter,
   validateByZod(guestAssistantSchema),
   guestAssistant,
+);
+chatRouter.post(
+  "/guest/support",
+  guestChatRateLimiter,
+  validateByZod(createSupportChatSchema),
+  createGuestSupportChat,
+);
+chatRouter.post(
+  "/guest/:id/messages",
+  guestChatRateLimiter,
+  validateByZod(supportMessageSchema),
+  sendGuestMessage,
 );
 chatRouter.get("/guest/:id", getGuestChat);
 chatRouter.post("/guest/:id/end", guestChatRateLimiter, endGuestChat);
@@ -96,6 +112,12 @@ chatRouter.post(
   authenticatedChatRateLimiter,
   validateByZod(createChatSchema),
   createChat,
+);
+chatRouter.post(
+  "/support",
+  authenticatedChatRateLimiter,
+  validateByZod(createSupportChatSchema),
+  createSupportChat,
 );
 chatRouter.get("/:id", getOwnChat);
 chatRouter.post(

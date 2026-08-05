@@ -205,10 +205,6 @@ export function AppShell({
       ? requestedAccountSection
       : "profile";
 
-  useEffect(() => {
-    if (user && !user.onboardingCompleted) router.replace("/onboarding");
-  }, [router, user]);
-
   const doLogout = async () => {
     setLogoutPending(true);
     try {

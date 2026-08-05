@@ -24,7 +24,6 @@ import {
   improveStaffDraft,
   runAssistant,
   resolveSupportAudience,
-  scheduleAssistantIdleClose,
   setAdministratorRole,
   unbanUser,
   type AssistantHistoryMessage,
@@ -171,20 +170,6 @@ const serializeChat = (chat: HydratedDocument<ISupportChat>) => {
     updatedAt: chat.updatedAt,
   };
 };
-
-const toAssistantHistory = (
-  chat: HydratedDocument<ISupportChat>,
-): AssistantHistoryMessage[] =>
-  chat.messages
-    .filter(
-      (message) =>
-        (message.sender === "user" || message.sender === "ai") &&
-        message.senderName !== CHAT_WELCOME_SENDER,
-    )
-    .map((message) => ({
-      role: message.sender === "user" ? "user" : "assistant",
-      content: message.content,
-    }));
 
 const endChatDocument = async (
   chat: HydratedDocument<ISupportChat>,
@@ -365,85 +350,31 @@ const getGuestToken = (request: Request): string | null => {
 const resolveLocale = (message: string, fallback: SupportChatLocale): SupportChatLocale =>
   detectMessageLocale(message, fallback).locale;
 
-const escalationReply = (
-  locale: SupportChatLocale,
-  reason: SupportEscalationReason,
-  requiresSuperAdmin: boolean,
-): string => {
-  if (requiresSuperAdmin && reason === "account_banned") {
-    return localized(
-      locale,
-      "I’ve sent your account-ban issue to a Super Support Agent. You can continue writing here while you wait.",
-      "Ich habe dein Problem mit der Kontosperre an einen Super-Support-Agenten weitergeleitet. Du kannst hier weiterschreiben, während du wartest.",
-    );
-  }
-  if (requiresSuperAdmin && reason === "security") {
-    return localized(
-      locale,
-      "I’ve sent this security issue to a Super Support Agent. Please do not share your password or recovery codes.",
-      "Ich habe dieses Sicherheitsproblem an einen Super-Support-Agenten weitergeleitet. Bitte teile weder dein Passwort noch Wiederherstellungscodes.",
-    );
-  }
-  return localized(
-    locale,
-    "I’ve sent this conversation to human support. You can continue writing here while you wait.",
-    "Ich habe diese Unterhaltung an den menschlichen Support weitergeleitet. Du kannst hier weiterschreiben, während du wartest.",
-  );
-};
-
-const applyAssistantTurn = (
-  chat: HydratedDocument<ISupportChat>,
+const assistantTurnPayload = (
   assistant: Awaited<ReturnType<typeof runAssistant>>,
-  options: {
-    supportAudience?: "all-staff" | "super-admin";
-    allowEscalation?: boolean;
-  } = {},
-): boolean => {
-  const shouldEscalate =
-    assistant.action === "escalate" && options.allowEscalation !== false;
+  roles: readonly string[],
+) => {
+  const supportAvailable = !assistant.available || assistant.action === "escalate";
   const reason = assistant.escalationReason ?? "unresolved";
-  const requiresSuperAdmin =
-    options.supportAudience === "super-admin" ||
-    (options.supportAudience === undefined && assistant.requiresSuperAdmin);
-
-  chat.lastAgent = assistant.agent;
-  chat.messages.push({
-    sender: "ai",
-    senderName: assistant.agent,
-    content: shouldEscalate
-      ? escalationReply(chat.locale, reason, requiresSuperAdmin)
-      : assistant.reply,
-    createdAt: new Date(),
-  } as ISupportChat["messages"][number]);
-
-  if (!shouldEscalate) {
-    scheduleAssistantIdleClose(chat);
-    return false;
-  }
-
-  chat.status = "open";
-  clearAssistantIdleClose(chat);
-  chat.assignedTo = null;
-  chat.assignedToName = null;
-  chat.escalationReason = reason;
-  chat.requiresSuperAdmin = requiresSuperAdmin;
-  chat.messages.push({
-    sender: "system",
-    senderName: null,
-    content: systemMessage(
-      chat.locale,
-      chat.requiresSuperAdmin ? "waiting-super" : "waiting-support",
-    ),
-    createdAt: new Date(),
-  } as ISupportChat["messages"][number]);
-  return true;
+  return {
+    message: {
+      id: randomUUID(),
+      sender: "ai" as const,
+      senderId: null,
+      senderName: assistant.agent,
+      content: assistant.reply,
+      createdAt: new Date(),
+    },
+    provider: assistant.available ? assistant.provider : null,
+    available: assistant.available,
+    support: {
+      available: supportAvailable,
+      reason: supportAvailable ? reason : null,
+      requiresSuperAdmin:
+        resolveSupportAudience(roles) === "super-admin" || assistant.requiresSuperAdmin,
+    },
+  };
 };
-
-const escalationPayload = (chat: HydratedDocument<ISupportChat>, completed: boolean) => ({
-  requested: completed,
-  completed,
-  reason: completed ? chat.escalationReason : null,
-});
 
 const findGuestChat = async (
   request: Request,
@@ -465,102 +396,161 @@ const findGuestChat = async (
 export const guestAssistant: RequestHandler = async (request, response) => {
   const {
     message,
+    history,
     locale: requestedLocale,
-    chatId,
   } = request.body as {
     message: string;
+    history: AssistantHistoryMessage[];
     locale: SupportChatLocale;
-    chatId?: string;
   };
+  const locale = resolveLocale(message, requestedLocale);
+  const assistant = await runAssistant(message, history, {
+    roles: [],
+    authenticated: false,
+    locale,
+  });
+  response.status(200).json({
+    success: true,
+    data: assistantTurnPayload(assistant, []),
+  });
+};
 
-  let chat: HydratedDocument<ISupportChat> | null = null;
-  let token = getGuestToken(request);
-  if (chatId) {
-    if (!token) throw new AppError("Guest chat not found", 404);
-    const existingChatId = validateObjectId(chatId, "chat");
-    await closeInactiveAssistantChats({ _id: existingChatId, origin: "guest" });
-    chat = await SupportChat.findOne({
-      _id: existingChatId,
-      origin: "guest",
-      guestTokenHash: hashGuestToken(token),
-    }).select("+guestTokenHash");
-    if (!chat) throw new AppError("Guest chat not found", 404);
-    if (chat.status === "ended") throw new AppError("This chat has ended", 409);
+const supportRequiresSuperAdmin = (
+  reason: SupportEscalationReason,
+  roles: readonly string[],
+): boolean => isAdminRoles(roles) || reason === "account_banned" || reason === "security";
+
+const transcriptMessages = (
+  history: AssistantHistoryMessage[],
+  options: { userId?: mongoose.Types.ObjectId; userName: string },
+) =>
+  history.map((item) => ({
+    sender: item.role === "user" ? ("user" as const) : ("ai" as const),
+    senderId: item.role === "user" ? (options.userId ?? null) : null,
+    senderName: item.role === "user" ? options.userName : "website-help",
+    content: item.content,
+    createdAt: new Date(),
+  }));
+
+export const createGuestSupportChat: RequestHandler = async (request, response) => {
+  const { history, locale, reason } = request.body as {
+    history: AssistantHistoryMessage[];
+    locale: SupportChatLocale;
+    reason: SupportEscalationReason;
+  };
+  const token = randomBytes(32).toString("base64url");
+  const firstUserMessage = history.find((item) => item.role === "user")?.content ?? "";
+  const email = history
+    .map((item) => item.content)
+    .join(" ")
+    .match(EMAIL_PATTERN)?.[0]
+    ?.toLowerCase();
+  const requiresSuperAdmin = supportRequiresSuperAdmin(reason, []);
+  const chat = await SupportChat.create({
+    user: null,
+    origin: "guest",
+    guestId: randomUUID(),
+    guestTokenHash: hashGuestToken(token),
+    guestEmail: email ?? null,
+    guestIpAddress: normalizeIpAddress(request.ip),
+    guestUserAgent: request.get("user-agent")?.slice(0, 512) ?? null,
+    locale,
+    subject: firstUserMessage.slice(0, 200),
+    status: "open",
+    assignedTo: null,
+    assignedToName: null,
+    escalationReason: reason,
+    requiresSuperAdmin,
+    lastAgent: "website-help",
+    messages: [
+      {
+        sender: "ai",
+        senderName: CHAT_WELCOME_SENDER,
+        content: chatWelcomeMessage(locale),
+        createdAt: new Date(),
+      },
+      ...transcriptMessages(history, { userName: "Guest" }),
+      {
+        sender: "system",
+        senderName: null,
+        content: systemMessage(
+          locale,
+          requiresSuperAdmin ? "waiting-super" : "waiting-support",
+        ),
+        createdAt: new Date(),
+      },
+    ],
+  });
+  setGuestSupportCookie(response, token);
+  response.status(201).json({ success: true, data: { chat: serializeChat(chat) } });
+};
+
+export const createSupportChat: RequestHandler = async (request, response) => {
+  const user = await getCurrentUser(request);
+  const { history, locale, reason } = request.body as {
+    history: AssistantHistoryMessage[];
+    locale: SupportChatLocale;
+    reason: SupportEscalationReason;
+  };
+  const firstUserMessage = history.find((item) => item.role === "user")?.content ?? "";
+  const requiresSuperAdmin = supportRequiresSuperAdmin(reason, user.roles);
+  const chat = await SupportChat.create({
+    user: user._id,
+    origin: isAdminRoles(user.roles) && !isSuperAdminRoles(user.roles) ? "admin" : "user",
+    locale,
+    subject: firstUserMessage.slice(0, 200),
+    status: "open",
+    assignedTo: null,
+    assignedToName: null,
+    escalationReason: reason,
+    requiresSuperAdmin,
+    lastAgent: "website-help",
+    messages: [
+      {
+        sender: "ai",
+        senderName: CHAT_WELCOME_SENDER,
+        content: chatWelcomeMessage(locale),
+        createdAt: new Date(),
+      },
+      ...transcriptMessages(history, {
+        userId: user._id,
+        userName: supportName(user),
+      }),
+      {
+        sender: "system",
+        senderName: null,
+        content: systemMessage(
+          locale,
+          requiresSuperAdmin ? "waiting-super" : "waiting-support",
+        ),
+        createdAt: new Date(),
+      },
+    ],
+  });
+  response.status(201).json({ success: true, data: { chat: serializeChat(chat) } });
+};
+
+export const getGuestChat: RequestHandler = async (request, response) => {
+  const chat = await findGuestChat(request, String(request.params.id));
+  response.status(200).json({ success: true, data: { chat: serializeChat(chat) } });
+};
+
+export const sendGuestMessage: RequestHandler = async (request, response) => {
+  const chat = await findGuestChat(request, String(request.params.id));
+  if (chat.status !== "open" && chat.status !== "active") {
+    throw new AppError("This support chat is not accepting messages", 409);
   }
-
-  const detectedLocale = resolveLocale(message, chat?.locale ?? requestedLocale);
-  const email = message.match(EMAIL_PATTERN)?.[0]?.toLowerCase() ?? null;
-  let isNew = false;
-
-  if (!chat) {
-    isNew = true;
-    token = randomBytes(32).toString("base64url");
-    chat = new SupportChat({
-      user: null,
-      origin: "guest",
-      guestId: randomUUID(),
-      guestTokenHash: hashGuestToken(token),
-      guestEmail: email,
-      guestIpAddress: normalizeIpAddress(request.ip),
-      guestUserAgent: request.get("user-agent")?.slice(0, 512) ?? null,
-      locale: detectedLocale,
-      subject: message.slice(0, 200),
-      status: "assistant",
-      messages: [
-        {
-          sender: "ai",
-          senderName: CHAT_WELCOME_SENDER,
-          content: chatWelcomeMessage(requestedLocale),
-          createdAt: new Date(),
-        },
-      ],
-    });
-  } else {
-    chat.locale = detectedLocale;
-    if (!chat.guestEmail && email) chat.guestEmail = email;
-  }
-
+  const { message } = request.body as { message: string };
   chat.messages.push({
     sender: "user",
     senderName: "Guest",
     content: message,
     createdAt: new Date(),
   } as ISupportChat["messages"][number]);
-
-  let provider: string | null = null;
-  let escalated = false;
-  if (chat.status === "assistant") {
-    clearAssistantIdleClose(chat);
-    if (!isNew) await chat.save();
-    const assistant = await runAssistant(message, toAssistantHistory(chat).slice(0, -1), {
-      roles: [],
-      authenticated: false,
-      locale: detectedLocale,
-    });
-    escalated = applyAssistantTurn(chat, assistant, {
-      supportAudience: resolveSupportAudience([]),
-      allowEscalation: false,
-    });
-    provider = assistant.provider;
+  if (!chat.guestEmail) {
+    chat.guestEmail = message.match(EMAIL_PATTERN)?.[0]?.toLowerCase() ?? null;
   }
-
-  // The success response and transfer confirmation are only returned after the
-  // chat (including its open status) has been persisted successfully.
   await chat.save();
-  if (isNew && token) setGuestSupportCookie(response, token);
-
-  response.status(isNew ? 201 : 200).json({
-    success: true,
-    data: {
-      chat: serializeChat(chat),
-      provider,
-      escalation: escalationPayload(chat, escalated),
-    },
-  });
-};
-
-export const getGuestChat: RequestHandler = async (request, response) => {
-  const chat = await findGuestChat(request, String(request.params.id));
   response.status(200).json({ success: true, data: { chat: serializeChat(chat) } });
 };
 
@@ -586,8 +576,13 @@ export const endGuestChat: RequestHandler = async (request, response) => {
 
 export const createChat: RequestHandler = async (request, response) => {
   const user = await getCurrentUser(request);
-  const { message, locale: requestedLocale } = request.body as {
+  const {
+    message,
+    history,
+    locale: requestedLocale,
+  } = request.body as {
     message: string;
+    history: AssistantHistoryMessage[];
     locale: SupportChatLocale;
   };
   const locale = resolveLocale(message, requestedLocale);
@@ -597,59 +592,30 @@ export const createChat: RequestHandler = async (request, response) => {
         reply: commandReply,
         agent: "staff" as const,
         provider: "command",
+        available: true,
         action: "reply" as const,
         escalationReason: null,
         requiresSuperAdmin: false,
         locale,
       }
-    : await runAssistant(message, [], {
+    : await runAssistant(message, history, {
         roles: user.roles,
         authenticated: true,
         locale,
       });
-
-  const chat = new SupportChat({
-    user: user._id,
-    origin: isAdminRoles(user.roles) && !isSuperAdminRoles(user.roles) ? "admin" : "user",
-    locale,
-    subject: message.slice(0, 200),
-    status: "assistant",
-    messages: [
-      {
-        sender: "ai",
-        senderName: CHAT_WELCOME_SENDER,
-        content: chatWelcomeMessage(requestedLocale),
-        createdAt: new Date(),
-      },
-      {
-        sender: "user",
-        senderId: user._id,
-        senderName: supportName(user),
-        content: message,
-        createdAt: new Date(),
-      },
-    ],
-  });
-  const escalated = applyAssistantTurn(chat, assistant, {
-    supportAudience: resolveSupportAudience(user.roles),
-    allowEscalation: !isSuperAdminRoles(user.roles),
-  });
-  await chat.save();
-
-  response.status(201).json({
+  response.status(200).json({
     success: true,
-    data: {
-      chat: serializeChat(chat),
-      provider: assistant.provider,
-      escalation: escalationPayload(chat, escalated),
-    },
+    data: assistantTurnPayload(assistant, user.roles),
   });
 };
 
 export const listOwnChats: RequestHandler = async (request, response) => {
   const user = await getCurrentUser(request);
   await closeInactiveAssistantChats({ user: user._id });
-  const chats = await SupportChat.find({ user: user._id })
+  const chats = await SupportChat.find({
+    user: user._id,
+    status: { $in: ["open", "active", "ended"] },
+  })
     .sort({ updatedAt: -1 })
     .limit(50);
   response.status(200).json({
@@ -677,7 +643,9 @@ export const sendOwnMessage: RequestHandler = async (request, response) => {
   await closeInactiveAssistantChats({ _id: chatId, user: user._id });
   const chat = await SupportChat.findOne({ _id: chatId, user: user._id });
   if (!chat) throw new AppError("Chat not found", 404);
-  if (chat.status === "ended") throw new AppError("This chat has ended", 409);
+  if (chat.status !== "open" && chat.status !== "active") {
+    throw new AppError("This support chat is not accepting messages", 409);
+  }
 
   const locale = resolveLocale(message, chat.locale ?? requestedLocale);
   chat.locale = locale;
@@ -689,41 +657,13 @@ export const sendOwnMessage: RequestHandler = async (request, response) => {
     createdAt: new Date(),
   } as ISupportChat["messages"][number]);
 
-  let provider: string | null = null;
-  let escalated = false;
-  if (chat.status === "assistant") {
-    clearAssistantIdleClose(chat);
-    await chat.save();
-    const commandReply = await parseStaffCommand(message, user, locale);
-    const assistant = commandReply
-      ? {
-          reply: commandReply,
-          agent: "staff" as const,
-          provider: "command",
-          action: "reply" as const,
-          escalationReason: null,
-          requiresSuperAdmin: false,
-          locale,
-        }
-      : await runAssistant(message, toAssistantHistory(chat).slice(0, -1), {
-          roles: user.roles,
-          authenticated: true,
-          locale,
-        });
-    escalated = applyAssistantTurn(chat, assistant, {
-      supportAudience: resolveSupportAudience(user.roles),
-      allowEscalation: !isSuperAdminRoles(user.roles),
-    });
-    provider = assistant.provider;
-  }
-
   await chat.save();
   response.status(200).json({
     success: true,
     data: {
       chat: serializeChat(chat),
-      provider,
-      escalation: escalationPayload(chat, escalated),
+      provider: null,
+      escalation: { requested: false, completed: false, reason: null },
     },
   });
 };

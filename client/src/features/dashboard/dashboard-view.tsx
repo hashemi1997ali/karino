@@ -22,7 +22,7 @@ import { TrendChart } from "@/components/ui/trend-chart";
 import { useAuth } from "@/features/auth/auth-provider";
 import { getTodayDashboardRequest, updateTaskRequest } from "@/features/tasks/api";
 import { getErrorMessage } from "@/lib/api-error";
-import type { ActivityType, Task, TodayDashboard } from "@/lib/types";
+import type { Task, TodayDashboard } from "@/lib/types";
 import { cn, formatNumber, formatPercent, getId } from "@/lib/utils";
 import { usePreferences } from "@/providers/preferences-provider";
 
@@ -45,9 +45,7 @@ const copy = {
     askAi: "Ask AI about my day",
     weekly: "Weekly progress",
     lastSevenDays: "Last 7 days",
-    recent: "Recent activity",
     noTasks: "No active tasks need your attention.",
-    noActivity: "No recent activity yet.",
     today: "Today",
     overdueLabel: "Overdue",
     noUpcoming: "No tasks",
@@ -77,17 +75,6 @@ const copy = {
         ? `Karino found ${details.join(", ")}.`
         : "Your schedule looks clear. Choose one meaningful task to move forward.";
     },
-    activityLabels: {
-      task_created: "Task created",
-      task_updated: "Task updated",
-      task_completed: "Task completed",
-      task_deleted: "Task deleted",
-      sign_in: "Signed in",
-      password_changed: "Password changed",
-      session_revoked: "Session revoked",
-      support_opened: "Support opened",
-      support_resolved: "Support resolved",
-    },
   },
   de: {
     greetings: {
@@ -107,9 +94,7 @@ const copy = {
     askAi: "KI zu meinem Tag fragen",
     weekly: "Wochenfortschritt",
     lastSevenDays: "Letzte 7 Tage",
-    recent: "Letzte Aktivitäten",
     noTasks: "Keine aktiven Aufgaben benötigen deine Aufmerksamkeit.",
-    noActivity: "Noch keine aktuellen Aktivitäten.",
     today: "Heute",
     overdueLabel: "Überfällig",
     noUpcoming: "Keine Aufgaben",
@@ -140,17 +125,6 @@ const copy = {
       return details.length
         ? `Karino hat ${details.join(", ")} gefunden.`
         : "Dein Zeitplan ist übersichtlich. Wähle eine wichtige Aufgabe als nächsten Schritt.";
-    },
-    activityLabels: {
-      task_created: "Aufgabe erstellt",
-      task_updated: "Aufgabe aktualisiert",
-      task_completed: "Aufgabe erledigt",
-      task_deleted: "Aufgabe gelöscht",
-      sign_in: "Angemeldet",
-      password_changed: "Passwort geändert",
-      session_revoked: "Sitzung widerrufen",
-      support_opened: "Support geöffnet",
-      support_resolved: "Support gelöst",
     },
   },
 } as const;
@@ -412,29 +386,6 @@ export function DashboardView() {
                 label={t.weekly}
               />
             </div>
-          </Card>
-
-          <Card className="p-5">
-            <h2 className="text-sm font-semibold">{t.recent}</h2>
-            {dashboard.recentActivity.length === 0 ? (
-              <p className="mt-4 text-sm text-[var(--muted)]">{t.noActivity}</p>
-            ) : (
-              <ul className="mt-4 space-y-3">
-                {dashboard.recentActivity.map((activity) => (
-                  <li key={getId(activity)} className="flex items-start gap-3">
-                    <span className="mt-1.5 size-2 shrink-0 rounded-full bg-[var(--primary)]" />
-                    <div className="min-w-0">
-                      <p className="truncate text-xs font-medium">
-                        {t.activityLabels[activity.type as ActivityType]}
-                      </p>
-                      <p className="mt-0.5 truncate text-xs text-[var(--muted)]">
-                        {activity.label}
-                      </p>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            )}
           </Card>
         </aside>
       </div>

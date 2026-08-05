@@ -62,14 +62,3 @@ export const resetPasswordRequest = (token: string, password: string): Promise<v
     retryAuth: false,
     json: { token, password },
   });
-
-export const completeOnboardingRequest = async (values: {
-  primaryUseCase: NonNullable<User["primaryUseCase"]>;
-  planningStyle: NonNullable<User["planningStyle"]>;
-}): Promise<User> => {
-  const data = await apiRequest<{ user: User }>("/auth/me/onboarding", {
-    method: "PATCH",
-    json: values,
-  });
-  return data.user;
-};

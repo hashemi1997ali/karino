@@ -2,7 +2,7 @@
 
 A responsive full-stack productivity platform built with **Next.js, Express, TypeScript, MongoDB, and configurable AI providers**.
 
-Karino combines personal task planning, a private AI assistant, secure account management, role-based administration, activity tracking, contact workflows, and persistent support chat in one bilingual web application.
+Karino combines personal task planning, a private AI assistant, secure account management, role-based administration, contact workflows, and persistent support chat in one bilingual web application.
 
 ---
 
@@ -13,7 +13,7 @@ Karino gives users a private, responsive workspace for planning their day and ma
 The repository is an npm workspace containing the web client and API:
 
 ```text
-task-manager/
+karino/
 ├── client/   # Next.js application
 ├── server/   # Express REST API
 ├── package-lock.json
@@ -32,13 +32,12 @@ task-manager/
 - Track `todo`, `in-progress`, and `done` statuses
 - Assign low, medium, or high priority
 - Set deadlines, identify overdue work, and review recently updated tasks
-- Use a focused Today dashboard with progress, priorities, and recent activity
+- Use a focused Today dashboard with progress, priorities, and upcoming work
 
 ### 🎨 Workspace Experience
 
 - Responsive desktop sidebar, tablet navigation rail, and mobile bottom navigation
 - Mobile and tablet cards for tasks and users, with dense tables on wide screens
-- Guided onboarding for goals, work style, the first task, and assistant preferences
 - Light, dark, and system themes with persisted appearance preferences
 - English and German interface copy with locale-aware dates and numbers
 - Accessible focus states, semantic controls, reduced-motion support, and reusable loading, error, and empty states
@@ -58,7 +57,7 @@ task-manager/
 - `user`: manages personal tasks, profile, sessions, and chat history
 - `admin`: manages regular users, tasks, bans, and support requests
 - `super_admin`: manages administrators and escalated support requests
-- Administrative overview with user, task, support, and activity metrics
+- Administrative overview with user, task, and support metrics
 - Responsive user and task management with role, status, and ownership context
 - Immediate session revocation after bans, deletion, or role changes
 - Configurable initial super administrator
@@ -124,8 +123,8 @@ task-manager/
 ### Installation
 
 ```bash
-git clone https://github.com/hashemi1997ali/task-manager.git
-cd task-manager
+git clone https://github.com/hashemi1997ali/karino.git
+cd karino
 npm install
 ```
 
@@ -223,8 +222,7 @@ npm run start:server
 | `/forgot-password`  | Public        | Request a password-reset link               |
 | `/reset-password`   | Public        | Set a new password                          |
 | `/contact`          | Public        | Contact form and public information         |
-| `/onboarding`       | Authenticated | Configure goals, work style, and first task |
-| `/dashboard`        | Authenticated | Today overview, focus work, and activity    |
+| `/dashboard`        | Authenticated | Today overview, focus work, and progress    |
 | `/tasks`            | Authenticated | Personal task list and board                |
 | `/assistant`        | Authenticated | Private AI task assistant and history       |
 | `/account`          | Authenticated | Profile, appearance, security, and sessions |
@@ -241,7 +239,6 @@ npm run start:server
 | ------------ | ---------------------------------------------------------------- |
 | `/auth`      | Authentication, profile, password, and sessions                  |
 | `/tasks`     | Personal task CRUD, filters, and summaries                       |
-| `/activity`  | Authenticated activity feed                                      |
 | `/admin`     | Administrative task and user management                          |
 | `/assistant` | Private task-assistant conversations and confirmed task creation |
 | `/chat`      | Site guidance and staff support conversations                    |

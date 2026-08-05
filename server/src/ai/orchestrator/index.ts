@@ -14,13 +14,13 @@ import type {
   ReplyAgentId,
 } from "../types.ts";
 import { AGENTS } from "../agents/index.ts";
-import { OFFLINE_PROVIDER } from "../agents/base.ts";
+import { UNAVAILABLE_PROVIDER } from "../agents/base.ts";
 import { outputGuardrail } from "../guardrails/index.ts";
 import {
-  offlineOutOfScopeReply,
-  offlineUnsupportedLanguageReply,
-  runOfflineAssistant,
-} from "../fallback/offlineAssistant.ts";
+  aiUnavailableReply,
+  outOfScopeReply,
+  unsupportedLanguageReply,
+} from "../fallback/unavailable.ts";
 import { isStronglyMixedLanguage } from "../language.ts";
 import { getConfiguredProviderName } from "../providers/index.ts";
 import { resolveRoleTier } from "../policies/index.ts";
@@ -99,18 +99,20 @@ export const runOrchestrator = async (
 
   if (decision.wrongLanguage) {
     return finalize(
-      offlineUnsupportedLanguageReply(context.locale),
-      "offline",
-      OFFLINE_PROVIDER,
+      unsupportedLanguageReply(context.locale),
+      "website-help",
+      UNAVAILABLE_PROVIDER,
+      true,
       context,
       null,
     );
   }
   if (decision.outOfScope) {
     return finalize(
-      offlineOutOfScopeReply(context.locale),
-      "offline",
-      OFFLINE_PROVIDER,
+      outOfScopeReply(context.locale),
+      "website-help",
+      UNAVAILABLE_PROVIDER,
+      true,
       context,
       null,
     );
@@ -119,34 +121,45 @@ export const runOrchestrator = async (
   const agent = AGENTS[decision.agent];
   if (!agent) {
     return finalize(
-      runOfflineAssistant(input),
-      "offline",
-      OFFLINE_PROVIDER,
+      aiUnavailableReply(context.locale),
+      decision.agent,
+      UNAVAILABLE_PROVIDER,
+      false,
       context,
       deterministicEscalation(message, context),
     );
   }
 
   const output = await agent.run(input);
-  const provider = output.usedLlm ? getConfiguredProviderName() : OFFLINE_PROVIDER;
-  const agentId: ReplyAgentId = output.usedLlm ? decision.agent : "offline";
+  const provider = output.usedLlm ? getConfiguredProviderName() : UNAVAILABLE_PROVIDER;
+  const available = output.unavailable !== true;
+  const agentId: ReplyAgentId = decision.agent;
   const marked = parseEscalationMarker(output.reply);
   const tier = resolveRoleTier(context);
   const markedEscalation = tier === "user" || tier === "admin" ? marked.decision : null;
   const escalation = deterministicEscalation(message, context) ?? markedEscalation;
 
-  return finalize(marked.reply, agentId, provider, context, escalation);
+  return finalize(marked.reply, agentId, provider, available, context, escalation);
 };
 
 const finalize = (
   reply: string,
   agent: ReplyAgentId,
   provider: string,
+  available: boolean,
   context: AssistantContext,
   escalation: EscalationDecision | null,
 ): AssistantResult => {
   const guard = outputGuardrail(reply, context);
   let safeReply = guard.passed ? reply : (guard.replacement ?? reply);
+
+  if (!safeReply.trim()) {
+    safeReply = escalation
+      ? context.locale === "de"
+        ? "Für diese Anfrage ist Live-Support verfügbar."
+        : "Live support is available for this request."
+      : aiUnavailableReply(context.locale);
+  }
 
   // A mixed bilingual answer is replaced with a locale-safe fallback instead
   // of showing two languages in one bubble.
@@ -161,6 +174,7 @@ const finalize = (
     reply: safeReply,
     agent,
     provider,
+    available,
     action: escalation ? "escalate" : "reply",
     escalationReason: escalation?.reason ?? null,
     requiresSuperAdmin: escalation?.requiresSuperAdmin ?? false,

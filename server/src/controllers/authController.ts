@@ -1,12 +1,11 @@
 import type { Request, RequestHandler, Response } from "express";
 import mongoose from "mongoose";
 
-import { PasswordReset, User, type IUser, type IUserBan } from "#models";
+import { PasswordReset, User, type IUserBan } from "#models";
 import { deleteProfileImageFromCloudinary, uploadProfileImage } from "#middlewares";
 import {
   createRefreshSession,
   deleteUserAccount,
-  findBannedUserBySessionIp,
   listActiveRefreshSessions,
   type RefreshSessionContext,
   revokeAllRefreshSessions,
@@ -30,9 +29,6 @@ const serializeUser = (user: {
   email: string;
   roles: string[];
   profileImage?: { url: string; publicId: string } | null;
-  onboardingCompleted?: boolean;
-  primaryUseCase?: IUser["primaryUseCase"];
-  planningStyle?: IUser["planningStyle"];
   createdAt: Date;
   updatedAt: Date;
 }) => ({
@@ -42,9 +38,6 @@ const serializeUser = (user: {
   email: user.email,
   roles: user.roles,
   profileImage: user.profileImage ?? null,
-  onboardingCompleted: user.onboardingCompleted ?? true,
-  primaryUseCase: user.primaryUseCase ?? null,
-  planningStyle: user.planningStyle ?? null,
   createdAt: user.createdAt,
   updatedAt: user.updatedAt,
 });
@@ -103,26 +96,11 @@ export const register: RequestHandler = async (request, response) => {
     throw new AppError("An account with this email already exists", 409);
   }
 
-  // A shared network can create false positives, but the product requirement
-  // intentionally blocks registration while any matching banned session
-  // document still exists. The session collection is the source of truth.
-  const bannedByIp = await findBannedUserBySessionIp(request.ip);
-  if (bannedByIp) {
-    const german = request.acceptsLanguages("de", "en") === "de";
-    throw new AppError(
-      german
-        ? "Die Registrierung ist über dieses Netzwerk vorübergehend nicht verfügbar."
-        : "Registration is temporarily unavailable from this network.",
-      403,
-    );
-  }
-
   const user = await User.create({
     firstName,
     lastName,
     email,
     password,
-    onboardingCompleted: false,
   });
   let accessToken: string;
 
@@ -190,28 +168,6 @@ export const getMe: RequestHandler = async (request, response) => {
 
   response.status(200).json({
     success: true,
-    data: { user: serializeUser(user) },
-  });
-};
-
-export const completeOnboarding: RequestHandler = async (request, response) => {
-  const authUser = requireAuthUser(request);
-  const user = await User.findByIdAndUpdate(
-    authUser.userId,
-    {
-      $set: {
-        primaryUseCase: request.body.primaryUseCase,
-        planningStyle: request.body.planningStyle,
-        onboardingCompleted: true,
-      },
-    },
-    { new: true, runValidators: true },
-  );
-
-  if (!user) throw new AppError("User not found", 404);
-  response.status(200).json({
-    success: true,
-    message: "Onboarding completed successfully",
     data: { user: serializeUser(user) },
   });
 };

@@ -56,7 +56,7 @@ const copy = {
       },
       {
         title: "See momentum",
-        description: "A clean dashboard turns daily activity into visible progress.",
+        description: "A clean dashboard turns daily work into visible progress.",
       },
       {
         title: "Stay in control",

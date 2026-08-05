@@ -1,13 +1,13 @@
 /** Google Gemini `generateContent` provider. */
 
-import type { ChatProvider, ProviderRequest } from "./types.ts";
+import type { ChatProvider, ProviderCompletion, ProviderRequest } from "./types.ts";
 import { fetchWithTimeout, normalizeSecret } from "./http.ts";
 
 const callGemini = async (
   apiKey: string,
   model: string,
   request: ProviderRequest,
-): Promise<string> => {
+): Promise<ProviderCompletion> => {
   const contents = [
     ...request.history.slice(-16),
     { role: "user" as const, content: request.message },
@@ -28,20 +28,50 @@ const callGemini = async (
           temperature: request.temperature,
           maxOutputTokens: request.maxTokens,
         },
+        ...(request.tools?.length
+          ? {
+              tools: [
+                {
+                  functionDeclarations: request.tools.map((tool) => ({
+                    name: tool.name,
+                    description: tool.description,
+                    parameters: tool.inputSchema,
+                  })),
+                },
+              ],
+            }
+          : {}),
       }),
     },
   );
 
   if (!response.ok) throw new Error(`Gemini returned ${response.status}`);
   const payload = (await response.json()) as {
-    candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
+    candidates?: Array<{
+      content?: {
+        parts?: Array<{
+          text?: string;
+          functionCall?: { name?: string; args?: unknown };
+        }>;
+      };
+    }>;
   };
-  const text = payload.candidates?.[0]?.content?.parts
+  const parts = payload.candidates?.[0]?.content?.parts ?? [];
+  const text = parts
     ?.map((part) => part.text ?? "")
     .join("\n")
     .trim();
-  if (!text) throw new Error("Gemini returned an empty response");
-  return text;
+  const toolCalls = parts
+    .filter((part) => Boolean(part.functionCall?.name))
+    .map((part, index) => ({
+      id: `tool-${index}`,
+      name: part.functionCall?.name ?? "",
+      arguments: part.functionCall?.args ?? {},
+    }));
+  if (!text && toolCalls.length === 0) {
+    throw new Error("Gemini returned an empty response");
+  }
+  return { text, toolCalls };
 };
 
 export const geminiProvider: ChatProvider = {

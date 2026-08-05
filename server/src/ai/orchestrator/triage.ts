@@ -22,15 +22,14 @@ const ACCOUNT_PATTERN =
   /\b(login|log in|anmeld|register|registrier|password|passwort|email|e-mail|session|sitzung|device|gerät|profile|profil|account|konto|banned|gesperrt|revoke|widerruf)\b/i;
 
 /**
- * Decides the target agent. Guardrails are evaluated first: a wrong-language
- * or out-of-scope message routes to the Offline Assistant, which returns the
- * appropriate predefined refusal (the triage router itself stays silent).
+ * Decides the target agent. Guardrails are evaluated before agent execution;
+ * blocked requests receive a predefined response from the orchestrator.
  */
 export const triage = (message: string, context: AssistantContext): TriageDecision => {
   // 1. Language guardrail — unsupported languages are refused offline.
   if (!languageGuardrail(message).passed) {
     return {
-      agent: "offline",
+      agent: "website-help",
       reason: "unsupported-language",
       outOfScope: false,
       wrongLanguage: true,
@@ -40,7 +39,7 @@ export const triage = (message: string, context: AssistantContext): TriageDecisi
   // 2. Scope guardrail — unrelated topics are refused offline.
   if (!scopeGuardrail(message).passed) {
     return {
-      agent: "offline",
+      agent: "website-help",
       reason: "out-of-scope",
       outOfScope: true,
       wrongLanguage: false,

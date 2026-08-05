@@ -5,12 +5,35 @@
  * OpenRouter. Both speak the same `/chat/completions` schema.
  */
 
-import type { ChatProvider, ProviderRequest } from "./types.ts";
+import type {
+  ChatProvider,
+  ProviderCompletion,
+  ProviderRequest,
+  ProviderToolCall,
+} from "./types.ts";
 import { fetchWithTimeout, normalizeSecret } from "./http.ts";
 
 interface OpenAiLikeResponse {
-  choices?: Array<{ message?: { content?: string | null } }>;
+  choices?: Array<{
+    message?: {
+      content?: string | null;
+      tool_calls?: Array<{
+        id?: string;
+        type?: string;
+        function?: { name?: string; arguments?: string };
+      }>;
+    };
+  }>;
 }
+
+const parseToolArguments = (value: string | undefined): unknown => {
+  if (!value) return {};
+  try {
+    return JSON.parse(value) as unknown;
+  } catch {
+    return null;
+  }
+};
 
 const callOpenAiCompatible = async (
   endpoint: string,
@@ -18,7 +41,7 @@ const callOpenAiCompatible = async (
   model: string,
   request: ProviderRequest,
   extraHeaders: Record<string, string> = {},
-): Promise<string> => {
+): Promise<ProviderCompletion> => {
   const response = await fetchWithTimeout(endpoint, {
     method: "POST",
     headers: {
@@ -35,15 +58,38 @@ const callOpenAiCompatible = async (
       ],
       temperature: request.temperature,
       max_tokens: request.maxTokens,
+      ...(request.tools?.length
+        ? {
+            tools: request.tools.map((tool) => ({
+              type: "function",
+              function: {
+                name: tool.name,
+                description: tool.description,
+                parameters: tool.inputSchema,
+              },
+            })),
+            tool_choice: "auto",
+          }
+        : {}),
     }),
   });
 
   if (!response.ok) throw new Error(`AI provider returned ${response.status}`);
 
   const payload = (await response.json()) as OpenAiLikeResponse;
-  const text = payload.choices?.[0]?.message?.content?.trim();
-  if (!text) throw new Error("AI provider returned an empty response");
-  return text;
+  const message = payload.choices?.[0]?.message;
+  const text = message?.content?.trim() ?? "";
+  const toolCalls: ProviderToolCall[] = (message?.tool_calls ?? [])
+    .filter((item) => item.type === "function" && Boolean(item.function?.name))
+    .map((item, index) => ({
+      id: item.id ?? `tool-${index}`,
+      name: item.function?.name ?? "",
+      arguments: parseToolArguments(item.function?.arguments),
+    }));
+  if (!text && toolCalls.length === 0) {
+    throw new Error("AI provider returned an empty response");
+  }
+  return { text, toolCalls };
 };
 
 /** Native OpenAI provider. */

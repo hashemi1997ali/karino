@@ -14,7 +14,14 @@ import {
   X,
 } from "lucide-react";
 import Link from "next/link";
-import { useLayoutEffect, useMemo, useRef, useState } from "react";
+import {
+  type ReactNode,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -77,7 +84,6 @@ const copy = {
     draft: "Task draft",
     description: "Description",
     due: "Due",
-    noDueDate: "No due date",
     confirm: "Confirm & create",
     dismiss: "Dismiss",
     creating: "Creating…",
@@ -87,6 +93,7 @@ const copy = {
     taskCreated: "Task created successfully.",
     draftDismissed: "Task draft dismissed.",
     send: "Send",
+    thinking: "AI is thinking…",
   },
   de: {
     title: "AI Assistant",
@@ -118,7 +125,6 @@ const copy = {
     draft: "Aufgabenentwurf",
     description: "Beschreibung",
     due: "Fällig",
-    noDueDate: "Kein Fälligkeitsdatum",
     confirm: "Bestätigen & erstellen",
     dismiss: "Verwerfen",
     creating: "Wird erstellt…",
@@ -128,10 +134,73 @@ const copy = {
     taskCreated: "Aufgabe wurde erstellt.",
     draftDismissed: "Aufgabenentwurf wurde verworfen.",
     send: "Senden",
+    thinking: "KI denkt nach…",
   },
 } as const;
 
 type Copy = (typeof copy)["en"] | (typeof copy)["de"];
+
+type PendingUserMessage = {
+  content: string;
+  createdAt: string;
+  conversationId: string | null;
+  previousMatchingMessages: number;
+};
+
+function ProgressiveAssistantMessage({
+  message,
+  name,
+  reveal,
+  onRevealComplete,
+  children,
+}: {
+  message: AssistantMessage;
+  name: string;
+  reveal: boolean;
+  onRevealComplete: () => void;
+  children?: ReactNode;
+}) {
+  const [visibleLength, setVisibleLength] = useState(() =>
+    reveal ? Math.min(1, message.content.length) : message.content.length,
+  );
+  const onRevealCompleteRef = useRef(onRevealComplete);
+
+  useEffect(() => {
+    onRevealCompleteRef.current = onRevealComplete;
+  }, [onRevealComplete]);
+
+  const complete = visibleLength >= message.content.length;
+
+  useEffect(() => {
+    if (!reveal) return;
+    const step = Math.max(1, Math.ceil(message.content.length / 100));
+    const timer = window.setInterval(() => {
+      setVisibleLength((current) => {
+        const next = Math.min(message.content.length, current + step);
+        if (next >= message.content.length) {
+          window.clearInterval(timer);
+          onRevealCompleteRef.current();
+        }
+        return next;
+      });
+    }, 24);
+
+    return () => window.clearInterval(timer);
+  }, [message.content.length, reveal]);
+
+  return (
+    <div>
+      <ChatMessageBubble
+        direction="incoming"
+        content={`${message.content.slice(0, visibleLength)}${complete ? "" : " |"}`}
+        markdown
+        createdAt={message.createdAt}
+        name={name}
+      />
+      {complete && children}
+    </div>
+  );
+}
 
 function ProposalCard({
   proposal,
@@ -161,11 +230,9 @@ function ProposalCard({
         </TaskPriorityBadge>
       </div>
       <p className="mt-3 text-sm font-semibold">{proposal.title}</p>
-      {proposal.description && (
-        <p className="mt-1 text-sm leading-6 text-[var(--muted)]">
-          {proposal.description}
-        </p>
-      )}
+      <p className="mt-1 text-sm leading-6 text-[var(--muted)]">
+        {proposal.description || "—"}
+      </p>
       <p className="mt-3 flex items-center gap-2 text-xs text-[var(--muted)]">
         <Clock3 className="size-3.5" />
         {t.due}:{" "}
@@ -173,7 +240,7 @@ function ProposalCard({
           ? new Intl.DateTimeFormat(intlLocale, { dateStyle: "medium" }).format(
               new Date(proposal.dueDate),
             )
-          : t.noDueDate}
+          : "—"}
       </p>
       {pending ? (
         <div className="mt-3 flex flex-wrap gap-2">
@@ -224,6 +291,11 @@ export function AssistantView() {
   const [mobileThreadOpen, setMobileThreadOpen] = useState(false);
   const [suggestionsOpen, setSuggestionsOpen] = useState(false);
   const [message, setMessage] = useState("");
+  const [pendingUserMessage, setPendingUserMessage] = useState<PendingUserMessage | null>(
+    null,
+  );
+  const [latestResponseId, setLatestResponseId] = useState<string | null>(null);
+  const revealedResponseIdsRef = useRef(new Set<string>());
   const messagesRef = useRef<HTMLDivElement>(null);
 
   const conversationsQuery = useQuery({
@@ -251,10 +323,17 @@ export function AssistantView() {
   useLayoutEffect(() => {
     const frame = window.requestAnimationFrame(() => {
       const messages = messagesRef.current;
-      if (messages) messages.scrollTop = messages.scrollHeight;
+      if (messages) {
+        messages.scrollTo({
+          top: messages.scrollHeight,
+          behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches
+            ? "auto"
+            : "smooth",
+        });
+      }
     });
     return () => window.cancelAnimationFrame(frame);
-  }, [mobileThreadOpen, selected?.id, selected?.messages.length]);
+  }, [mobileThreadOpen, pendingUserMessage, selected?.id, selected?.messages.length]);
 
   const replaceConversation = (conversation: AssistantConversation) => {
     queryClient.setQueryData<AssistantConversation[]>(
@@ -273,12 +352,20 @@ export function AssistantView() {
         ? sendAssistantMessageRequest(selected.id, content, locale)
         : createAssistantConversationRequest(content, locale),
     onSuccess: ({ conversation }) => {
+      const responseMessage = conversation.messages.at(-1);
+      if (responseMessage?.sender === "assistant") {
+        setLatestResponseId(responseMessage.id);
+      }
+      setPendingUserMessage(null);
       replaceConversation(conversation);
-      setMessage("");
       setSuggestionsOpen(false);
       setMobileThreadOpen(true);
     },
-    onError: (error) => toast.error(getErrorMessage(error, locale)),
+    onError: (error, content) => {
+      setPendingUserMessage(null);
+      setMessage((current) => current || content);
+      toast.error(getErrorMessage(error, locale));
+    },
   });
 
   const confirmMutation = useMutation({
@@ -323,11 +410,48 @@ export function AssistantView() {
 
   const submit = (value = message) => {
     const content = value.trim();
-    if (content && !sendMutation.isPending) sendMutation.mutate(content);
+    if (!content || sendMutation.isPending) return;
+
+    const currentMessages = selected?.messages ?? [];
+    setPendingUserMessage({
+      content,
+      createdAt: new Date().toISOString(),
+      conversationId: selected?.id ?? null,
+      previousMatchingMessages: currentMessages.filter(
+        (item) => item.sender === "user" && item.content === content,
+      ).length,
+    });
+    setMessage("");
+    setSuggestionsOpen(false);
+    setMobileThreadOpen(true);
+    sendMutation.mutate(content);
   };
 
   const proposalBusy = confirmMutation.isPending || dismissMutation.isPending;
   const threadOpen = mobileThreadOpen || conversations.length === 0;
+  const selectedMessages = selected?.messages ?? [];
+  const pendingBelongsToSelected =
+    pendingUserMessage?.conversationId === (selected?.id ?? null);
+  const pendingMessagePersisted = Boolean(
+    pendingUserMessage &&
+    selectedMessages.filter(
+      (item) => item.sender === "user" && item.content === pendingUserMessage.content,
+    ).length > pendingUserMessage.previousMatchingMessages,
+  );
+  const displayMessages: AssistantMessage[] = [
+    ...selectedMessages,
+    ...(pendingUserMessage && pendingBelongsToSelected && !pendingMessagePersisted
+      ? [
+          {
+            id: "pending-assistant-user-message",
+            sender: "user" as const,
+            content: pendingUserMessage.content,
+            taskProposal: null,
+            createdAt: pendingUserMessage.createdAt,
+          },
+        ]
+      : []),
+  ];
 
   return (
     <div className="md:flex md:h-[calc(100dvh-10.25rem)] md:min-h-0 md:flex-col md:overflow-hidden">
@@ -419,47 +543,72 @@ export function AssistantView() {
               ref={messagesRef}
               className="absolute inset-0 overflow-y-auto px-3 pb-4 sm:px-4"
             >
-              {selected?.messages.length ? (
+              {displayMessages.length ? (
                 <>
                   <DateGroupedMessageList
-                    items={selected.messages}
+                    items={displayMessages}
                     formatDate={(value) =>
                       new Intl.DateTimeFormat(intlLocale, {
                         dateStyle: "medium",
                       }).format(new Date(value))
                     }
-                    renderItem={(item: AssistantMessage) => (
-                      <div>
+                    renderItem={(item: AssistantMessage) =>
+                      item.sender === "user" ? (
                         <ChatMessageBubble
-                          direction={item.sender === "user" ? "outgoing" : "incoming"}
+                          direction="outgoing"
                           content={item.content}
-                          markdown={item.sender === "assistant"}
                           createdAt={item.createdAt}
-                          name={item.sender === "user" ? t.you : t.assistant}
+                          name={t.you}
                         />
-                        {item.taskProposal && selected && (
-                          <ProposalCard
-                            proposal={item.taskProposal}
-                            t={t}
-                            intlLocale={intlLocale}
-                            busy={proposalBusy}
-                            onConfirm={() =>
-                              confirmMutation.mutate({
-                                conversationId: selected.id,
-                                messageId: item.id,
-                              })
-                            }
-                            onDismiss={() =>
-                              dismissMutation.mutate({
-                                conversationId: selected.id,
-                                messageId: item.id,
-                              })
-                            }
-                          />
-                        )}
-                      </div>
-                    )}
+                      ) : (
+                        <ProgressiveAssistantMessage
+                          message={item}
+                          name={t.assistant}
+                          reveal={
+                            item.id === latestResponseId &&
+                            !revealedResponseIdsRef.current.has(item.id)
+                          }
+                          onRevealComplete={() =>
+                            revealedResponseIdsRef.current.add(item.id)
+                          }
+                        >
+                          {item.taskProposal && selected && (
+                            <ProposalCard
+                              proposal={item.taskProposal}
+                              t={t}
+                              intlLocale={intlLocale}
+                              busy={proposalBusy}
+                              onConfirm={() =>
+                                confirmMutation.mutate({
+                                  conversationId: selected.id,
+                                  messageId: item.id,
+                                })
+                              }
+                              onDismiss={() =>
+                                dismissMutation.mutate({
+                                  conversationId: selected.id,
+                                  messageId: item.id,
+                                })
+                              }
+                            />
+                          )}
+                        </ProgressiveAssistantMessage>
+                      )
+                    }
                   />
+                  {sendMutation.isPending && pendingBelongsToSelected && (
+                    <div
+                      className="mt-3 animate-pulse"
+                      role="status"
+                      aria-label={t.thinking}
+                    >
+                      <ChatMessageBubble
+                        direction="incoming"
+                        content="•••"
+                        name={t.assistant}
+                      />
+                    </div>
+                  )}
                 </>
               ) : (
                 <div className="grid h-full place-items-center px-4 text-center">
@@ -515,7 +664,6 @@ export function AssistantView() {
                 placeholder={t.placeholder}
                 aria-label={t.placeholder}
                 rows={1}
-                disabled={sendMutation.isPending}
                 className="min-h-11 min-w-0 flex-1 resize-none bg-transparent px-2 py-2.5 text-base leading-6 outline-none disabled:opacity-50 sm:text-sm"
                 dir="auto"
               />

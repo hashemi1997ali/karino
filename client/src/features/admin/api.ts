@@ -24,12 +24,6 @@ export interface AdminOverview {
   unansweredContacts: number;
   bannedUsers: number;
   weeklyProgress: Array<{ date: string; completed: number }>;
-  recentActivity: Array<{
-    _id: string;
-    type: import("@/lib/types").ActivityType;
-    label: string;
-    createdAt: string;
-  }>;
 }
 
 export const getAdminOverviewRequest = () => apiRequest<AdminOverview>("/admin/overview");
@@ -119,9 +113,11 @@ export const deleteUserRequest = (id: string): Promise<void> =>
 
 export const getUserTasksRequest = async (
   userId: string,
+  page = 1,
+  limit = 10,
 ): Promise<{ tasks: import("@/lib/types").Task[]; pagination: Pagination }> =>
   apiRequest<{ tasks: import("@/lib/types").Task[]; pagination: Pagination }>(
-    `/admin/users/${userId}/tasks?page=1&limit=50`,
+    `/admin/users/${userId}/tasks?page=${page}&limit=${limit}`,
   );
 
 export const updateUserTaskRequest = async (

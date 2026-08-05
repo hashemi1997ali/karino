@@ -1,7 +1,6 @@
 import type { HydratedDocument } from "mongoose";
 
 import {
-  Activity,
   AssistantConversation,
   ContactSubmission,
   PasswordReset,
@@ -17,7 +16,6 @@ export interface AccountDeletionResult {
   deletedTaskCount: number;
   deletedChatCount: number;
   deletedAssistantConversationCount: number;
-  deletedActivityCount: number;
 }
 
 export const deleteUserAccount = async (
@@ -33,21 +31,14 @@ export const deleteUserAccount = async (
     },
   );
 
-  const [
-    taskDeleteResult,
-    chatDeleteResult,
-    assistantConversationDeleteResult,
-    activityDeleteResult,
-  ] = await Promise.all([
-    Task.deleteMany({ owner: user._id }),
-    SupportChat.deleteMany({ user: user._id }),
-    AssistantConversation.deleteMany({ user: user._id }),
-    Activity.deleteMany({
-      $or: [{ user: user._id }, { actor: user._id }],
-    }),
-    RefreshSession.deleteMany({ user: user._id }),
-    PasswordReset.deleteMany({ user: user._id }),
-  ]);
+  const [taskDeleteResult, chatDeleteResult, assistantConversationDeleteResult] =
+    await Promise.all([
+      Task.deleteMany({ owner: user._id }),
+      SupportChat.deleteMany({ user: user._id }),
+      AssistantConversation.deleteMany({ user: user._id }),
+      RefreshSession.deleteMany({ user: user._id }),
+      PasswordReset.deleteMany({ user: user._id }),
+    ]);
 
   await Promise.all([
     SupportChat.updateMany(
@@ -78,6 +69,5 @@ export const deleteUserAccount = async (
     deletedTaskCount: taskDeleteResult.deletedCount,
     deletedChatCount: chatDeleteResult.deletedCount,
     deletedAssistantConversationCount: assistantConversationDeleteResult.deletedCount,
-    deletedActivityCount: activityDeleteResult.deletedCount,
   };
 };

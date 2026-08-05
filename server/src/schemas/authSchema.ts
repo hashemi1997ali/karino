@@ -89,13 +89,6 @@ export const resetPasswordSchema = z
   })
   .strict();
 
-export const onboardingSchema = z
-  .object({
-    primaryUseCase: z.enum(["personal", "study", "work", "projects", "other"]),
-    planningStyle: z.enum(["simple", "daily", "priority"]),
-  })
-  .strict();
-
 export type RegisterInput = z.infer<typeof registerSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
 export type UpdateProfileInput = z.infer<typeof updateProfileSchema>;

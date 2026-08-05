@@ -36,20 +36,7 @@ const copy = {
     currentSnapshot: "Current snapshot",
     weekly: "Weekly progress",
     lastSevenDays: "Last 7 days",
-    recent: "Recent workspace activity",
-    noActivity: "No recent activity yet.",
     completedTasks: (count: number) => `${count} task${count === 1 ? "" : "s"} completed`,
-    activityLabels: {
-      task_created: "Task created",
-      task_updated: "Task updated",
-      task_completed: "Task completed",
-      task_deleted: "Task deleted",
-      sign_in: "User signed in",
-      password_changed: "Password changed",
-      session_revoked: "Session revoked",
-      support_opened: "Support opened",
-      support_resolved: "Support resolved",
-    },
   },
   de: {
     title: "Admin-Übersicht",
@@ -67,21 +54,8 @@ const copy = {
     currentSnapshot: "Aktueller Stand",
     weekly: "Wochenfortschritt",
     lastSevenDays: "Letzte 7 Tage",
-    recent: "Letzte Arbeitsbereich-Aktivitäten",
-    noActivity: "Noch keine aktuellen Aktivitäten.",
     completedTasks: (count: number) =>
       `${count} Aufgabe${count === 1 ? "" : "n"} erledigt`,
-    activityLabels: {
-      task_created: "Aufgabe erstellt",
-      task_updated: "Aufgabe aktualisiert",
-      task_completed: "Aufgabe erledigt",
-      task_deleted: "Aufgabe gelöscht",
-      sign_in: "Benutzer angemeldet",
-      password_changed: "Passwort geändert",
-      session_revoked: "Sitzung widerrufen",
-      support_opened: "Support geöffnet",
-      support_resolved: "Support gelöst",
-    },
   },
 } as const;
 
@@ -201,28 +175,6 @@ export function AdminOverviewView() {
           </div>
         </Card>
       </div>
-      <Card className="mt-5 p-5">
-        <h3 className="font-semibold">{t.recent}</h3>
-        {query.data.recentActivity.length === 0 ? (
-          <p className="mt-4 text-sm text-[var(--muted)]">{t.noActivity}</p>
-        ) : (
-          <ul className="mt-5 grid gap-3 sm:grid-cols-2">
-            {query.data.recentActivity.map((activity) => (
-              <li key={activity._id} className="flex min-w-0 items-start gap-3">
-                <span className="mt-1.5 size-2 shrink-0 rounded-full bg-[var(--primary)]" />
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-medium">
-                    {t.activityLabels[activity.type]}
-                  </p>
-                  <p className="mt-0.5 truncate text-xs text-[var(--muted)]">
-                    {activity.label}
-                  </p>
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
-      </Card>
     </div>
   );
 }

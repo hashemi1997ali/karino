@@ -1,12 +1,12 @@
 /**
  * Core type definitions for the modular AI assistant system.
  *
- * The assistant is composed of five logical components:
+ * The assistant is composed of four logical components:
  *  - Triage Router      (internal only, never replies to the user)
  *  - Website Help Agent  (public and signed-in website guidance)
  *  - Task Agent          (private planning guidance and task proposals)
  *  - Staff Account Agent (admin / super_admin account operations)
- *  - Offline Assistant   (no LLM, predefined responses only)
+ * Provider unavailability is a fallback state, not an agent.
  *
  * Guardrails (Language, Scope, Permission, Output) are applied centrally
  * by the orchestrator before and after every agent invocation.
@@ -16,7 +16,7 @@
 export type AssistantLocale = "en" | "de";
 
 /** Internal agent identifiers used for routing, logging and serialisation. */
-export type AgentId = "triage-router" | "website-help" | "task" | "staff" | "offline";
+export type AgentId = "triage-router" | "website-help" | "task" | "staff";
 
 /**
  * The set of agent identifiers that can appear in a user-visible reply.
@@ -81,6 +81,7 @@ export interface AssistantResult {
   reply: string;
   agent: ReplyAgentId;
   provider: string;
+  available: boolean;
   action: AssistantAction;
   escalationReason: EscalationReason | null;
   requiresSuperAdmin: boolean;
@@ -113,6 +114,8 @@ export interface AgentOutput {
   reply: string;
   /** Whether the agent used an LLM or produced a static reply. */
   usedLlm: boolean;
+  /** True only when no configured provider/model could produce a response. */
+  unavailable?: boolean;
 }
 
 /** Configuration for a single LLM provider call. */
