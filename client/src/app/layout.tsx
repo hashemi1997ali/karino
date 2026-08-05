@@ -14,12 +14,14 @@ import "./globals.css";
 
 const metadataByLocale: Record<Locale, { title: string; description: string }> = {
   en: {
-    title: "Karino | Smart task management",
-    description: "A simple, fast, and secure workspace for planning daily tasks.",
+    title: "Karino Desk | AI-first customer support",
+    description:
+      "A calm, time-aware support desk for customer requests, service-level targets, AI assistance, and live human help.",
   },
   de: {
-    title: "Karino | Intelligente Aufgabenverwaltung",
-    description: "Ein einfacher, schneller und sicherer Ort für deine Tagesplanung.",
+    title: "Karino Desk | KI-gestützter Kundensupport",
+    description:
+      "Ein übersichtlicher, zeitorientierter Support-Desk für Kundenanfragen, Serviceziele, KI-Unterstützung und persönlichen Support.",
   },
 };
 
@@ -32,8 +34,9 @@ export async function generateMetadata(): Promise<Metadata> {
   const locale = await getRequestLocale();
   const copy = metadataByLocale[locale];
   return {
-    title: { default: copy.title, template: `%s | Karino` },
+    title: { default: copy.title, template: `%s | Karino Desk` },
     description: copy.description,
+    applicationName: "Karino Desk",
   };
 }
 

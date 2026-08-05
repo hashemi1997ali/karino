@@ -3,7 +3,7 @@
 import * as Dialog from "@radix-ui/react-dialog";
 import {
   Bot,
-  CheckSquare2,
+  Clock3,
   Headphones,
   KeyRound,
   LayoutDashboard,
@@ -16,6 +16,7 @@ import {
   PanelLeftOpen,
   Plus,
   ShieldCheck,
+  TicketCheck,
   UserRound,
   UsersRound,
   X,
@@ -35,9 +36,9 @@ import { usePreferences } from "@/providers/preferences-provider";
 
 const copy = {
   en: {
-    today: "Today",
-    tasks: "Tasks",
-    assistant: "AI Assistant",
+    today: "Overview",
+    tasks: "My requests",
+    assistant: "AI triage",
     account: "Account",
     profile: "Profile details",
     appearance: "Appearance",
@@ -45,13 +46,13 @@ const copy = {
     sessions: "Active sessions",
     accountNavigation: "Account settings",
     overview: "Overview",
-    allTasks: "All tasks",
-    users: "Users",
+    allTasks: "Ticket queue",
+    users: "Customers",
     support: "Support",
     contact: "Contact",
     administration: "Administration",
     navigation: "Workspace navigation",
-    newTask: "New task",
+    newTask: "New request",
     more: "More",
     moreDescription: "Account and administration options.",
     close: "Close menu",
@@ -63,9 +64,9 @@ const copy = {
     expandSidebar: "Expand sidebar",
   },
   de: {
-    today: "Heute",
-    tasks: "Aufgaben",
-    assistant: "KI-Assistent",
+    today: "Übersicht",
+    tasks: "Meine Anfragen",
+    assistant: "KI-Triage",
     account: "Konto",
     profile: "Profildaten",
     appearance: "Darstellung",
@@ -73,13 +74,13 @@ const copy = {
     sessions: "Aktive Sitzungen",
     accountNavigation: "Kontoeinstellungen",
     overview: "Übersicht",
-    allTasks: "Alle Aufgaben",
-    users: "Benutzer",
+    allTasks: "Ticket-Warteschlange",
+    users: "Kunden",
     support: "Support",
     contact: "Kontakt",
     administration: "Administration",
     navigation: "Arbeitsbereich-Navigation",
-    newTask: "Neue Aufgabe",
+    newTask: "Neue Anfrage",
     more: "Mehr",
     moreDescription: "Konto- und Administrationsoptionen.",
     close: "Menü schließen",
@@ -121,7 +122,7 @@ export function AppShell({
   const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { locale } = usePreferences();
+  const { locale, intlLocale } = usePreferences();
   const { user, isAdmin, logout } = useAuth();
   const t = copy[locale];
   const [moreOpen, setMoreOpen] = useState(false);
@@ -135,10 +136,22 @@ export function AppShell({
   );
   const [tabletSidebarOpening, setTabletSidebarOpening] = useState(false);
   const [desktopSidebarOpening, setDesktopSidebarOpening] = useState(false);
+  const [localNow, setLocalNow] = useState<Date | null>(null);
+
+  useEffect(() => {
+    const updateClock = () => setLocalNow(new Date());
+    updateClock();
+    const interval = window.setInterval(updateClock, 30_000);
+    document.addEventListener("visibilitychange", updateClock);
+    return () => {
+      window.clearInterval(interval);
+      document.removeEventListener("visibilitychange", updateClock);
+    };
+  }, []);
   const workspaceLinks = useMemo<NavItem[]>(
     () => [
       { href: "/dashboard", label: t.today, icon: LayoutDashboard },
-      { href: "/tasks", label: t.tasks, icon: CheckSquare2 },
+      { href: "/tickets", label: t.tasks, icon: TicketCheck },
       { href: "/assistant", label: t.assistant, icon: Bot },
     ],
     [t],
@@ -179,7 +192,7 @@ export function AppShell({
   const adminLinks = useMemo<NavItem[]>(
     () => [
       { href: "/admin", label: t.overview, icon: ShieldCheck },
-      { href: "/admin/tasks", label: t.allTasks, icon: CheckSquare2 },
+      { href: "/admin/tickets", label: t.allTasks, icon: TicketCheck },
       { href: "/admin/users", label: t.users, icon: UsersRound },
       { href: "/admin/support", label: t.support, icon: Headphones },
       { href: "/admin/contact", label: t.contact, icon: Mail },
@@ -228,10 +241,8 @@ export function AppShell({
         title={compact ? label : undefined}
         onClick={() => setMoreOpen(false)}
         className={cn(
-          "focus-ring flex h-12 w-full items-center gap-3 overflow-hidden rounded-[10px] px-3.5 text-sm font-semibold transition-colors duration-150",
-          active
-            ? "bg-[var(--primary-soft)] text-[var(--primary)]"
-            : "text-[var(--muted)] hover:bg-[var(--surface-muted)] hover:text-[var(--foreground)]",
+          "desk-nav-link focus-ring flex h-11 w-full items-center gap-3 overflow-hidden rounded-[0.85rem] px-3.5 text-sm font-bold transition-[background-color,color,box-shadow] duration-150",
+          active ? "is-active" : undefined,
         )}
       >
         <Icon className="size-5 shrink-0" aria-hidden="true" />
@@ -250,17 +261,17 @@ export function AppShell({
   };
 
   const sidebarFooter = (compact: boolean) => (
-    <div className="shrink-0 border-t p-3">
+    <div className="shrink-0 border-t border-white/8 p-3">
       <Link
         href="/account"
         aria-current={pathname === "/account" ? "page" : undefined}
         title={compact ? t.account : undefined}
         onClick={() => setMoreOpen(false)}
         className={cn(
-          "focus-ring flex h-12 w-full items-center gap-3 overflow-hidden rounded-[var(--control-radius)] px-1 transition-colors",
+          "focus-ring flex h-[3.25rem] w-full items-center gap-3 overflow-hidden rounded-[0.9rem] border px-1.5 transition-colors",
           pathname === "/account"
-            ? "bg-[var(--primary-soft)] text-[var(--primary)]"
-            : "hover:bg-[var(--surface-muted)]",
+            ? "border-white/10 bg-white/10 text-white"
+            : "border-transparent text-white/75 hover:bg-white/5 hover:text-white",
         )}
       >
         <UserAvatar user={user} />
@@ -275,7 +286,7 @@ export function AppShell({
           <p className="truncate whitespace-nowrap text-sm font-semibold">
             {user?.firstName} {user?.lastName}
           </p>
-          <p className="mt-0.5 truncate whitespace-nowrap text-xs text-[var(--muted)]">
+          <p className="mt-0.5 truncate whitespace-nowrap text-xs text-white/45">
             {t.account}
           </p>
         </div>
@@ -283,7 +294,7 @@ export function AppShell({
       <Button
         variant="ghost"
         size="sm"
-        className="mt-1 h-12 w-full justify-start gap-3 overflow-hidden px-3.5"
+        className="mt-1 h-11 w-full justify-start gap-3 overflow-hidden px-3.5 text-white/55 hover:border-white/8 hover:bg-white/5 hover:text-white"
         aria-label={t.logout}
         title={compact ? t.logout : undefined}
         onClick={() => setConfirmLogout(true)}
@@ -304,14 +315,11 @@ export function AppShell({
   );
 
   const adminDivider = (compact = false) => (
-    <div className="relative my-4 h-5 shrink-0" aria-hidden="true">
-      <span className="absolute inset-x-0 top-1/2 border-t" />
+    <div className="my-5 shrink-0 px-3" aria-hidden="true">
       <span
         className={cn(
-          "absolute left-2 top-1/2 -translate-y-1/2 whitespace-nowrap px-2 text-[11px] font-semibold text-[var(--muted)] transition-opacity duration-150 motion-reduce:transition-none",
-          compact
-            ? "bg-transparent opacity-0"
-            : "bg-[var(--surface)] opacity-100 delay-100 motion-reduce:delay-0",
+          "desk-divider-label whitespace-nowrap transition-opacity duration-150 motion-reduce:transition-none",
+          compact ? "opacity-0" : "opacity-100 delay-100 motion-reduce:delay-0",
         )}
       >
         {t.administration}
@@ -324,7 +332,7 @@ export function AppShell({
 
     return (
       <>
-        <div className="flex h-[var(--site-header-height)] shrink-0 items-center gap-2 overflow-hidden border-b bg-[var(--surface)] px-4">
+        <div className="desk-sidebar-head flex h-[4.75rem] shrink-0 items-center gap-2 overflow-hidden px-4">
           <div
             className={cn(
               "group/sidebar-logo relative h-11 min-w-0",
@@ -340,7 +348,7 @@ export function AppShell({
                 title={t.expandSidebar}
                 className={cn(
                   "focus-ring absolute -left-0.5 top-0 z-0 size-11 rounded-[var(--control-radius)]",
-                  compact && "hover:bg-[var(--surface-muted)]",
+                  compact && "hover:bg-white/5",
                 )}
               />
             ) : (
@@ -359,6 +367,7 @@ export function AppShell({
               )}
             />
             <LogoWordmark
+              inverse
               className={cn(
                 "pointer-events-none absolute left-[3.125rem] top-1/2 z-10 -translate-y-1/2 transition-opacity duration-150 motion-reduce:transition-none",
                 showOpenControl
@@ -368,7 +377,7 @@ export function AppShell({
             />
             <PanelLeftOpen
               className={cn(
-                "pointer-events-none absolute left-5 top-1/2 z-10 size-5 -translate-x-1/2 -translate-y-1/2 text-[var(--foreground)] transition-opacity duration-150 motion-reduce:transition-none",
+                "pointer-events-none absolute left-5 top-1/2 z-10 size-5 -translate-x-1/2 -translate-y-1/2 text-white transition-opacity duration-150 motion-reduce:transition-none",
                 compact
                   ? "opacity-0 group-hover/sidebar-logo:opacity-100 group-focus-within/sidebar-logo:opacity-100"
                   : "opacity-0",
@@ -381,7 +390,7 @@ export function AppShell({
               variant="ghost"
               size="icon"
               className={cn(
-                "shrink-0 transition-opacity duration-150 motion-reduce:transition-none",
+                "shrink-0 text-white/55 transition-opacity duration-150 hover:border-white/8 hover:bg-white/5 hover:text-white motion-reduce:transition-none",
                 opening ? "pointer-events-none opacity-0" : "opacity-100",
               )}
               aria-label={t.collapseSidebar}
@@ -396,13 +405,13 @@ export function AppShell({
           )}
         </div>
         <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto px-3 py-4">
-          <nav className="space-y-1" aria-label={t.navigation}>
+          <nav className="space-y-1.5" aria-label={t.navigation}>
             {workspaceLinks.map((item) => navLink(item, compact))}
           </nav>
           {isAdmin && (
             <>
               {adminDivider(compact)}
-              <nav className="space-y-1" aria-label={t.administration}>
+              <nav className="space-y-1.5" aria-label={t.administration}>
                 {adminLinks.map((item) => navLink(item, compact))}
               </nav>
             </>
@@ -442,15 +451,15 @@ export function AppShell({
   return (
     <div
       className={cn(
-        "min-h-dvh bg-[var(--background)] transition-[padding] duration-300 ease-out motion-reduce:transition-none",
-        tabletSidebarCollapsed ? "md:pl-[4.5rem]" : "md:pl-[15.5rem]",
-        desktopSidebarCollapsed ? "xl:pl-[4.5rem]" : "xl:pl-[15.5rem]",
+        "desk-shell min-h-dvh transition-[padding] duration-300 ease-out motion-reduce:transition-none",
+        tabletSidebarCollapsed ? "md:pl-[5.75rem]" : "md:pl-[17.25rem]",
+        desktopSidebarCollapsed ? "xl:pl-[5.75rem]" : "xl:pl-[17.25rem]",
       )}
     >
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-30 max-md:hidden overflow-hidden flex-col border-r bg-[var(--surface)] transition-[width] duration-300 ease-out motion-reduce:transition-none md:flex xl:hidden",
-          tabletSidebarCollapsed ? "w-[4.5rem]" : "w-[15.5rem]",
+          "desk-sidebar fixed inset-y-3 left-3 z-30 max-md:hidden overflow-hidden flex-col transition-[width] duration-300 ease-out motion-reduce:transition-none md:flex xl:hidden",
+          tabletSidebarCollapsed ? "w-[4.75rem]" : "w-[15.75rem]",
         )}
       >
         {sidebarContent(
@@ -461,8 +470,8 @@ export function AppShell({
       </aside>
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-30 max-xl:hidden overflow-hidden flex-col border-r bg-[var(--surface)] transition-[width] duration-300 ease-out motion-reduce:transition-none xl:flex",
-          desktopSidebarCollapsed ? "w-[4.5rem]" : "w-[15.5rem]",
+          "desk-sidebar fixed inset-y-3 left-3 z-30 max-xl:hidden overflow-hidden flex-col transition-[width] duration-300 ease-out motion-reduce:transition-none xl:flex",
+          desktopSidebarCollapsed ? "w-[4.75rem]" : "w-[15.75rem]",
         )}
       >
         {sidebarContent(
@@ -472,40 +481,79 @@ export function AppShell({
         )}
       </aside>
 
-      <header className="sticky top-0 z-40 h-[var(--site-header-height)] border-b bg-[var(--surface)]">
-        <div className="mx-auto flex h-full w-full max-w-[88rem] items-center justify-between gap-3 px-4 sm:px-6 lg:px-8">
+      <header className="sticky top-0 z-40 px-3 pt-3 sm:px-5 lg:px-7">
+        <div className="desk-topbar mx-auto flex h-[4.5rem] w-full max-w-[100rem] items-center justify-between gap-3 px-3.5 sm:px-5">
           <div className="flex min-w-0 items-center gap-3">
             <div className="md:hidden">
               <Logo compact />
             </div>
             <div className="min-w-0">
-              <p className="truncate text-base font-semibold">{current.label}</p>
-              <p className="text-[11px] text-[var(--muted)] md:hidden">Karino</p>
+              <p className="truncate text-[0.95rem] font-extrabold tracking-[-0.02em]">
+                {current.label}
+              </p>
+              <p className="text-[11px] text-[var(--muted)] md:hidden">
+                {localNow
+                  ? new Intl.DateTimeFormat(intlLocale, {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    }).format(localNow)
+                  : "—:—"}
+              </p>
             </div>
           </div>
-          <Link
-            href="/tasks?new=1"
-            className={buttonClassName({
-              size: "sm",
-              className: "max-md:hidden h-11 px-4 md:inline-flex",
-            })}
-          >
-            <Plus className="size-4" />
-            <span>{t.newTask}</span>
-          </Link>
+          <div className="flex items-center gap-3">
+            <time
+              dateTime={localNow?.toISOString()}
+              className="hidden min-w-31 items-center justify-end gap-2.5 rounded-[0.9rem] border bg-[var(--surface-muted)] px-3 py-1.5 text-right md:flex"
+            >
+              <Clock3
+                className="size-4 shrink-0 text-[var(--primary)]"
+                aria-hidden="true"
+              />
+              <span>
+                <span className="block text-sm font-bold tabular-nums">
+                  {localNow
+                    ? new Intl.DateTimeFormat(intlLocale, {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      }).format(localNow)
+                    : "—:—"}
+                </span>
+                <span className="hidden text-[10px] text-[var(--muted)] lg:block">
+                  {localNow
+                    ? new Intl.DateTimeFormat(intlLocale, {
+                        weekday: "short",
+                        month: "short",
+                        day: "numeric",
+                      }).format(localNow)
+                    : "—"}
+                </span>
+              </span>
+            </time>
+            <Link
+              href="/tickets?new=1"
+              className={buttonClassName({
+                size: "sm",
+                className: "max-md:hidden h-10 px-4 md:inline-flex",
+              })}
+            >
+              <Plus className="size-4" />
+              <span>{t.newTask}</span>
+            </Link>
+          </div>
         </div>
       </header>
 
       <main
         id="main-content"
         tabIndex={-1}
-        className="mx-auto min-h-[calc(100dvh-4.5rem)] w-full max-w-[88rem] px-4 py-6 pb-24 sm:px-6 md:pb-8 lg:px-8 lg:py-7"
+        className="desk-main min-h-[calc(100dvh-5.25rem)] px-4 py-6 pb-28 sm:px-6 md:pb-10 lg:px-8 lg:py-8"
       >
         {children}
       </main>
 
       <nav
-        className="fixed inset-x-0 bottom-0 z-30 grid h-[calc(4.375rem+env(safe-area-inset-bottom))] grid-cols-4 border-t bg-[color-mix(in_srgb,var(--surface)_96%,transparent)] px-1 pb-[env(safe-area-inset-bottom)] shadow-[0_-8px_24px_rgb(15_23_42_/_0.08)] backdrop-blur md:hidden"
+        className="fixed inset-x-3 bottom-3 z-30 grid h-[calc(4.25rem+env(safe-area-inset-bottom))] grid-cols-4 rounded-[1.35rem] border border-white/8 bg-[#10142a]/95 px-1 pb-[env(safe-area-inset-bottom)] text-white shadow-[0_20px_55px_rgb(7_10_24_/_0.38)] backdrop-blur-xl md:hidden"
         aria-label={t.navigation}
       >
         {workspaceLinks.slice(0, 3).map(({ href, label, icon: Icon }) => {
@@ -516,8 +564,8 @@ export function AppShell({
               href={href}
               aria-current={active ? "page" : undefined}
               className={cn(
-                "focus-ring grid min-w-0 place-items-center content-center gap-1 rounded-lg text-[11px] font-semibold",
-                active ? "text-[var(--primary)]" : "text-[var(--muted)]",
+                "focus-ring grid min-w-0 place-items-center content-center gap-1 rounded-[1rem] text-[10px] font-bold",
+                active ? "bg-white/8 text-[#a99cff]" : "text-white/48",
               )}
             >
               <Icon className="size-5" />
@@ -531,10 +579,10 @@ export function AppShell({
           aria-label={t.more}
           aria-expanded={moreOpen}
           className={cn(
-            "focus-ring grid place-items-center content-center gap-1 rounded-lg text-[11px] font-semibold",
+            "focus-ring grid place-items-center content-center gap-1 rounded-[1rem] text-[10px] font-bold",
             moreOpen || pathname.startsWith("/admin") || pathname === "/account"
-              ? "text-[var(--primary)]"
-              : "text-[var(--muted)]",
+              ? "bg-white/8 text-[#a99cff]"
+              : "text-white/48",
           )}
         >
           <Menu className="size-5" />

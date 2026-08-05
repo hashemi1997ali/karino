@@ -5,7 +5,7 @@ import { cn, initials } from "@/lib/utils";
 
 export const avatarFrameClassName = (className?: string): string =>
   cn(
-    "relative grid size-10 shrink-0 place-items-center overflow-hidden rounded-full border border-[color-mix(in_srgb,var(--foreground)_18%,var(--border))] bg-[var(--primary-soft)] text-sm font-black text-[var(--primary-dark)]",
+    "relative grid size-10 shrink-0 place-items-center overflow-hidden rounded-[0.9rem] border border-[color-mix(in_srgb,var(--primary)_18%,var(--border))] bg-[linear-gradient(145deg,var(--primary-soft),var(--surface))] text-sm font-black text-[var(--primary-dark)] shadow-[inset_0_1px_0_rgb(255_255_255_/_0.45)]",
     className,
   );
 

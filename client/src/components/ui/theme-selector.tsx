@@ -26,7 +26,7 @@ export function ThemeSelector({
   return (
     <div
       className={cn(
-        "grid grid-cols-3 gap-1 rounded-[var(--control-radius)] border bg-[var(--surface-muted)] p-1",
+        "grid grid-cols-3 gap-1.5 rounded-[1rem] border bg-[var(--surface-muted)] p-1.5",
         className,
       )}
       role="group"
@@ -41,9 +41,9 @@ export function ThemeSelector({
             onClick={() => onValueChange(option)}
             aria-pressed={selected}
             className={cn(
-              "focus-ring flex min-h-11 min-w-0 items-center justify-center gap-1.5 rounded-[calc(var(--control-radius)-0.2rem)] px-2 text-xs font-semibold transition-colors duration-200",
+              "focus-ring flex min-h-10 min-w-0 items-center justify-center gap-1.5 rounded-[0.7rem] px-2 text-xs font-bold transition-[background-color,color,box-shadow,transform] duration-200",
               selected
-                ? "bg-[var(--surface)] text-[var(--primary)] shadow-sm"
+                ? "bg-[var(--surface)] text-[var(--primary)] shadow-[0_6px_16px_rgb(30_35_65_/_0.08)]"
                 : "text-[var(--muted)] hover:bg-[var(--surface)]/60 hover:text-[var(--foreground)]",
             )}
           >

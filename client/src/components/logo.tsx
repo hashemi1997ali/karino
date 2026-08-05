@@ -1,4 +1,4 @@
-import { Check } from "lucide-react";
+import { MessageSquareText, Sparkles } from "lucide-react";
 import Link from "next/link";
 
 import { cn } from "@/lib/utils";
@@ -7,15 +7,17 @@ export function LogoMark({ className }: { className?: string }) {
   return (
     <span
       className={cn(
-        "relative grid size-10 shrink-0 rotate-[-3deg] place-items-center rounded-[0.9rem] bg-[var(--primary)] text-[var(--on-primary)] shadow-sm",
+        "relative grid size-10 shrink-0 place-items-center overflow-visible rounded-[0.9rem] bg-[linear-gradient(145deg,var(--primary),color-mix(in_srgb,var(--primary)_62%,var(--highlight)))] text-[var(--on-primary)] shadow-[0_10px_24px_var(--primary-glow)]",
         className,
       )}
     >
-      <Check className="size-5" strokeWidth={3} />
+      <MessageSquareText className="size-5" strokeWidth={2.25} />
       <span
-        className="logo-beacon absolute -right-1 -top-1 size-3 rounded-full border-2 border-[var(--surface)] bg-[var(--highlight)]"
+        className="logo-beacon absolute -right-1 -top-1 grid size-3.5 place-items-center rounded-full border-2 border-[var(--surface)] bg-[var(--highlight)] text-white"
         aria-hidden="true"
-      />
+      >
+        <Sparkles className="size-1.5" strokeWidth={3} />
+      </span>
     </span>
   );
 }
@@ -30,12 +32,20 @@ export function LogoWordmark({
   return (
     <span
       className={cn(
-        "overflow-hidden whitespace-nowrap text-xl font-black tracking-[-0.04em]",
+        "overflow-hidden whitespace-nowrap text-[1.18rem] font-black tracking-[-0.055em]",
         inverse ? "text-white" : "text-[var(--foreground)]",
         className,
       )}
     >
-      Karino
+      <span>Karino</span>
+      <span
+        className={cn(
+          "ml-1.5 text-[0.58em] font-extrabold uppercase tracking-[0.18em]",
+          inverse ? "text-white/70" : "text-[var(--primary)]",
+        )}
+      >
+        Desk
+      </span>
     </span>
   );
 }
@@ -73,7 +83,7 @@ export function Logo({
                 "transition-[max-width,opacity]",
                 compact
                   ? "max-w-0 opacity-0"
-                  : "max-w-24 opacity-100 delay-100 motion-reduce:delay-0",
+                  : "max-w-32 opacity-100 delay-100 motion-reduce:delay-0",
               ),
         )}
       />

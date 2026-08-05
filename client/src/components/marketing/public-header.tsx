@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, LayoutDashboard } from "lucide-react";
+import { ArrowRight, Inbox, Sparkles } from "lucide-react";
 import Link from "next/link";
 
 import { Logo } from "@/components/logo";
@@ -12,24 +12,24 @@ import { usePreferences } from "@/providers/preferences-provider";
 const copy = {
   en: {
     features: "Features",
-    workflow: "How it works",
+    workflow: "AI + human",
     security: "Security",
-    tasks: "My tasks",
+    tickets: "Open tickets",
+    assistant: "AI assistant",
     contact: "Contact",
-    dashboard: "My dashboard",
     login: "Log in",
-    start: "Start free",
+    start: "Start your desk",
     navigation: "Main navigation",
   },
   de: {
     features: "Funktionen",
-    workflow: "So funktioniert's",
+    workflow: "KI + Mensch",
     security: "Sicherheit",
-    tasks: "Meine Aufgaben",
+    tickets: "Tickets öffnen",
+    assistant: "KI-Assistent",
     contact: "Kontakt",
-    dashboard: "Mein Dashboard",
     login: "Anmelden",
-    start: "Kostenlos starten",
+    start: "Desk starten",
     navigation: "Hauptnavigation",
   },
 } as const;
@@ -42,39 +42,64 @@ export function PublicHeader() {
 
   return (
     <>
-      <header className="fixed inset-x-0 top-0 z-40 h-[var(--site-header-height)] border-b bg-[var(--surface)]">
-        <div className="mx-auto flex h-full max-w-[88rem] items-center justify-between px-4 sm:px-6 lg:px-8">
+      <header className="fixed inset-x-0 top-0 z-40 px-3 pt-3 sm:px-5">
+        <div className="mx-auto flex h-[4.5rem] max-w-[94rem] items-center justify-between gap-3 rounded-[1.35rem] border border-[color-mix(in_srgb,var(--border)_78%,transparent)] bg-[color-mix(in_srgb,var(--surface)_82%,transparent)] px-3.5 shadow-[0_14px_42px_rgb(24_29_57_/_0.1)] backdrop-blur-xl sm:px-4.5">
           <Logo />
           <nav
-            className="max-md:hidden items-center gap-8 text-sm font-bold text-[var(--muted)] md:flex"
+            className="max-md:hidden items-center gap-1 rounded-[0.9rem] border bg-[var(--surface-muted)] p-1 text-xs font-bold text-[var(--muted)] md:flex"
             aria-label={t.navigation}
           >
-            <Link href="/#features" className="hover:text-[var(--primary)]">
+            <Link
+              href="/#features"
+              className="rounded-[0.65rem] px-3 py-2 hover:bg-[var(--surface)] hover:text-[var(--primary)]"
+            >
               {t.features}
             </Link>
-            <Link href="/#workflow" className="hover:text-[var(--primary)]">
+            <Link
+              href="/#workflow"
+              className="rounded-[0.65rem] px-3 py-2 hover:bg-[var(--surface)] hover:text-[var(--primary)]"
+            >
               {t.workflow}
             </Link>
-            <Link href="/#security" className="hover:text-[var(--primary)]">
+            <Link
+              href="/#security"
+              className="rounded-[0.65rem] px-3 py-2 hover:bg-[var(--surface)] hover:text-[var(--primary)]"
+            >
               {t.security}
             </Link>
-            <Link href="/contact" className="hover:text-[var(--primary)]">
+            <Link
+              href="/contact"
+              className="rounded-[0.65rem] px-3 py-2 hover:bg-[var(--surface)] hover:text-[var(--primary)]"
+            >
               {t.contact}
             </Link>
           </nav>
           <div className="flex items-center gap-2">
             <PreferencesControls />
             {authenticated ? (
-              <Link
-                href="/dashboard"
-                className={buttonClassName({ size: "sm", className: "h-11 px-4" })}
-                aria-label={t.dashboard}
-              >
-                <LayoutDashboard className="size-4" />
-                <span className="max-[419px]:hidden min-[420px]:inline">
-                  {t.dashboard}
-                </span>
-              </Link>
+              <>
+                <Link
+                  href="/assistant"
+                  className={buttonClassName({
+                    variant: "secondary",
+                    size: "sm",
+                    className: "max-sm:hidden h-10 px-3.5 sm:inline-flex",
+                  })}
+                >
+                  <Sparkles className="size-4" />
+                  {t.assistant}
+                </Link>
+                <Link
+                  href="/tickets"
+                  className={buttonClassName({ size: "sm", className: "h-10 px-3.5" })}
+                  aria-label={t.tickets}
+                >
+                  <Inbox className="size-4" />
+                  <span className="max-[419px]:hidden min-[420px]:inline">
+                    {t.tickets}
+                  </span>
+                </Link>
+              </>
             ) : (
               <>
                 <Link
@@ -82,14 +107,14 @@ export function PublicHeader() {
                   className={buttonClassName({
                     variant: "secondary",
                     size: "sm",
-                    className: "max-sm:hidden h-11 px-4 sm:inline-flex",
+                    className: "max-sm:hidden h-10 px-3.5 sm:inline-flex",
                   })}
                 >
                   {t.login}
                 </Link>
                 <Link
                   href="/register"
-                  className={buttonClassName({ size: "sm", className: "h-11 px-4" })}
+                  className={buttonClassName({ size: "sm", className: "h-10 px-3.5" })}
                   aria-label={t.start}
                 >
                   <span className="max-[419px]:hidden min-[420px]:inline">{t.start}</span>
@@ -100,7 +125,7 @@ export function PublicHeader() {
           </div>
         </div>
       </header>
-      <div className="h-[var(--site-header-height)]" aria-hidden="true" />
+      <div className="h-[5.75rem]" aria-hidden="true" />
     </>
   );
 }

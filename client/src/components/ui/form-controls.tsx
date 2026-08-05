@@ -12,7 +12,7 @@ import { CircleAlert } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const fieldClass =
-  "focus-ring block w-full rounded-[var(--control-radius)] border bg-[var(--surface)] px-3.5 text-base text-[var(--foreground)] placeholder:text-[var(--muted)] focus:border-[var(--primary)] disabled:cursor-not-allowed disabled:bg-[var(--surface-muted)] sm:text-sm";
+  "desk-field focus-ring block w-full rounded-[var(--control-radius)] border px-3.5 text-base text-[var(--foreground)] placeholder:text-[color-mix(in_srgb,var(--muted)_72%,transparent)] disabled:cursor-not-allowed disabled:bg-[var(--surface-muted)] sm:text-sm";
 const invalidFieldClass =
   "border-rose-400 focus:border-rose-500 focus:shadow-[0_0_0_3px_rgba(244,63,94,.12)] dark:border-rose-400/80";
 
@@ -30,7 +30,7 @@ export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputE
     return (
       <input
         ref={ref}
-        className={cn(fieldClass, "h-11", field?.invalid && invalidFieldClass, className)}
+        className={cn(fieldClass, "h-12", field?.invalid && invalidFieldClass, className)}
         {...props}
         id={props.id ?? field?.controlId}
         aria-describedby={props["aria-describedby"] ?? field?.descriptionId}
@@ -70,7 +70,7 @@ export const Select = forwardRef<
   return (
     <select
       ref={ref}
-      className={cn(fieldClass, "h-11", field?.invalid && invalidFieldClass, className)}
+      className={cn(fieldClass, "h-12", field?.invalid && invalidFieldClass, className)}
       {...props}
       id={props.id ?? field?.controlId}
       aria-describedby={props["aria-describedby"] ?? field?.descriptionId}

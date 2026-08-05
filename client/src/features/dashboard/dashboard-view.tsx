@@ -1,29 +1,40 @@
 "use client";
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import {
   AlertTriangle,
-  Bot,
+  ArrowUpRight,
   CalendarCheck2,
+  CalendarClock,
   CheckCircle2,
-  Circle,
+  ClipboardList,
   Clock3,
-  ListTodo,
+  Hourglass,
+  MessageSquareReply,
   Sparkles,
+  TicketCheck,
 } from "lucide-react";
 import Link from "next/link";
-import { toast } from "sonner";
 
 import { buttonClassName } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { TaskPriorityBadge, TaskStatusBadge } from "@/components/ui/domain-badge";
+import {
+  TaskPriorityBadge,
+  TaskStatusBadge,
+  TicketCategoryBadge,
+} from "@/components/ui/domain-badge";
 import { ErrorState, LoadingState } from "@/components/ui/states";
 import { TrendChart } from "@/components/ui/trend-chart";
 import { useAuth } from "@/features/auth/auth-provider";
-import { getTodayDashboardRequest, updateTaskRequest } from "@/features/tasks/api";
+import { SlaCountdown } from "@/features/tasks/sla-countdown";
+import { getTodayDashboardRequest } from "@/features/tasks/api";
 import { getErrorMessage } from "@/lib/api-error";
-import type { Task, TodayDashboard } from "@/lib/types";
-import { cn, formatNumber, formatPercent, getId } from "@/lib/utils";
+import {
+  getTaskPriorityLabel,
+  getTaskStatusLabel,
+  getTicketCategoryLabel,
+} from "@/lib/domain-labels";
+import type { TodayDashboard } from "@/lib/types";
+import { cn, formatDateTime, formatNumber, getId } from "@/lib/utils";
 import { usePreferences } from "@/providers/preferences-provider";
 
 const copy = {
@@ -33,26 +44,34 @@ const copy = {
       afternoon: "Good afternoon",
       evening: "Good evening",
     },
-    intro: "Here’s what needs your attention today.",
-    tasksToday: "Tasks today",
-    completed: "Completed",
-    overdue: "Overdue",
-    completionRate: "Completion rate",
-    focus: "Today focus",
-    upcoming: "Upcoming",
-    aiBrief: "AI Daily Brief",
-    aiAction: "Fix my schedule",
-    askAi: "Ask AI about my day",
-    weekly: "Weekly progress",
+    intro: "Here is the latest on your support requests.",
+    openTickets: "Open requests",
+    waitingCustomer: "Waiting for you",
+    slaBreached: "SLA at risk",
+    resolvedToday: "Resolved today",
+    timeline: "Today's SLA timeline",
+    timelineDescription: "Deadlines in your local support day",
+    noTimeline: "No response, resolution, or requested deadlines today.",
+    responseDeadline: "Response",
+    resolutionDeadline: "Resolution",
+    requestedDeadline: "Requested",
+    now: "Current hour",
+    attention: "Needs attention",
+    upcoming: "Upcoming requested dates",
+    aiBrief: "Request summary",
+    aiAction: "Review my requests",
+    askAi: "Ask AI about a request",
+    weekly: "Resolved this week",
     lastSevenDays: "Last 7 days",
-    noTasks: "No active tasks need your attention.",
-    today: "Today",
-    overdueLabel: "Overdue",
-    noUpcoming: "No tasks",
-    scheduledTasks: (count: number) => `${count} task${count === 1 ? "" : "s"} scheduled`,
-    completedTasks: (count: number) => `${count} task${count === 1 ? "" : "s"} completed`,
-    priority: { low: "Low", medium: "Medium", high: "High" },
-    status: { todo: "To do", "in-progress": "In progress", done: "Done" },
+    noTickets: "No open requests need your attention.",
+    dueToday: "Requested today",
+    overdueLabel: "Past requested date",
+    noUpcoming: "No requests",
+    scheduledTickets: (count: number) =>
+      `${count} request${count === 1 ? "" : "s"} requested`,
+    resolvedTickets: (count: number) =>
+      `${count} ticket${count === 1 ? "" : "s"} resolved`,
+    requestedFor: "Requested resolution",
     brief: ({
       overdue,
       highPriority,
@@ -60,20 +79,20 @@ const copy = {
       scheduleConflicts,
     }: TodayDashboard["dailyBrief"]) => {
       const details = [
-        overdue > 0 ? `${overdue} overdue task${overdue === 1 ? "" : "s"}` : null,
+        overdue > 0 ? `${overdue} past-due request${overdue === 1 ? "" : "s"}` : null,
         dueToday > 0
-          ? `${dueToday} task${dueToday === 1 ? "" : "s"} still due today`
+          ? `${dueToday} request${dueToday === 1 ? "" : "s"} requested for today`
           : null,
         highPriority > 0
-          ? `${highPriority} high-priority item${highPriority === 1 ? "" : "s"}`
+          ? `${highPriority} high-priority ticket${highPriority === 1 ? "" : "s"}`
           : null,
         scheduleConflicts > 0
-          ? `${scheduleConflicts} potential scheduling conflict${scheduleConflicts === 1 ? "" : "s"}`
+          ? `${scheduleConflicts} overlapping requested deadline${scheduleConflicts === 1 ? "" : "s"}`
           : null,
       ].filter(Boolean);
       return details.length
         ? `Karino found ${details.join(", ")}.`
-        : "Your schedule looks clear. Choose one meaningful task to move forward.";
+        : "Your request queue is clear. You can ask the assistant for help or submit a new request.";
     },
   },
   de: {
@@ -82,28 +101,33 @@ const copy = {
       afternoon: "Guten Tag",
       evening: "Guten Abend",
     },
-    intro: "Das benötigt heute deine Aufmerksamkeit.",
-    tasksToday: "Aufgaben heute",
-    completed: "Erledigt",
-    overdue: "Überfällig",
-    completionRate: "Erledigungsquote",
-    focus: "Fokus für heute",
-    upcoming: "Demnächst",
-    aiBrief: "KI-Tagesübersicht",
-    aiAction: "Zeitplan optimieren",
-    askAi: "KI zu meinem Tag fragen",
-    weekly: "Wochenfortschritt",
+    intro: "Hier ist der aktuelle Stand deiner Support-Anfragen.",
+    openTickets: "Offene Anfragen",
+    waitingCustomer: "Wartet auf dich",
+    slaBreached: "SLA gefährdet",
+    resolvedToday: "Heute gelöst",
+    timeline: "Heutige SLA-Zeitleiste",
+    timelineDescription: "Fristen in deinem lokalen Support-Tag",
+    noTimeline: "Heute gibt es keine Reaktions-, Lösungs- oder Wunschtermine.",
+    responseDeadline: "Reaktion",
+    resolutionDeadline: "Lösung",
+    requestedDeadline: "Gewünscht",
+    now: "Aktuelle Stunde",
+    attention: "Benötigt Aufmerksamkeit",
+    upcoming: "Kommende Wunschtermine",
+    aiBrief: "Anfragenübersicht",
+    aiAction: "Meine Anfragen prüfen",
+    askAi: "KI zu einer Anfrage fragen",
+    weekly: "Diese Woche gelöst",
     lastSevenDays: "Letzte 7 Tage",
-    noTasks: "Keine aktiven Aufgaben benötigen deine Aufmerksamkeit.",
-    today: "Heute",
-    overdueLabel: "Überfällig",
-    noUpcoming: "Keine Aufgaben",
-    scheduledTasks: (count: number) =>
-      `${count} Aufgabe${count === 1 ? "" : "n"} geplant`,
-    completedTasks: (count: number) =>
-      `${count} Aufgabe${count === 1 ? "" : "n"} erledigt`,
-    priority: { low: "Niedrig", medium: "Mittel", high: "Hoch" },
-    status: { todo: "Offen", "in-progress": "In Bearbeitung", done: "Erledigt" },
+    noTickets: "Keine offenen Anfragen benötigen deine Aufmerksamkeit.",
+    dueToday: "Für heute gewünscht",
+    overdueLabel: "Gewünschter Termin vorbei",
+    noUpcoming: "Keine Anfragen",
+    scheduledTickets: (count: number) =>
+      `${count} Anfrage${count === 1 ? "" : "n"} gewünscht`,
+    resolvedTickets: (count: number) => `${count} Ticket${count === 1 ? "" : "s"} gelöst`,
+    requestedFor: "Gewünschte Lösung",
     brief: ({
       overdue,
       highPriority,
@@ -111,20 +135,20 @@ const copy = {
       scheduleConflicts,
     }: TodayDashboard["dailyBrief"]) => {
       const details = [
-        overdue > 0 ? `${overdue} überfällige Aufgabe${overdue === 1 ? "" : "n"}` : null,
+        overdue > 0 ? `${overdue} überfällige Anfrage${overdue === 1 ? "" : "n"}` : null,
         dueToday > 0
-          ? `${dueToday} heute noch fällige Aufgabe${dueToday === 1 ? "" : "n"}`
+          ? `${dueToday} für heute gewünschte Anfrage${dueToday === 1 ? "" : "n"}`
           : null,
         highPriority > 0
-          ? `${highPriority} Eintrag${highPriority === 1 ? "" : "e"} mit hoher Priorität`
+          ? `${highPriority} Ticket${highPriority === 1 ? "" : "s"} mit hoher Priorität`
           : null,
         scheduleConflicts > 0
-          ? `${scheduleConflicts} mögliche${scheduleConflicts === 1 ? "r" : ""} Terminkonflikt${scheduleConflicts === 1 ? "" : "e"}`
+          ? `${scheduleConflicts} überschneidende Wunschtermin${scheduleConflicts === 1 ? "" : "e"}`
           : null,
       ].filter(Boolean);
       return details.length
         ? `Karino hat ${details.join(", ")} gefunden.`
-        : "Dein Zeitplan ist übersichtlich. Wähle eine wichtige Aufgabe als nächsten Schritt.";
+        : "Deine Anfragenübersicht ist frei. Frage den Assistenten oder sende eine neue Anfrage.";
     },
   },
 } as const;
@@ -140,23 +164,10 @@ export function DashboardView() {
   const { user } = useAuth();
   const { locale, intlLocale } = usePreferences();
   const t = copy[locale];
-  const queryClient = useQueryClient();
   const dashboardQuery = useQuery({
     queryKey: ["dashboard", "today"],
     queryFn: getTodayDashboardRequest,
-  });
-  const statusMutation = useMutation({
-    mutationFn: (task: Task) =>
-      updateTaskRequest(getId(task), {
-        status: task.status === "done" ? "todo" : "done",
-      }),
-    onSuccess: async () => {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ["dashboard"] }),
-        queryClient.invalidateQueries({ queryKey: ["tasks"] }),
-      ]);
-    },
-    onError: (error) => toast.error(getErrorMessage(error, locale)),
+    refetchInterval: 30_000,
   });
 
   if (dashboardQuery.isPending) return <LoadingState />;
@@ -172,223 +183,376 @@ export function DashboardView() {
   const dashboard = dashboardQuery.data;
   const stats = [
     {
-      label: t.tasksToday,
-      value: formatNumber(dashboard.stats.tasksToday, intlLocale),
-      icon: ListTodo,
+      label: t.openTickets,
+      value: formatNumber(dashboard.stats.openTickets, intlLocale),
+      icon: TicketCheck,
     },
     {
-      label: t.completed,
-      value: formatNumber(dashboard.stats.completed, intlLocale),
-      icon: CheckCircle2,
+      label: t.waitingCustomer,
+      value: formatNumber(dashboard.stats.waitingCustomer, intlLocale),
+      icon: Hourglass,
     },
     {
-      label: t.overdue,
-      value: formatNumber(dashboard.stats.overdue, intlLocale),
+      label: t.slaBreached,
+      value: formatNumber(dashboard.stats.slaAtRisk, intlLocale),
       icon: AlertTriangle,
     },
     {
-      label: t.completionRate,
-      value: formatPercent(dashboard.stats.completionRate, intlLocale),
-      icon: Clock3,
+      label: t.resolvedToday,
+      value: formatNumber(dashboard.stats.resolvedToday, intlLocale),
+      icon: CheckCircle2,
     },
   ];
-  const todayKey = new Intl.DateTimeFormat("en-CA", {
-    timeZone: dashboard.timeZone,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(new Date(dashboard.generatedAt));
-  const dateKeyFor = (date: string) =>
-    new Intl.DateTimeFormat("en-CA", {
+  const dashboardNow = Date.parse(dashboard.generatedAt);
+  const currentHour = Number(
+    new Intl.DateTimeFormat("en-US", {
+      hour: "numeric",
+      hourCycle: "h23",
       timeZone: dashboard.timeZone,
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-    }).format(new Date(date));
+    })
+      .formatToParts(new Date(dashboard.generatedAt))
+      .find((part) => part.type === "hour")?.value ?? 0,
+  );
+  const scheduledHours = dashboard.hourlySchedule.filter(
+    (item) =>
+      item.requestedDeadlines > 0 ||
+      item.firstResponseDeadlines > 0 ||
+      item.resolutionDeadlines > 0,
+  );
+  const attentionTickets = dashboard.needsAttention ?? dashboard.focusTasks;
 
   return (
-    <div className="dashboard-page">
-      <header>
-        <h1 className="text-[1.625rem] leading-8 font-bold tracking-[-0.025em]">
-          {t.greetings[getGreetingKey()]}, {user?.firstName}
-        </h1>
-        <p className="mt-1 text-sm text-[var(--muted)]">{t.intro}</p>
-        <time className="sr-only" dateTime={dashboard.generatedAt}>
-          {new Intl.DateTimeFormat(intlLocale, { dateStyle: "full" }).format(
-            new Date(dashboard.generatedAt),
-          )}
-        </time>
+    <div className="dashboard-page desk-grid-glow space-y-6">
+      <header className="desk-page-header relative !mb-0 overflow-hidden rounded-[var(--container-radius)] border border-[var(--border)]/80 bg-[var(--surface)]/75 p-5 shadow-[var(--shadow-panel)] backdrop-blur sm:p-6">
+        <div className="min-w-0">
+          <div className="desk-eyebrow">
+            <span className="desk-live-dot" aria-hidden="true" />
+            {t.now}
+          </div>
+          <h1 className="mt-3 max-w-3xl text-[clamp(1.75rem,4vw,2.75rem)] leading-[1.05] font-black tracking-[-0.045em]">
+            {t.greetings[getGreetingKey()]}, {user?.firstName}
+          </h1>
+          <p className="mt-3 max-w-xl text-sm leading-6 text-[var(--muted)]">{t.intro}</p>
+          <time
+            className="mt-4 inline-flex items-center gap-2 rounded-full border border-[var(--border)]/80 bg-[var(--surface)]/70 px-3 py-1.5 text-xs font-semibold text-[var(--muted)] backdrop-blur"
+            dateTime={dashboard.generatedAt}
+          >
+            <Clock3 className="size-3.5 text-[var(--primary)]" aria-hidden="true" />
+            {formatDateTime(dashboard.generatedAt, intlLocale)} · {dashboard.timeZone}
+          </time>
+        </div>
+        <Link
+          href="/assistant"
+          className={buttonClassName({
+            className:
+              "group hidden self-end shadow-lg shadow-[var(--primary)]/15 md:inline-flex",
+          })}
+        >
+          <Sparkles className="size-4" />
+          {t.askAi}
+          <ArrowUpRight className="size-4 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
+        </Link>
       </header>
 
       <Link
         href="/assistant"
-        className={buttonClassName({ className: "mt-4 flex w-full md:hidden" })}
+        className={buttonClassName({ className: "flex w-full md:hidden" })}
       >
         <Sparkles className="size-4" />
         {t.askAi}
       </Link>
 
-      <section className="mt-6 grid grid-cols-2 gap-3 xl:grid-cols-4">
-        {stats.map(({ label, value, icon: Icon }) => (
-          <Card key={label} className="min-h-[7.5rem] p-4">
-            <span className="grid size-9 place-items-center rounded-[9px] bg-[var(--primary-soft)] text-[var(--primary)]">
-              <Icon className="size-4" aria-hidden="true" />
+      <section className="grid grid-cols-2 gap-3 xl:grid-cols-4" aria-label={t.intro}>
+        {stats.map(({ label, value, icon: Icon }, index) => (
+          <article key={label} className="desk-stat group flex min-h-32 flex-col gap-4">
+            <span
+              className="desk-icon-well"
+              data-tone={index === 2 ? "danger" : undefined}
+            >
+              <Icon className="size-4.5" aria-hidden="true" />
             </span>
-            <p className="mt-3 text-xs font-semibold text-[var(--muted)]">{label}</p>
-            <p className="mt-1 text-2xl font-bold tabular-nums">{value}</p>
-          </Card>
+            <div className="min-w-0">
+              <p className="text-[11px] font-bold tracking-[0.08em] text-[var(--muted)] uppercase">
+                {label}
+              </p>
+              <p className="mt-1 text-2xl font-black tracking-[-0.04em] tabular-nums sm:text-3xl">
+                {value}
+              </p>
+            </div>
+          </article>
         ))}
       </section>
 
-      <div className="mt-6 grid gap-5 xl:grid-cols-[minmax(0,1.65fr)_minmax(20rem,.85fr)]">
-        <div className="space-y-6">
-          <section>
-            <h2 className="text-sm font-semibold">{t.focus}</h2>
-            {dashboard.focusTasks.length === 0 ? (
-              <Card className="mt-3 p-8 text-center text-sm text-[var(--muted)]">
-                <CalendarCheck2 className="mx-auto mb-3 size-6 text-[var(--success)]" />
-                {t.noTasks}
-              </Card>
-            ) : (
-              <div className="mt-3 space-y-2">
-                {dashboard.focusTasks.map((task) => {
-                  const taskDateKey = task.dueDate ? dateKeyFor(task.dueDate) : "";
-                  return (
-                    <Card
-                      key={getId(task)}
-                      className="grid min-h-16 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-2 gap-y-3 p-3 sm:grid-cols-[auto_minmax(0,1fr)_auto_auto] sm:px-4"
-                    >
-                      <button
-                        type="button"
-                        onClick={() => statusMutation.mutate(task)}
-                        aria-label={`${t.status[task.status]}: ${task.title}`}
-                        disabled={statusMutation.isPending}
-                        className="focus-ring row-span-2 grid size-11 place-items-center rounded-full disabled:opacity-50 sm:row-span-1"
-                      >
-                        {task.status === "done" ? (
-                          <CheckCircle2 className="size-5 text-[var(--primary)]" />
-                        ) : (
-                          <Circle className="size-5 text-[var(--muted)]" />
-                        )}
-                      </button>
-                      <div className="col-span-2 min-w-0 sm:col-span-1">
-                        <h3 className="truncate text-sm font-semibold">{task.title}</h3>
+      <section
+        className="desk-panel overflow-hidden"
+        aria-labelledby="sla-timeline-title"
+      >
+        <div className="flex flex-wrap items-end justify-between gap-3 border-b border-[var(--border)]/75 px-4 py-4 sm:px-5">
+          <div>
+            <p className="desk-eyebrow">{t.now}</p>
+            <h2 id="sla-timeline-title" className="desk-section-title mt-1">
+              {t.timeline}
+            </h2>
+            <p className="mt-1 text-xs text-[var(--muted)]">
+              {t.timelineDescription} · {dashboard.timeZone}
+            </p>
+          </div>
+          <span className="inline-flex items-center gap-2 rounded-full bg-[var(--primary-soft)] px-3 py-1.5 text-xs font-bold text-[var(--primary)]">
+            <span className="desk-live-dot" aria-hidden="true" />
+            {formatDateTime(dashboard.generatedAt, intlLocale)}
+          </span>
+        </div>
+        {scheduledHours.length ? (
+          <div className="flex snap-x gap-3 overflow-x-auto p-4 sm:p-5">
+            {scheduledHours.map((slot) => {
+              const slotDate = new Date(Date.UTC(2020, 0, 1, slot.hour));
+              const isCurrent = slot.hour === currentHour;
+              return (
+                <article
+                  key={slot.hour}
+                  className={cn(
+                    "relative w-44 shrink-0 snap-start overflow-hidden rounded-2xl border p-4 transition-colors",
+                    isCurrent
+                      ? "border-[var(--primary)] bg-[var(--primary-soft)]/60"
+                      : "border-[var(--border)]/75 bg-[var(--surface-muted)]/55",
+                  )}
+                >
+                  {isCurrent && (
+                    <span className="absolute inset-x-0 top-0 h-0.5 bg-[var(--primary)]" />
+                  )}
+                  <div className="flex items-center justify-between gap-2">
+                    <time className="font-mono text-base font-black tracking-tight tabular-nums">
+                      {new Intl.DateTimeFormat(intlLocale, {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                        timeZone: "UTC",
+                      }).format(slotDate)}
+                    </time>
+                    {isCurrent && <span className="desk-live-dot" title={t.now} />}
+                  </div>
+                  <dl className="mt-4 space-y-2 text-xs">
+                    {slot.firstResponseDeadlines > 0 && (
+                      <div className="flex items-center justify-between gap-2">
+                        <dt className="flex items-center gap-1.5 text-[var(--muted)]">
+                          <MessageSquareReply className="size-3.5" aria-hidden="true" />
+                          {t.responseDeadline}
+                        </dt>
+                        <dd className="font-black tabular-nums">
+                          {formatNumber(slot.firstResponseDeadlines, intlLocale)}
+                        </dd>
+                      </div>
+                    )}
+                    {slot.resolutionDeadlines > 0 && (
+                      <div className="flex items-center justify-between gap-2">
+                        <dt className="text-[var(--muted)]">{t.resolutionDeadline}</dt>
+                        <dd className="font-black tabular-nums">
+                          {formatNumber(slot.resolutionDeadlines, intlLocale)}
+                        </dd>
+                      </div>
+                    )}
+                    {slot.requestedDeadlines > 0 && (
+                      <div className="flex items-center justify-between gap-2">
+                        <dt className="text-[var(--muted)]">{t.requestedDeadline}</dt>
+                        <dd className="font-black tabular-nums">
+                          {formatNumber(slot.requestedDeadlines, intlLocale)}
+                        </dd>
+                      </div>
+                    )}
+                  </dl>
+                </article>
+              );
+            })}
+          </div>
+        ) : (
+          <p className="p-6 text-sm text-[var(--muted)]">{t.noTimeline}</p>
+        )}
+      </section>
+
+      <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1.55fr)_minmax(19rem,.7fr)]">
+        <section className="desk-panel overflow-hidden">
+          <div className="flex items-center justify-between gap-3 border-b border-[var(--border)]/75 px-4 py-4 sm:px-5">
+            <div>
+              <p className="desk-eyebrow">{t.slaBreached}</p>
+              <h2 className="desk-section-title mt-1">{t.attention}</h2>
+            </div>
+            <Link
+              href="/tickets"
+              className="focus-ring group inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-bold text-[var(--primary)] hover:bg-[var(--primary-soft)]"
+            >
+              {locale === "de" ? "Alle Tickets" : "All tickets"}
+              <ArrowUpRight className="size-3.5 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
+            </Link>
+          </div>
+          {attentionTickets.length === 0 ? (
+            <div className="grid min-h-56 place-items-center p-8 text-center text-sm text-[var(--muted)]">
+              <div>
+                <span className="mx-auto grid size-12 place-items-center rounded-2xl bg-emerald-500/10 text-[var(--success)]">
+                  <CalendarCheck2 className="size-6" />
+                </span>
+                <p className="mt-4 font-semibold">{t.noTickets}</p>
+              </div>
+            </div>
+          ) : (
+            <div className="divide-y divide-[var(--border)]/70">
+              {attentionTickets.map((ticket) => {
+                const category = ticket.category ?? "general";
+                const requestedOverdue = Boolean(
+                  ticket.dueDate &&
+                  Date.parse(ticket.dueDate) < dashboardNow &&
+                  ticket.status !== "done",
+                );
+                return (
+                  <Link
+                    key={getId(ticket)}
+                    href={`/tickets?search=${encodeURIComponent(ticket.ticketNumber || getId(ticket))}`}
+                    className="focus-ring group grid gap-3 px-4 py-4 transition-colors hover:bg-[var(--surface-muted)]/70 sm:grid-cols-[minmax(0,1fr)_auto] sm:px-5"
+                  >
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="font-mono text-[11px] font-black tracking-wide text-[var(--primary)]">
+                          {ticket.ticketNumber ||
+                            `#${getId(ticket).slice(-6).toUpperCase()}`}
+                        </span>
+                        <TicketCategoryBadge category={category}>
+                          {getTicketCategoryLabel(category, locale)}
+                        </TicketCategoryBadge>
+                      </div>
+                      <h3 className="mt-2 truncate text-sm font-bold tracking-tight group-hover:text-[var(--primary)]">
+                        {ticket.title}
+                      </h3>
+                      <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
                         <p
                           className={cn(
-                            "mt-1 text-xs text-[var(--muted)]",
-                            taskDateKey < todayKey &&
-                              task.status !== "done" &&
-                              "text-[var(--danger)]",
+                            "flex items-center gap-1.5 text-[var(--muted)]",
+                            requestedOverdue && "font-bold text-[var(--danger)]",
                           )}
                         >
-                          {taskDateKey < todayKey && task.status !== "done"
-                            ? t.overdueLabel
-                            : t.today}
+                          <CalendarClock className="size-3.5" aria-hidden="true" />
+                          {ticket.dueDate ? (
+                            <time dateTime={ticket.dueDate}>
+                              {t.requestedFor}:{" "}
+                              {formatDateTime(ticket.dueDate, intlLocale)}
+                            </time>
+                          ) : (
+                            <span>—</span>
+                          )}
+                          {requestedOverdue && <span>· {t.overdueLabel}</span>}
                         </p>
+                        <SlaCountdown
+                          ticket={ticket}
+                          compact
+                          referenceTime={dashboardNow}
+                        />
                       </div>
-                      <TaskPriorityBadge priority={task.priority}>
-                        {t.priority[task.priority]}
+                    </div>
+                    <div className="flex items-start gap-2 sm:justify-end">
+                      <TaskPriorityBadge priority={ticket.priority}>
+                        {getTaskPriorityLabel(ticket.priority, locale)}
                       </TaskPriorityBadge>
-                      <TaskStatusBadge status={task.status}>
-                        {t.status[task.status]}
+                      <TaskStatusBadge status={ticket.status}>
+                        {getTaskStatusLabel(ticket.status, locale)}
                       </TaskStatusBadge>
-                    </Card>
-                  );
-                })}
-              </div>
-            )}
-          </section>
-
-          <section>
-            <h2 className="text-sm font-semibold">{t.upcoming}</h2>
-            <Card className="mt-3 grid grid-cols-5 gap-1 p-3 sm:p-5">
-              {dashboard.upcoming.map((day) => {
-                const date = new Date(`${day.date}T12:00:00Z`);
-                const dateLabel = new Intl.DateTimeFormat(intlLocale, {
-                  weekday: "long",
-                  month: "long",
-                  day: "numeric",
-                  timeZone: "UTC",
-                }).format(date);
-                return (
-                  <div
-                    key={day.date}
-                    className="flex min-w-0 flex-col items-center rounded-[10px] px-1 py-3 text-center"
-                    aria-label={`${dateLabel}: ${
-                      day.count ? t.scheduledTasks(day.count) : t.noUpcoming
-                    }`}
-                  >
-                    <span className="text-[11px] font-semibold text-[var(--muted)]">
-                      {new Intl.DateTimeFormat(intlLocale, {
-                        weekday: "short",
-                        timeZone: "UTC",
-                      }).format(date)}
-                    </span>
-                    <span
-                      className={cn(
-                        "my-4 size-3 rounded-[4px] rotate-45",
-                        day.count
-                          ? "bg-[var(--primary)]"
-                          : "bg-[var(--border)] dark:bg-[var(--surface-strong)]",
-                      )}
-                    />
-                    <span className="text-sm font-bold tabular-nums">
-                      {new Intl.DateTimeFormat(intlLocale, {
-                        day: "numeric",
-                        timeZone: "UTC",
-                      }).format(date)}
-                    </span>
-                    <span className="mt-1 text-[10px] text-[var(--muted)]">
-                      {day.count > 0 ? formatNumber(day.count, intlLocale) : "—"}
-                    </span>
-                  </div>
+                    </div>
+                  </Link>
                 );
               })}
-            </Card>
-          </section>
-        </div>
+            </div>
+          )}
+        </section>
 
         <aside className="space-y-5">
-          <Card className="p-5">
-            <div className="flex items-center gap-2">
-              <Bot className="size-5 text-[var(--primary)]" aria-hidden="true" />
-              <h2 className="text-sm font-semibold">{t.aiBrief}</h2>
+          <section className="desk-panel-soft relative overflow-hidden p-5 sm:p-6">
+            <div className="absolute -top-12 -right-12 size-36 rounded-full bg-[var(--primary)]/10 blur-3xl" />
+            <div className="relative flex items-center gap-3">
+              <span className="desk-icon-well">
+                <ClipboardList className="size-5" aria-hidden="true" />
+              </span>
+              <div>
+                <p className="desk-eyebrow">{t.aiBrief}</p>
+                <h2 className="desk-section-title mt-1">{t.aiBrief}</h2>
+              </div>
             </div>
-            <p className="mt-4 min-h-12 text-sm leading-6 text-[var(--muted)]">
+            <p className="relative mt-5 text-sm leading-6 text-[var(--muted)]">
               {t.brief(dashboard.dailyBrief)}
             </p>
             <Link
               href="/assistant"
-              className={buttonClassName({ className: "mt-5 flex w-full" })}
+              className={buttonClassName({ className: "relative mt-5 flex w-full" })}
             >
               <Sparkles className="size-4" />
               {t.aiAction}
             </Link>
-          </Card>
+          </section>
 
-          <Card className="p-5">
-            <div className="flex items-center justify-between gap-3">
-              <h2 className="text-sm font-semibold">{t.weekly}</h2>
-              <span className="text-xs text-[var(--muted)]">{t.lastSevenDays}</span>
+          <section className="desk-panel p-5">
+            <div className="flex items-end justify-between gap-3">
+              <div>
+                <p className="desk-eyebrow">{t.lastSevenDays}</p>
+                <h2 className="desk-section-title mt-1">{t.weekly}</h2>
+              </div>
+              <CheckCircle2 className="size-5 text-[var(--success)]" aria-hidden="true" />
             </div>
-            <div className="mt-4">
+            <div className="mt-5">
               <TrendChart
                 data={dashboard.weeklyProgress.map((item) => ({
                   key: item.date,
                   value: item.completed,
-                  accessibleLabel: `${new Intl.DateTimeFormat(intlLocale, {
-                    dateStyle: "medium",
-                    timeZone: "UTC",
-                  }).format(new Date(`${item.date}T12:00:00Z`))}: ${t.completedTasks(
-                    item.completed,
-                  )}`,
+                  accessibleLabel: `${new Intl.DateTimeFormat(intlLocale, { dateStyle: "medium", timeZone: "UTC" }).format(new Date(`${item.date}T12:00:00Z`))}: ${t.resolvedTickets(item.completed)}`,
                 }))}
                 label={t.weekly}
               />
             </div>
-          </Card>
+          </section>
         </aside>
       </div>
+
+      <section className="desk-panel overflow-hidden">
+        <div className="border-b border-[var(--border)]/75 px-4 py-4 sm:px-5">
+          <p className="desk-eyebrow">{t.requestedDeadline}</p>
+          <h2 className="desk-section-title mt-1">{t.upcoming}</h2>
+        </div>
+        <div className="grid grid-cols-5 divide-x divide-[var(--border)]/70 p-2 sm:p-3">
+          {dashboard.upcoming.map((day) => {
+            const date = new Date(`${day.date}T12:00:00Z`);
+            const dateLabel = new Intl.DateTimeFormat(intlLocale, {
+              weekday: "long",
+              month: "long",
+              day: "numeric",
+              timeZone: "UTC",
+            }).format(date);
+            return (
+              <div
+                key={day.date}
+                className="flex min-w-0 flex-col items-center rounded-xl px-1 py-3 text-center sm:py-4"
+                aria-label={`${dateLabel}: ${day.count ? t.scheduledTickets(day.count) : t.noUpcoming}`}
+              >
+                <span className="text-[10px] font-bold tracking-wider text-[var(--muted)] uppercase sm:text-xs">
+                  {new Intl.DateTimeFormat(intlLocale, {
+                    weekday: "short",
+                    timeZone: "UTC",
+                  }).format(date)}
+                </span>
+                <span className="mt-2 text-xl font-black tracking-tight tabular-nums sm:text-2xl">
+                  {new Intl.DateTimeFormat(intlLocale, {
+                    day: "numeric",
+                    timeZone: "UTC",
+                  }).format(date)}
+                </span>
+                <span
+                  className={cn(
+                    "mt-2 min-w-6 rounded-full px-1.5 py-0.5 text-[10px] font-black tabular-nums",
+                    day.count
+                      ? "bg-[var(--primary)] text-[var(--on-primary)]"
+                      : "bg-[var(--surface-muted)] text-[var(--muted)]",
+                  )}
+                >
+                  {day.count > 0 ? formatNumber(day.count, intlLocale) : "—"}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      </section>
     </div>
   );
 }

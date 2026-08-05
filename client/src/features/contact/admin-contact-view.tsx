@@ -17,7 +17,6 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { FormStatusBadge } from "@/components/ui/domain-badge";
 import { UserAvatar } from "@/components/user-avatar";
-import { PageHeading } from "@/components/ui/page-heading";
 import { ErrorState, LoadingState } from "@/components/ui/states";
 import { ChatMessageBubble } from "@/features/chat/chat-message-bubble";
 import { ChatHistoryItem } from "@/features/chat/chat-history-item";
@@ -179,43 +178,80 @@ export function AdminContactView() {
   const threadOpen = mobileThreadOpen || contacts.length === 0;
 
   return (
-    <div className="md:flex md:h-[calc(100dvh-10.25rem)] md:min-h-0 md:flex-col md:overflow-hidden">
-      <PageHeading title={t.title} description={t.description} />
+    <div className="desk-grid-glow space-y-5 md:flex md:h-[calc(100dvh-10.25rem)] md:min-h-0 md:flex-col md:space-y-4 md:overflow-hidden">
+      <header
+        className="desk-page-header desk-panel relative shrink-0 overflow-hidden p-5 sm:p-6"
+        style={{ marginBottom: 0 }}
+      >
+        <div className="relative z-10 flex w-full flex-col justify-between gap-4 sm:flex-row sm:items-end">
+          <div className="max-w-2xl">
+            <p className="desk-eyebrow">{t.eyebrow}</p>
+            <h1 className="mt-2 text-3xl font-black tracking-[-0.04em] sm:text-4xl">
+              {t.title}
+            </h1>
+            <p className="mt-2 text-sm leading-6 text-[var(--muted)]">{t.description}</p>
+          </div>
+          {contacts.length > 0 && (
+            <div className="desk-stat flex min-w-36 items-center justify-between gap-4 p-3">
+              <span className="flex items-center gap-2 text-xs font-bold text-[var(--muted)]">
+                <span className="desk-live-dot" aria-hidden="true" /> {t.open}
+              </span>
+              <strong className="text-xl font-black">
+                {contacts.filter((contact) => contact.status === "open").length}
+              </strong>
+            </div>
+          )}
+        </div>
+        <div
+          className="pointer-events-none absolute -end-16 -top-20 size-56 rounded-full bg-[var(--primary)]/10 blur-3xl"
+          aria-hidden="true"
+        />
+      </header>
 
       {contactsQuery.isPending ? (
-        <div className="mt-8">
+        <div className="desk-panel grid flex-1 place-items-center">
           <LoadingState label={t.loading} />
         </div>
       ) : contactsQuery.isError ? (
-        <div className="mt-8">
+        <div className="desk-panel grid flex-1 place-items-center p-5">
           <ErrorState
             message={getErrorMessage(contactsQuery.error, locale)}
             retry={() => void contactsQuery.refetch()}
           />
         </div>
       ) : contacts.length === 0 ? (
-        <Card className="mt-8 grid min-h-52 place-items-center p-8 text-center text-sm text-[var(--muted)]">
-          <Mail className="mb-3 size-8 text-[var(--primary)]" />
-          {t.empty}
+        <Card className="desk-panel grid min-h-64 flex-1 place-items-center p-8 text-center text-sm text-[var(--muted)]">
+          <div>
+            <span className="desk-icon-well mx-auto mb-4 text-[var(--primary)]">
+              <Mail className="size-5" />
+            </span>
+            {t.empty}
+          </div>
         </Card>
       ) : (
         <div
           className={cn(
-            "mt-5 grid min-h-[38rem] overflow-hidden rounded-[var(--container-radius)] border bg-[var(--surface)] md:min-h-0 md:flex-1 xl:grid-cols-[19rem_minmax(0,1fr)]",
+            "desk-panel grid min-h-[38rem] overflow-hidden p-0 md:min-h-0 md:flex-1 xl:grid-cols-[20rem_minmax(0,1fr)]",
             threadOpen &&
-              "max-md:fixed max-md:inset-0 max-md:z-50 max-md:mt-0 max-md:h-dvh max-md:min-h-0 max-md:rounded-none max-md:border-0",
+              "max-md:fixed max-md:inset-0 max-md:z-50 max-md:h-dvh max-md:min-h-0 max-md:rounded-none max-md:border-0",
           )}
         >
           <aside
             className={cn(
-              "min-h-0 min-w-0 flex-col border-r",
+              "min-h-0 min-w-0 flex-col border-e border-[var(--border)] bg-[var(--surface-muted)]/25",
               threadOpen ? "max-xl:hidden xl:flex" : "flex",
             )}
           >
-            <div className="flex h-16 shrink-0 items-center border-b px-4">
-              <h2 className="text-sm font-semibold">{t.history}</h2>
+            <div className="flex h-16 shrink-0 items-center justify-between border-b border-[var(--border)] px-4">
+              <div>
+                <p className="desk-eyebrow">{t.eyebrow}</p>
+                <h2 className="desk-section-title mt-1">{t.history}</h2>
+              </div>
+              <span className="desk-stat px-2.5 py-1.5 text-xs font-black">
+                {contacts.length}
+              </span>
             </div>
-            <div className="min-h-0 flex-1 overflow-y-auto">
+            <div className="min-h-0 flex-1 overflow-y-auto p-2">
               {contacts.map((contact) => (
                 <ChatHistoryItem
                   key={contact.id}
@@ -228,6 +264,7 @@ export function AdminContactView() {
                       {contact.status === "open" ? t.open : t.answered}
                     </FormStatusBadge>
                   }
+                  className="mb-1 rounded-xl border border-transparent last:mb-0"
                   onClick={() => {
                     setSelectedId(contact.id);
                     setSuggestions([]);
@@ -240,7 +277,10 @@ export function AdminContactView() {
               ))}
             </div>
             {contactsQuery.data && contactsQuery.data.pagination.totalPages > 1 && (
-              <div className="flex shrink-0 items-center justify-between gap-2 border-t p-2 text-xs">
+              <div
+                className="desk-toolbar m-2 flex shrink-0 items-center justify-between gap-2 p-2 text-xs"
+                style={{ alignItems: "center", flexDirection: "row" }}
+              >
                 <ChatIconButton
                   disabled={!contactsQuery.data.pagination.hasPreviousPage}
                   onClick={() => setPage((current) => Math.max(1, current - 1))}
@@ -267,13 +307,18 @@ export function AdminContactView() {
 
           <section
             className={cn(
-              "relative min-h-0 min-w-0 flex-col",
+              "relative min-h-0 min-w-0 flex-col bg-[var(--surface)]",
               threadOpen ? "flex" : "max-xl:hidden xl:flex",
             )}
           >
             {!selected ? (
-              <div className="grid flex-1 place-items-center text-sm text-[var(--muted)]">
-                {t.noSelection}
+              <div className="grid flex-1 place-items-center p-8 text-center text-sm text-[var(--muted)]">
+                <div>
+                  <span className="desk-icon-well mx-auto mb-4 text-[var(--primary)]">
+                    <Mail className="size-5" />
+                  </span>
+                  {t.noSelection}
+                </div>
               </div>
             ) : (
               <>
@@ -303,7 +348,7 @@ export function AdminContactView() {
                 <div className="relative isolate min-h-0 flex-1 overflow-hidden">
                   <div
                     ref={messagesRef}
-                    className="absolute inset-0 overflow-y-auto px-4 pb-4"
+                    className="absolute inset-0 overflow-y-auto bg-[var(--surface-muted)]/20 px-4 pb-4"
                   >
                     <DateGroupedMessageList
                       items={selected.messages}
@@ -340,7 +385,7 @@ export function AdminContactView() {
                     }}
                   />
                 </div>
-                <footer className="shrink-0 border-t bg-[var(--surface)] p-3 max-md:pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+                <footer className="shrink-0 border-t border-[var(--border)] bg-[var(--surface)] p-3 max-md:pb-[max(0.75rem,env(safe-area-inset-bottom))]">
                   <div className="mb-2 flex flex-wrap gap-2">
                     <Button
                       variant="secondary"
@@ -359,7 +404,7 @@ export function AdminContactView() {
                       {suggestions.length > 0 ? t.hideSuggestions : t.suggestions}
                     </Button>
                   </div>
-                  <div className="flex items-end gap-2 rounded-[var(--control-radius)] border bg-[var(--background)] p-2 focus-within:border-[var(--primary)]">
+                  <div className="desk-panel-soft flex items-end gap-2 p-2 focus-within:border-[var(--primary)] focus-within:shadow-[0_0_0_3px_var(--primary-soft)]">
                     <textarea
                       value={reply}
                       onChange={(event) => setReply(event.target.value)}

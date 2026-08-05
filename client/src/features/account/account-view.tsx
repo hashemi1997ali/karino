@@ -24,7 +24,6 @@ import { UserAvatar } from "@/components/user-avatar";
 import { Card, Badge } from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Field, Input } from "@/components/ui/form-controls";
-import { PageHeading } from "@/components/ui/page-heading";
 import { ErrorState, LoadingState } from "@/components/ui/states";
 import { ThemeSelector } from "@/components/ui/theme-selector";
 import {
@@ -147,7 +146,7 @@ const copy = {
     deleteAccount: "Delete account",
     deleteAccountTitle: "Permanently delete your account?",
     deleteAccountDescription:
-      "Your profile, tasks, chats, assistant conversations, sessions, and related account data will be permanently deleted. This cannot be undone.",
+      "Your profile, tickets, chats, assistant conversations, sessions, and related account data will be permanently deleted. This cannot be undone.",
     deleteAccountHelp: "Permanently remove your account and all related data.",
     accountDeleted: "Your account and related data were deleted.",
     saveChanges: "Save changes",
@@ -213,7 +212,7 @@ const copy = {
     deleteAccount: "Konto löschen",
     deleteAccountTitle: "Dein Konto dauerhaft löschen?",
     deleteAccountDescription:
-      "Dein Profil, deine Aufgaben, Chats, Assistent-Unterhaltungen, Sitzungen und zugehörigen Kontodaten werden dauerhaft gelöscht. Dies kann nicht rückgängig gemacht werden.",
+      "Dein Profil, deine Tickets, Chats, Assistent-Unterhaltungen, Sitzungen und zugehörigen Kontodaten werden dauerhaft gelöscht. Dies kann nicht rückgängig gemacht werden.",
     deleteAccountHelp: "Konto und alle zugehörigen Daten dauerhaft entfernen.",
     accountDeleted: "Dein Konto und die zugehörigen Daten wurden gelöscht.",
     saveChanges: "Änderungen speichern",
@@ -427,11 +426,29 @@ export function AccountView() {
   );
 
   return (
-    <div>
-      <PageHeading title={t.title} description={t.description} />
+    <div className="desk-grid-glow space-y-5">
+      <header
+        className="desk-page-header desk-panel relative overflow-hidden p-5 sm:p-7"
+        style={{ marginBottom: 0 }}
+      >
+        <div className="relative z-10 max-w-2xl">
+          <p className="desk-eyebrow">{t.eyebrow}</p>
+          <h1 className="mt-2 text-3xl font-black tracking-[-0.04em] text-[var(--foreground)] sm:text-4xl">
+            {t.title}
+          </h1>
+          <p className="mt-2 max-w-xl text-sm leading-6 text-[var(--muted)] sm:text-base">
+            {t.description}
+          </p>
+        </div>
+        <div
+          className="pointer-events-none absolute -end-14 -top-20 size-52 rounded-full bg-[var(--primary)]/10 blur-3xl"
+          aria-hidden="true"
+        />
+      </header>
 
       <div
-        className="mt-5 max-md:hidden gap-2 overflow-x-auto pb-1 md:flex"
+        className="desk-toolbar sticky top-2 z-20 flex gap-1 overflow-x-auto p-1.5"
+        style={{ alignItems: "center", flexDirection: "row" }}
         role="tablist"
         aria-label={t.title}
       >
@@ -447,10 +464,10 @@ export function AccountView() {
             role="tab"
             aria-selected={activeTab === value}
             onClick={() => router.replace(`/account?tab=${value}`, { scroll: false })}
-            className={`focus-ring min-h-10 shrink-0 rounded-[var(--control-radius)] border px-4 text-sm font-semibold transition-colors ${
+            className={`focus-ring min-h-10 shrink-0 rounded-xl px-4 text-sm font-bold transition-all ${
               activeTab === value
-                ? "border-[var(--primary)] bg-[var(--primary)] text-[var(--on-primary)]"
-                : "border-[var(--border)] bg-[var(--surface)] text-[var(--foreground)] hover:bg-[var(--surface-muted)]"
+                ? "bg-[var(--primary)] text-[var(--on-primary)] shadow-sm"
+                : "text-[var(--muted)] hover:bg-[var(--surface-muted)] hover:text-[var(--foreground)]"
             }`}
           >
             {label}
@@ -458,22 +475,22 @@ export function AccountView() {
         ))}
       </div>
 
-      <div className="mt-5">
+      <div>
         {activeTab === "profile" && (
-          <Card className="h-full p-5 sm:p-6">
-            <div className="flex min-h-[4.5rem] items-center justify-between gap-3 border-b pb-4">
-              <div className="flex min-w-0 items-center gap-3">
+          <Card className="desk-panel overflow-hidden p-0">
+            <div className="relative flex min-h-36 flex-col justify-between gap-5 border-b border-[var(--border)] bg-[var(--surface-muted)]/60 p-5 sm:flex-row sm:items-center sm:p-7">
+              <div className="relative z-10 flex min-w-0 items-center gap-4">
                 <div className="relative shrink-0">
                   <UserAvatar
                     user={user}
-                    className="size-14"
-                    imageSizes="56px"
+                    className="size-20 ring-4 ring-[var(--surface)] shadow-xl sm:size-24"
+                    imageSizes="96px"
                     imageUrl={
                       removeProfileImage ? null : (profileImagePreview ?? undefined)
                     }
                   />
                   <label
-                    className={`focus-ring absolute -top-3 -right-3 grid size-11 cursor-pointer place-items-center rounded-full ${
+                    className={`focus-ring absolute -bottom-1 -right-1 grid size-10 cursor-pointer place-items-center rounded-full ${
                       profileImage || processingImage
                         ? "text-white"
                         : "text-[var(--foreground)]"
@@ -482,7 +499,7 @@ export function AccountView() {
                     aria-label={t.chooseImage}
                   >
                     <span
-                      className={`grid size-7 place-items-center rounded-full border shadow-sm ${
+                      className={`grid size-9 place-items-center rounded-full border-2 border-[var(--surface)] shadow-lg ${
                         profileImage || processingImage
                           ? "border-[var(--primary)] bg-[var(--primary)]"
                           : "bg-[var(--surface)]"
@@ -518,11 +535,12 @@ export function AccountView() {
                   </label>
                 </div>
                 <div className="min-w-0">
-                  <h2 className="truncate font-black text-[var(--foreground)]">
-                    {t.profileTitle}
+                  <p className="desk-eyebrow">{t.profileTitle}</p>
+                  <h2 className="mt-1 truncate text-xl font-black text-[var(--foreground)] sm:text-2xl">
+                    {user?.firstName} {user?.lastName}
                   </h2>
-                  <p className="mt-0.5 truncate text-xs text-[var(--muted)]">
-                    {t.profileDescription}
+                  <p className="mt-1 truncate text-sm text-[var(--muted)]" dir="ltr">
+                    {user?.email}
                   </p>
                 </div>
               </div>
@@ -531,7 +549,7 @@ export function AccountView() {
                   type="button"
                   size="sm"
                   variant="danger"
-                  className="min-h-11 shrink-0 rounded-full"
+                  className="relative z-10 min-h-11 w-full shrink-0 sm:w-auto"
                   onClick={() => {
                     setProfileImage(null);
                     setRemoveProfileImage(Boolean(user?.profileImage));
@@ -541,84 +559,107 @@ export function AccountView() {
                   {t.removeImage}
                 </Button>
               )}
+              <div
+                className="pointer-events-none absolute -end-16 -top-20 size-56 rounded-full bg-[var(--primary)]/10 blur-3xl"
+                aria-hidden="true"
+              />
             </div>
-            <form onSubmit={submitProfile} className="mt-5 grid gap-3" noValidate>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <Field
-                  label={t.firstName}
-                  error={profileForm.formState.errors.firstName?.message}
-                >
-                  <Input
-                    dir="auto"
-                    autoComplete="given-name"
-                    {...profileForm.register("firstName")}
-                  />
-                </Field>
-                <Field
-                  label={t.lastName}
-                  error={profileForm.formState.errors.lastName?.message}
-                >
-                  <Input
-                    dir="auto"
-                    autoComplete="family-name"
-                    {...profileForm.register("lastName")}
-                  />
-                </Field>
-              </div>
-              <Field label={t.email} error={profileForm.formState.errors.email?.message}>
-                <Input
-                  type="email"
-                  dir="ltr"
-                  autoComplete="email"
-                  {...profileForm.register("email")}
-                />
-              </Field>
-              <div className="mt-2 flex justify-end">
-                <Button
-                  type="submit"
-                  loading={profileMutation.isPending}
-                  disabled={processingImage || !profileHasChanges}
-                >
-                  <Save className="size-4" /> {t.saveChanges}
-                </Button>
-              </div>
-            </form>
-            <div className="mt-6 flex flex-col gap-3 border-t pt-5 sm:flex-row sm:items-center sm:justify-between">
-              <div className="min-w-0">
-                <h3 className="text-sm font-semibold text-[var(--danger)]">
-                  {t.deleteAccount}
-                </h3>
-                <p className="mt-1 text-xs leading-5 text-[var(--muted)]">
-                  {t.deleteAccountHelp}
-                </p>
-              </div>
-              <Button
-                type="button"
-                variant="danger"
-                className="w-full shrink-0 sm:w-auto"
-                onClick={() => setConfirmDeleteAccount(true)}
+            <div className="grid gap-8 p-5 lg:grid-cols-[minmax(0,1fr)_17rem] lg:p-7">
+              <form
+                onSubmit={submitProfile}
+                className="grid content-start gap-4"
+                noValidate
               >
-                <Trash2 className="size-4" />
-                {t.deleteAccount}
-              </Button>
+                <div>
+                  <h3 className="desk-section-title">{t.profileDescription}</h3>
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <Field
+                    label={t.firstName}
+                    error={profileForm.formState.errors.firstName?.message}
+                  >
+                    <Input
+                      dir="auto"
+                      autoComplete="given-name"
+                      {...profileForm.register("firstName")}
+                    />
+                  </Field>
+                  <Field
+                    label={t.lastName}
+                    error={profileForm.formState.errors.lastName?.message}
+                  >
+                    <Input
+                      dir="auto"
+                      autoComplete="family-name"
+                      {...profileForm.register("lastName")}
+                    />
+                  </Field>
+                </div>
+                <Field
+                  label={t.email}
+                  error={profileForm.formState.errors.email?.message}
+                >
+                  <Input
+                    type="email"
+                    dir="ltr"
+                    autoComplete="email"
+                    {...profileForm.register("email")}
+                  />
+                </Field>
+                <div className="mt-2 flex justify-end">
+                  <Button
+                    type="submit"
+                    loading={profileMutation.isPending}
+                    disabled={processingImage || !profileHasChanges}
+                  >
+                    <Save className="size-4" /> {t.saveChanges}
+                  </Button>
+                </div>
+              </form>
+              <aside className="desk-panel-soft flex flex-col justify-between p-4">
+                <div>
+                  <span className="desk-icon-well text-[var(--danger)]">
+                    <Trash2 className="size-5" />
+                  </span>
+                  <h3 className="mt-4 text-sm font-bold text-[var(--foreground)]">
+                    {t.deleteAccount}
+                  </h3>
+                  <p className="mt-2 text-xs leading-5 text-[var(--muted)]">
+                    {t.deleteAccountHelp}
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="danger"
+                  className="mt-6 w-full"
+                  onClick={() => setConfirmDeleteAccount(true)}
+                >
+                  <Trash2 className="size-4" />
+                  {t.deleteAccount}
+                </Button>
+              </aside>
             </div>
           </Card>
         )}
 
         {activeTab === "security" && (
-          <Card className="h-full p-5 sm:p-6">
-            <div className="flex min-h-[4.5rem] items-center gap-3 border-b pb-4">
-              <span className="grid size-10 place-items-center rounded-xl bg-amber-50 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300">
+          <Card className="desk-panel overflow-hidden p-0">
+            <div className="desk-panel-soft m-3 flex items-center gap-4 p-4 sm:m-5">
+              <span className="desk-icon-well bg-amber-50 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300">
                 <KeyRound className="size-5" />
               </span>
               <div>
-                <h2 className="font-black text-[var(--foreground)]">{t.passwordTitle}</h2>
+                <h2 className="desk-section-title">{t.passwordTitle}</h2>
                 <p className="mt-0.5 text-xs text-[var(--muted)]">
                   {t.passwordDescription}
                 </p>
               </div>
             </div>
-            <form onSubmit={submitPassword} className="mt-5 grid gap-3" noValidate>
+            <form
+              onSubmit={submitPassword}
+              className="grid gap-4 p-5 pt-2 sm:p-7 sm:pt-2"
+              noValidate
+            >
               <Field
                 label={t.currentPassword}
                 error={passwordForm.formState.errors.currentPassword?.message}
@@ -665,70 +706,72 @@ export function AccountView() {
       </div>
 
       {activeTab === "appearance" && (
-        <Card className="mt-5 p-5 sm:p-6">
-          <div className="flex items-center gap-3 border-b pb-4">
-            <span className="grid size-10 place-items-center rounded-[10px] bg-[var(--primary-soft)] text-[var(--primary)]">
+        <Card className="desk-panel overflow-hidden p-0">
+          <div className="desk-panel-soft m-3 flex items-center gap-4 p-4 sm:m-5">
+            <span className="desk-icon-well bg-[var(--primary-soft)] text-[var(--primary)]">
               <Palette className="size-5" />
             </span>
             <div>
-              <h2 className="font-semibold text-[var(--foreground)]">
-                {t.appearanceTitle}
-              </h2>
+              <h2 className="desk-section-title">{t.appearanceTitle}</h2>
               <p className="mt-0.5 text-xs text-[var(--muted)]">
                 {t.appearanceDescription}
               </p>
             </div>
           </div>
-          <section className="mt-6 border-b pb-6">
-            <h3 className="text-sm font-semibold">{t.languageTitle}</h3>
-            <p className="mt-1 text-xs text-[var(--muted)]">{t.languageDescription}</p>
-            <div
-              className="mt-3 flex flex-wrap gap-2"
-              role="group"
-              aria-label={t.languageTitle}
-            >
-              {[
-                { value: "en" as const, label: t.english },
-                { value: "de" as const, label: t.german },
-              ].map(({ value, label }) => (
-                <Button
-                  key={value}
-                  type="button"
-                  variant={locale === value ? "primary" : "secondary"}
-                  aria-pressed={locale === value}
-                  onClick={() => setLocale(value)}
-                >
-                  {label}
-                </Button>
-              ))}
-            </div>
-          </section>
-          <section className="mt-6">
-            <h3 className="text-sm font-semibold">{t.themeTitle}</h3>
-            <ThemeSelector
-              value={theme}
-              onValueChange={setTheme}
-              labels={{
-                light: t.lightTheme,
-                dark: t.darkTheme,
-                system: t.systemTheme,
-              }}
-              ariaLabel={t.themeTitle}
-              className="mt-3 max-w-md"
-            />
-          </section>
+          <div className="grid gap-4 p-5 pt-2 md:grid-cols-2 sm:p-7 sm:pt-2">
+            <section className="desk-panel-soft p-5">
+              <h3 className="desk-section-title">{t.languageTitle}</h3>
+              <p className="mt-2 text-xs leading-5 text-[var(--muted)]">
+                {t.languageDescription}
+              </p>
+              <div
+                className="mt-3 flex flex-wrap gap-2"
+                role="group"
+                aria-label={t.languageTitle}
+              >
+                {[
+                  { value: "en" as const, label: t.english },
+                  { value: "de" as const, label: t.german },
+                ].map(({ value, label }) => (
+                  <Button
+                    key={value}
+                    type="button"
+                    variant={locale === value ? "primary" : "secondary"}
+                    aria-pressed={locale === value}
+                    onClick={() => setLocale(value)}
+                  >
+                    {label}
+                  </Button>
+                ))}
+              </div>
+            </section>
+            <section className="desk-panel-soft p-5">
+              <h3 className="desk-section-title">{t.themeTitle}</h3>
+              <ThemeSelector
+                value={theme}
+                onValueChange={setTheme}
+                labels={{
+                  light: t.lightTheme,
+                  dark: t.darkTheme,
+                  system: t.systemTheme,
+                }}
+                ariaLabel={t.themeTitle}
+                className="mt-4"
+              />
+            </section>
+          </div>
         </Card>
       )}
 
       {activeTab === "sessions" && (
-        <Card className="mt-5 p-5 sm:p-6">
-          <div className="flex flex-col justify-between gap-4 border-b pb-5 sm:flex-row sm:items-center">
+        <Card className="desk-panel overflow-hidden p-0">
+          <div className="flex flex-col justify-between gap-4 border-b border-[var(--border)] bg-[var(--surface-muted)]/55 p-5 sm:flex-row sm:items-center sm:p-6">
             <div className="flex items-center gap-3">
-              <span className="grid size-10 place-items-center rounded-xl bg-emerald-50 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300">
+              <span className="desk-icon-well bg-emerald-50 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300">
                 <MonitorSmartphone className="size-5" />
               </span>
               <div>
-                <h2 className="font-black text-[var(--foreground)]">{t.sessionsTitle}</h2>
+                <h2 className="desk-section-title">{t.sessionsTitle}</h2>
                 <p className="mt-0.5 text-xs text-[var(--muted)]">
                   {t.sessionsDescription}
                 </p>
@@ -757,16 +800,16 @@ export function AccountView() {
               retry={() => void sessionsQuery.refetch()}
             />
           ) : (
-            <div className="mt-3 divide-y">
+            <div className="grid gap-3 p-4 sm:p-5">
               {sessionsQuery.data.map((session) => {
                 const device = deviceInfo(session.userAgent);
                 const DeviceIcon = device.icon;
                 return (
                   <article
                     key={getId(session)}
-                    className="flex flex-col gap-3 py-4 first:pt-2 sm:flex-row sm:items-center"
+                    className="desk-panel-soft group relative flex flex-col gap-4 overflow-hidden p-4 sm:flex-row sm:items-center"
                   >
-                    <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-[var(--surface-muted)] text-[var(--muted)]">
+                    <span className="desk-icon-well shrink-0 text-[var(--primary)]">
                       <DeviceIcon className="size-5" />
                     </span>
                     <div className="min-w-0 flex-1">
@@ -808,6 +851,10 @@ export function AccountView() {
                         {t.closeSession}
                       </Button>
                     )}
+                    <span
+                      className={`absolute inset-y-0 start-0 w-1 ${session.isCurrent ? "bg-emerald-500" : "bg-[var(--border)]"}`}
+                      aria-hidden="true"
+                    />
                   </article>
                 );
               })}
