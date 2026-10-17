@@ -4,14 +4,14 @@ import type { Locale } from "@/lib/preferences";
 
 const validation = {
   en: {
-    titleMin: "The title must contain at least 3 characters.",
-    titleMax: "The title cannot exceed 100 characters.",
-    descriptionMax: "The description cannot exceed 2,000 characters.",
+    titleMin: "At least 3 characters",
+    titleMax: "Max. 100 characters",
+    descriptionMax: "Max. 2,000 characters",
   },
   de: {
-    titleMin: "Der Titel muss mindestens 3 Zeichen lang sein.",
-    titleMax: "Der Titel darf höchstens 100 Zeichen lang sein.",
-    descriptionMax: "Die Beschreibung darf höchstens 2.000 Zeichen lang sein.",
+    titleMin: "Mindestens 3 Zeichen",
+    titleMax: "Höchstens 100 Zeichen",
+    descriptionMax: "Höchstens 2.000 Zeichen",
   },
 } as const;
 

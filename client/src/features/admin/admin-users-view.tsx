@@ -212,7 +212,7 @@ export function EditUserDialog({
         title={t.edit}
         description={t.editDescription}
       >
-        <form className="space-y-2" onSubmit={form.handleSubmit(submitChanges)}>
+        <form className="grid gap-4" onSubmit={form.handleSubmit(submitChanges)}>
           <Field label={t.firstName} error={form.formState.errors.firstName?.message}>
             <Input {...form.register("firstName")} autoComplete="off" />
           </Field>

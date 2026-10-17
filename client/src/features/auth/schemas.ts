@@ -4,32 +4,22 @@ import type { Locale } from "@/lib/preferences";
 
 const copy = {
   en: {
-    invalidEmail: "Enter a valid email address.",
-    passwordRequired: "Enter your password.",
-    passwordMin: "Password must be at least 8 characters long.",
-    passwordLower: "Password must include at least one lowercase letter.",
-    passwordUpper: "Password must include at least one uppercase letter.",
-    passwordNumber: "Password must include at least one number.",
-    firstNameMin: "First name must be at least 2 characters long.",
-    lastNameMin: "Last name must be at least 2 characters long.",
-    passwordMismatch: "Passwords do not match.",
-    currentPasswordRequired: "Enter your current password.",
-    newPasswordMismatch: "New passwords do not match.",
-    newPasswordSame: "The new password is the same as your current password.",
+    invalidEmail: "Invalid email",
+    passwordRequired: "Required",
+    passwordWeak: "Too weak",
+    nameMin: "At least 2 characters",
+    passwordMismatch: "Doesn't match",
+    currentPasswordRequired: "Required",
+    newPasswordSame: "Same as current",
   },
   de: {
-    invalidEmail: "Gib eine gültige E-Mail-Adresse ein.",
-    passwordRequired: "Gib dein Passwort ein.",
-    passwordMin: "Das Passwort muss mindestens 8 Zeichen lang sein.",
-    passwordLower: "Das Passwort muss mindestens einen Kleinbuchstaben enthalten.",
-    passwordUpper: "Das Passwort muss mindestens einen Großbuchstaben enthalten.",
-    passwordNumber: "Das Passwort muss mindestens eine Zahl enthalten.",
-    firstNameMin: "Der Vorname muss mindestens 2 Zeichen lang sein.",
-    lastNameMin: "Der Nachname muss mindestens 2 Zeichen lang sein.",
-    passwordMismatch: "Die Passwörter stimmen nicht überein.",
-    currentPasswordRequired: "Gib dein aktuelles Passwort ein.",
-    newPasswordMismatch: "Die neuen Passwörter stimmen nicht überein.",
-    newPasswordSame: "Das neue Passwort entspricht deinem aktuellen Passwort.",
+    invalidEmail: "Ungültige E-Mail",
+    passwordRequired: "Erforderlich",
+    passwordWeak: "Zu schwach",
+    nameMin: "Mindestens 2 Zeichen",
+    passwordMismatch: "Stimmt nicht überein",
+    currentPasswordRequired: "Erforderlich",
+    newPasswordSame: "Wie das aktuelle",
   },
 } as const;
 
@@ -37,10 +27,10 @@ const createStrongPasswordSchema = (locale: Locale) => {
   const t = copy[locale];
   return z
     .string()
-    .min(8, t.passwordMin)
-    .regex(/[a-z]/, t.passwordLower)
-    .regex(/[A-Z]/, t.passwordUpper)
-    .regex(/\d/, t.passwordNumber);
+    .min(8, t.passwordWeak)
+    .regex(/[a-z]/, t.passwordWeak)
+    .regex(/[A-Z]/, t.passwordWeak)
+    .regex(/\d/, t.passwordWeak);
 };
 
 export const createLoginSchema = (locale: Locale) => {
@@ -55,8 +45,8 @@ export const createRegisterSchema = (locale: Locale) => {
   const t = copy[locale];
   return z
     .object({
-      firstName: z.string().trim().min(2, t.firstNameMin),
-      lastName: z.string().trim().min(2, t.lastNameMin),
+      firstName: z.string().trim().min(2, t.nameMin),
+      lastName: z.string().trim().min(2, t.nameMin),
       email: z.string().trim().pipe(z.email(t.invalidEmail)),
       password: createStrongPasswordSchema(locale),
       confirmPassword: z.string(),
@@ -70,8 +60,8 @@ export const createRegisterSchema = (locale: Locale) => {
 export const createProfileSchema = (locale: Locale) => {
   const t = copy[locale];
   return z.object({
-    firstName: z.string().trim().min(2, t.firstNameMin),
-    lastName: z.string().trim().min(2, t.lastNameMin),
+    firstName: z.string().trim().min(2, t.nameMin),
+    lastName: z.string().trim().min(2, t.nameMin),
     email: z.string().trim().pipe(z.email(t.invalidEmail)),
     currentPassword: z.string().optional(),
   });
@@ -91,7 +81,7 @@ export const createPasswordChangeSchema = (locale: Locale) => {
     })
     .refine((values) => values.newPassword === values.confirmPassword, {
       path: ["confirmPassword"],
-      message: t.newPasswordMismatch,
+      message: t.passwordMismatch,
     });
 };
 

@@ -41,10 +41,10 @@ const copy = {
     messagePlaceholder: "How can we help?",
     submit: "Send message",
     success: "Your message was sent successfully.",
-    firstNameError: "Enter at least 2 characters.",
-    lastNameError: "Enter at least 2 characters.",
-    emailError: "Enter a valid email address.",
-    messageError: "Write at least 10 characters.",
+    firstNameError: "At least 2 characters",
+    lastNameError: "At least 2 characters",
+    emailError: "Invalid email",
+    messageError: "At least 10 characters",
   },
   de: {
     eyebrow: "Karino kontaktieren",
@@ -62,10 +62,10 @@ const copy = {
     messagePlaceholder: "Wie können wir helfen?",
     submit: "Nachricht senden",
     success: "Deine Nachricht wurde erfolgreich gesendet.",
-    firstNameError: "Gib mindestens 2 Zeichen ein.",
-    lastNameError: "Gib mindestens 2 Zeichen ein.",
-    emailError: "Gib eine gültige E-Mail-Adresse ein.",
-    messageError: "Schreibe mindestens 10 Zeichen.",
+    firstNameError: "Mindestens 2 Zeichen",
+    lastNameError: "Mindestens 2 Zeichen",
+    emailError: "Ungültige E-Mail",
+    messageError: "Mindestens 10 Zeichen",
   },
 } as const;
 
@@ -134,46 +134,46 @@ export function ContactView() {
             <div className="grid content-start">
               <Card className="overflow-hidden p-0">
                 <div className="p-6">
-                <div className="flex items-center gap-3">
-                  <span className="desk-icon-well">
-                    <Mail className="size-5" />
-                  </span>
-                  <div>
-                    <p className="text-xs font-black text-[var(--muted)] uppercase">
-                      {t.details}
-                    </p>
-                    {configQuery.data?.email ? (
-                      <a
-                        href={`mailto:${configQuery.data.email}`}
-                        className="break-all font-bold hover:text-[var(--primary)]"
-                      >
-                        {configQuery.data.email}
-                      </a>
-                    ) : (
-                      <p className="text-sm text-[var(--muted)]">{t.unavailable}</p>
-                    )}
+                  <div className="flex items-center gap-3">
+                    <span className="desk-icon-well">
+                      <Mail className="size-5" />
+                    </span>
+                    <div>
+                      <p className="text-xs font-black text-[var(--muted)] uppercase">
+                        {t.details}
+                      </p>
+                      {configQuery.data?.email ? (
+                        <a
+                          href={`mailto:${configQuery.data.email}`}
+                          className="break-all font-bold hover:text-[var(--primary)]"
+                        >
+                          {configQuery.data.email}
+                        </a>
+                      ) : (
+                        <p className="text-sm text-[var(--muted)]">{t.unavailable}</p>
+                      )}
+                    </div>
                   </div>
                 </div>
-                </div>
                 <div className="border-t p-6">
-                <p className="text-sm font-black">{t.socials}</p>
-                <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-2">
-                  {(configQuery.data?.socials ?? []).map((social) => {
-                    const Icon = socialIcons[social.platform];
-                    return (
-                      <a
-                        key={social.platform}
-                        href={social.url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="focus-ring flex items-center gap-3 rounded-2xl border p-3 font-bold capitalize transition hover:border-[var(--primary)] hover:text-[var(--primary)]"
-                      >
-                        <Icon className="size-5" />
-                        {social.platform}
-                      </a>
-                    );
-                  })}
-                </div>
+                  <p className="text-sm font-black">{t.socials}</p>
+                  <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-2">
+                    {(configQuery.data?.socials ?? []).map((social) => {
+                      const Icon = socialIcons[social.platform];
+                      return (
+                        <a
+                          key={social.platform}
+                          href={social.url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="focus-ring flex items-center gap-3 rounded-2xl border p-3 font-bold capitalize transition hover:border-[var(--primary)] hover:text-[var(--primary)]"
+                        >
+                          <Icon className="size-5" />
+                          {social.platform}
+                        </a>
+                      );
+                    })}
+                  </div>
                 </div>
               </Card>
             </div>
@@ -183,14 +183,16 @@ export function ContactView() {
                 <span className="desk-icon-well">
                   <Send className="size-4" />
                 </span>
-                <h2 className="text-lg font-semibold tracking-[-0.02em]">{t.formTitle}</h2>
+                <h2 className="text-lg font-semibold tracking-[-0.02em]">
+                  {t.formTitle}
+                </h2>
               </div>
               <form
                 onSubmit={handleSubmit((values) => submitMutation.mutate(values))}
                 className="chat-message-stream grid gap-3 p-5 sm:p-6"
                 noValidate
               >
-                <div className="grid gap-3 sm:grid-cols-2">
+                <div className="grid gap-4 sm:grid-cols-2">
                   <Field label={t.firstName} error={errors.firstName?.message}>
                     <Input autoComplete="given-name" {...register("firstName")} />
                   </Field>
@@ -207,7 +209,7 @@ export function ContactView() {
                     {...register("email")}
                   />
                 </Field>
-                <Field label={t.message} error={errors.message?.message} compact>
+                <Field label={t.message} error={errors.message?.message}>
                   <Textarea
                     className="min-h-40 rounded-[1.25rem] bg-[var(--surface)]"
                     placeholder={t.messagePlaceholder}

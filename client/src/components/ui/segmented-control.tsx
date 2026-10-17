@@ -27,10 +27,7 @@ export function SegmentedControl<T extends string>({
 }) {
   return (
     <div
-      className={cn(
-        "grid gap-1 rounded-full bg-[var(--surface-muted)] p-1",
-        className,
-      )}
+      className={cn("grid gap-1 rounded-full bg-[var(--surface-muted)] p-1", className)}
       style={{ gridTemplateColumns: `repeat(${options.length}, minmax(0, 1fr))` }}
       role="group"
       aria-label={ariaLabel}

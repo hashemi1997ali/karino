@@ -1,10 +1,11 @@
 "use client";
 
-import { ArrowRight, LayoutDashboard } from "lucide-react";
+import { LayoutDashboard, LogIn, Menu } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 import { Logo } from "@/components/logo";
+import { AnchoredPopover, closePopover } from "@/components/ui/anchored-popover";
 import { buttonClassName } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { useAuth } from "@/features/auth/auth-provider";
@@ -20,7 +21,7 @@ const copy = {
     contact: "Contact",
     dashboard: "My dashboard",
     login: "Log in",
-    start: "Start free",
+    menu: "Menu",
     navigation: "Main navigation",
   },
   de: {
@@ -31,7 +32,7 @@ const copy = {
     contact: "Kontakt",
     dashboard: "Mein Dashboard",
     login: "Anmelden",
-    start: "Kostenlos starten",
+    menu: "Menü",
     navigation: "Hauptnavigation",
   },
 } as const;
@@ -42,6 +43,7 @@ export function PublicHeader({ overlay = false }: { overlay?: boolean }) {
   const pathname = usePathname();
   const t = copy[locale];
   const authenticated = status === "authenticated";
+  const menuId = "public-menu";
 
   const navItems = [
     { href: "/#features", label: t.features },
@@ -64,7 +66,10 @@ export function PublicHeader({ overlay = false }: { overlay?: boolean }) {
             markClassName="size-8 rounded-xl shadow-none sm:size-9 lg:size-8"
             wordmarkClassName="text-base sm:text-[1.1rem]"
           />
-          <span className="mx-1 hidden h-5 w-px bg-[var(--border)] lg:block" aria-hidden="true" />
+          <span
+            className="mx-1 hidden h-5 w-px bg-[var(--border)] lg:block"
+            aria-hidden="true"
+          />
           <nav
             className="hidden items-center gap-1 text-sm font-medium lg:flex"
             aria-label={t.navigation}
@@ -80,49 +85,55 @@ export function PublicHeader({ overlay = false }: { overlay?: boolean }) {
               </Link>
             ))}
           </nav>
-          <span className="mx-1 hidden h-5 w-px bg-[var(--border)] lg:block" aria-hidden="true" />
-          <div className="flex items-center gap-1">
+          <span
+            className="mx-1 hidden h-5 w-px bg-[var(--border)] lg:block"
+            aria-hidden="true"
+          />
+          {/* One account action: Log in, or the dashboard once signed in.
+              Registration lives on the login page and the page's CTA section;
+              language is in the footer. */}
+          <div className="flex items-center gap-1.5">
             <ThemeToggle className="size-10" />
-            {authenticated ? (
-              <Link
-                href="/dashboard"
-                className={buttonClassName({ size: "sm", className: "h-10 rounded-full px-3 sm:px-4" })}
-                aria-label={t.dashboard}
-              >
+            <Link
+              href={authenticated ? "/dashboard" : "/login"}
+              className={buttonClassName({ size: "sm", className: "h-10 px-4" })}
+              aria-label={authenticated ? t.dashboard : t.login}
+            >
+              {authenticated ? (
                 <LayoutDashboard className="size-4" />
-                <span className="max-[419px]:hidden min-[420px]:inline">
-                  {t.dashboard}
-                </span>
-              </Link>
-            ) : (
-              <>
-                <Link
-                  href="/login"
-                  className={buttonClassName({
-                  variant: "ghost",
-                  size: "sm",
-                  className: "max-lg:hidden h-10 rounded-full px-4 lg:inline-flex",
-                })}
-                >
-                  {t.login}
-                </Link>
-                <Link
-                  href="/register"
-                  className={buttonClassName({
-                  size: "sm",
-                  className: "hidden h-10 rounded-full px-4 sm:inline-flex",
-                })}
-                  aria-label={t.start}
-                >
-                  <span className="max-[419px]:hidden min-[420px]:inline">
-                    {t.start}
-                  </span>
-                  <ArrowRight className="size-4" />
-                </Link>
-              </>
-            )}
+              ) : (
+                <LogIn className="size-4" />
+              )}
+              <span className={authenticated ? "max-[459px]:hidden" : undefined}>
+                {authenticated ? t.dashboard : t.login}
+              </span>
+            </Link>
+            <button
+              type="button"
+              popoverTarget={menuId}
+              aria-label={t.menu}
+              title={t.menu}
+              className="focus-ring grid size-10 shrink-0 place-items-center rounded-full border border-[color-mix(in_srgb,var(--border)_90%,transparent)] bg-[var(--surface)] text-[var(--muted)] transition-colors hover:text-[var(--foreground)] lg:hidden"
+            >
+              <Menu className="size-4" aria-hidden="true" />
+            </button>
           </div>
         </div>
+        <AnchoredPopover id={menuId} sheet className="lg:hidden">
+          <nav className="grid gap-0.5" aria-label={t.navigation}>
+            {navItems.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                aria-current={item.active ? "page" : undefined}
+                onClick={() => closePopover(menuId)}
+                className="focus-ring flex h-11 items-center rounded-[var(--control-radius)] px-3 text-sm font-semibold text-[var(--foreground)] transition-colors hover:bg-[var(--surface-muted)] aria-[current=page]:text-[var(--primary)]"
+              >
+                {item.label}
+              </Link>
+            ))}
+          </nav>
+        </AnchoredPopover>
       </header>
       {!overlay && <div className="h-[5.75rem]" aria-hidden="true" />}
     </>

@@ -5,11 +5,12 @@ import { UserPlus } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
-import { Field, Input } from "@/components/ui/form-controls";
+import { Field, Input, PasswordInput } from "@/components/ui/form-controls";
+import { PasswordChecklist } from "@/components/ui/password-checklist";
 import { useAuth } from "@/features/auth/auth-provider";
 import { createRegisterSchema, type RegisterFormValues } from "@/features/auth/schemas";
 import { getErrorMessage } from "@/lib/api-error";
@@ -54,8 +55,10 @@ export function RegisterForm() {
     register,
     handleSubmit,
     clearErrors,
+    control,
     formState: { errors, isSubmitting },
   } = useForm<RegisterFormValues>({ resolver: zodResolver(schema) });
+  const password = useWatch({ control, name: "password" }) ?? "";
 
   useEffect(() => {
     if (status === "authenticated") router.replace("/dashboard");
@@ -85,8 +88,8 @@ export function RegisterForm() {
         {t.title}
       </h1>
       <p className="mt-2 text-sm leading-7 text-[var(--muted)]">{t.description}</p>
-      <form onSubmit={onSubmit} className="mt-8 grid gap-3" noValidate>
-        <div className="grid gap-3 sm:grid-cols-2">
+      <form onSubmit={onSubmit} className="mt-8 grid gap-4" noValidate>
+        <div className="grid gap-4 sm:grid-cols-2">
           <Field label={t.firstName} error={errors.firstName?.message}>
             <Input autoComplete="given-name" {...register("firstName")} />
           </Field>
@@ -103,21 +106,15 @@ export function RegisterForm() {
             {...register("email")}
           />
         </Field>
-        <Field label={t.password} error={errors.password?.message}>
-          <Input
-            type="password"
-            dir="ltr"
-            autoComplete="new-password"
-            {...register("password")}
-          />
+        <Field
+          label={t.password}
+          error={errors.password?.message}
+          after={<PasswordChecklist value={password} open={Boolean(errors.password)} />}
+        >
+          <PasswordInput autoComplete="new-password" {...register("password")} />
         </Field>
         <Field label={t.confirmPassword} error={errors.confirmPassword?.message}>
-          <Input
-            type="password"
-            dir="ltr"
-            autoComplete="new-password"
-            {...register("confirmPassword")}
-          />
+          <PasswordInput autoComplete="new-password" {...register("confirmPassword")} />
         </Field>
         <Button type="submit" size="lg" loading={isSubmitting} className="mt-2 w-full">
           <UserPlus className="size-4" />

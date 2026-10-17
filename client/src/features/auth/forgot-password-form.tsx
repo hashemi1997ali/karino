@@ -74,7 +74,7 @@ export function ForgotPasswordForm() {
       ) : (
         <>
           <p className="mt-2 text-sm leading-7 text-[var(--muted)]">{t.description}</p>
-          <form onSubmit={submit} className="mt-8 grid gap-3" noValidate>
+          <form onSubmit={submit} className="mt-8 grid gap-4" noValidate>
             <Field label={t.email} error={errors.email?.message}>
               <Input
                 type="email"

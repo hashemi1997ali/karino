@@ -1,15 +1,15 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Eye, EyeOff, LogIn } from "lucide-react";
+import { LogIn } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
-import { Field, Input } from "@/components/ui/form-controls";
+import { Field, Input, PasswordInput } from "@/components/ui/form-controls";
 import { useAuth } from "@/features/auth/auth-provider";
 import { createLoginSchema, type LoginFormValues } from "@/features/auth/schemas";
 import { getErrorMessage } from "@/lib/api-error";
@@ -22,8 +22,6 @@ const copy = {
     description: "Log in to keep planning and completing your work.",
     email: "Email",
     password: "Password",
-    hidePassword: "Hide password",
-    showPassword: "Show password",
     submit: "Log in",
     forgot: "Forgot password?",
     noAccount: "Don't have an account?",
@@ -36,7 +34,6 @@ const copy = {
     email: "E-Mail",
     password: "Passwort",
     hidePassword: "Passwort ausblenden",
-    showPassword: "Passwort anzeigen",
     submit: "Anmelden",
     forgot: "Passwort vergessen?",
     noAccount: "Du hast noch kein Konto?",
@@ -51,7 +48,6 @@ export function LoginForm() {
   const { locale } = usePreferences();
   const t = copy[locale];
   const schema = useMemo(() => createLoginSchema(locale), [locale]);
-  const [showPassword, setShowPassword] = useState(false);
   const next = searchParams.get("next");
   const destination =
     next?.startsWith("/") && !next.startsWith("//") ? next : "/dashboard";
@@ -85,7 +81,7 @@ export function LoginForm() {
         {t.title}
       </h1>
       <p className="mt-2 text-sm leading-7 text-[var(--muted)]">{t.description}</p>
-      <form onSubmit={onSubmit} className="mt-8 grid gap-3" noValidate>
+      <form onSubmit={onSubmit} className="mt-8 grid gap-4" noValidate>
         <Field label={t.email} error={errors.email?.message}>
           <Input
             type="email"
@@ -96,23 +92,7 @@ export function LoginForm() {
           />
         </Field>
         <Field label={t.password} error={errors.password?.message}>
-          <div className="relative">
-            <Input
-              type={showPassword ? "text" : "password"}
-              dir="ltr"
-              autoComplete="current-password"
-              className="pr-12"
-              {...register("password")}
-            />
-            <button
-              type="button"
-              onClick={() => setShowPassword((value) => !value)}
-              className="focus-ring absolute right-0.5 top-0.5 grid size-11 place-items-center rounded-full text-slate-500 hover:bg-slate-100 dark:hover:bg-white/8 dark:hover:text-white"
-              aria-label={showPassword ? t.hidePassword : t.showPassword}
-            >
-              {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
-            </button>
-          </div>
+          <PasswordInput autoComplete="current-password" {...register("password")} />
         </Field>
         <Link
           href="/forgot-password"

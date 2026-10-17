@@ -99,11 +99,11 @@ export function TaskForm({
   );
 
   return (
-    <form onSubmit={submit} className="grid gap-2 pb-1" noValidate>
-      <Field compact label={t.title} error={errors.title?.message}>
+    <form onSubmit={submit} className="grid gap-4" noValidate>
+      <Field label={t.title} error={errors.title?.message}>
         <Input placeholder={t.titlePlaceholder} autoFocus {...register("title")} />
       </Field>
-      <Field compact label={t.description} error={errors.description?.message}>
+      <Field label={t.description} error={errors.description?.message}>
         <Textarea
           placeholder={t.descriptionPlaceholder}
           className="min-h-24"
@@ -111,14 +111,14 @@ export function TaskForm({
         />
       </Field>
       <div className="grid gap-2 sm:grid-cols-2 sm:gap-3">
-        <Field compact label={t.status} error={errors.status?.message}>
+        <Field label={t.status} error={errors.status?.message}>
           <Select {...register("status")}>
             <option value="todo">{t.todo}</option>
             <option value="in-progress">{t.inProgress}</option>
             <option value="done">{t.done}</option>
           </Select>
         </Field>
-        <Field compact label={t.priority} error={errors.priority?.message}>
+        <Field label={t.priority} error={errors.priority?.message}>
           <Select {...register("priority")}>
             <option value="low">{t.low}</option>
             <option value="medium">{t.medium}</option>
@@ -126,7 +126,7 @@ export function TaskForm({
           </Select>
         </Field>
       </div>
-      <Field compact label={t.dueDate} error={errors.dueDate?.message}>
+      <Field label={t.dueDate} error={errors.dueDate?.message}>
         <Input type="datetime-local" dir="ltr" {...register("dueDate")} />
       </Field>
       <div className="flex justify-end pt-1 pb-1">

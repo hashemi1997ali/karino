@@ -1,10 +1,11 @@
 "use client";
 
-import { CheckCircle2, Circle, Sparkles } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Circle, Sparkles } from "lucide-react";
 import Link from "next/link";
 
 import { Logo } from "@/components/logo";
 import { PreferencesControls } from "@/components/preferences-controls";
+import { buttonClassName } from "@/components/ui/button";
 import { usePreferences } from "@/providers/preferences-provider";
 
 const copy = {
@@ -88,18 +89,25 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
         </div>
       </aside>
 
-      <section className="relative flex min-h-dvh flex-col overflow-hidden px-4 py-5 sm:px-8 lg:px-14">
+      {/* overflow-clip, not hidden: a hidden box can still be scrolled when the
+          browser focuses an invalid field, which shifted the form sideways. */}
+      <section className="relative flex min-h-dvh flex-col overflow-clip px-4 py-5 sm:px-8 lg:px-14">
         <div className="pointer-events-none absolute -right-48 top-[-12rem] size-[34rem] rounded-full bg-[var(--primary-soft)] opacity-70 blur-[90px]" />
-        <div className="flex items-center justify-between lg:justify-end">
+        <div className="relative z-10 flex items-center justify-between gap-3 lg:justify-end">
           <div className="lg:hidden">
             <Logo />
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
             <PreferencesControls />
             <Link
               href="/"
-              className="focus-ring rounded-full px-3 py-2 text-sm font-medium text-[var(--muted)] hover:bg-[var(--surface-muted)] hover:text-[var(--foreground)]"
+              className={buttonClassName({
+                variant: "ghost",
+                size: "sm",
+                className: "h-10 px-3 text-[var(--foreground)]/75",
+              })}
             >
+              <ArrowLeft className="size-4" />
               {t.home}
             </Link>
           </div>

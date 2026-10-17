@@ -1,117 +1,96 @@
 "use client";
 
-import { Languages, Palette, Settings2 } from "lucide-react";
+import { Globe, Languages, Palette } from "lucide-react";
+import { useId } from "react";
 
+import { AnchoredPopover } from "@/components/ui/anchored-popover";
 import { ThemeSelector } from "@/components/ui/theme-selector";
 import { usePreferences } from "@/providers/preferences-provider";
 import { cn } from "@/lib/utils";
 
 const copy = {
   en: {
-    open: "Open language and appearance settings",
-    title: "Preferences",
+    open: "Language and appearance",
     language: "Language",
     appearance: "Appearance",
-    english: "English",
-    german: "Deutsch",
     light: "Light",
     dark: "Dark",
     system: "System",
-    sidebarLabel: "Appearance & language",
   },
   de: {
-    open: "Sprach- und Darstellungseinstellungen öffnen",
-    title: "Einstellungen",
+    open: "Sprache und Darstellung",
     language: "Sprache",
     appearance: "Darstellung",
-    english: "English",
-    german: "Deutsch",
     light: "Hell",
     dark: "Dunkel",
     system: "System",
-    sidebarLabel: "Darstellung & Sprache",
   },
 } as const;
 
-export function PreferencesControls({
-  className,
-  placement = "default",
-}: {
-  className?: string;
-  placement?: "default" | "sidebar";
-}) {
+/** One button for language and theme, used on every public page. */
+export function PreferencesControls({ className }: { className?: string }) {
   const { locale, theme, setLocale, setTheme } = usePreferences();
   const t = copy[locale];
+  const popoverId = `preferences-${useId().replace(/:/g, "")}`;
 
   return (
-    <details className={cn("group relative", className)}>
-      <summary
-        className={cn(
-          "focus-ring list-none border bg-[var(--surface)] text-[var(--muted)] transition hover:border-[var(--primary)] hover:text-[var(--primary)] [&::-webkit-details-marker]:hidden",
-          placement === "sidebar"
-            ? "flex h-11 w-full items-center gap-3 rounded-full px-3 text-sm font-semibold"
-            : "grid size-11 place-items-center rounded-full",
-        )}
+    <>
+      <button
+        type="button"
+        popoverTarget={popoverId}
         aria-label={t.open}
-        title={t.title}
-      >
-        {placement === "sidebar" ? (
-          <>
-            <Palette className="size-4.5 shrink-0" />
-            <span className="truncate">{t.sidebarLabel}</span>
-          </>
-        ) : (
-          <Settings2 className="size-4.5" />
-        )}
-      </summary>
-      <div
+        title={t.open}
         className={cn(
-          "surface-shadow z-[60] rounded-[var(--container-radius)] border bg-[var(--surface)] p-3 text-[var(--foreground)]",
-          placement === "sidebar"
-            ? "fixed inset-x-3 bottom-20 w-auto sm:absolute sm:inset-x-auto sm:bottom-12 sm:start-0 sm:w-72"
-            : "fixed inset-x-3 top-22 w-auto sm:absolute sm:inset-x-auto sm:end-0 sm:top-12 sm:w-72",
+          "focus-ring inline-flex h-10 shrink-0 items-center gap-1.5 rounded-full border border-[color-mix(in_srgb,var(--border)_90%,transparent)] bg-[var(--surface)] px-3 text-xs font-bold text-[var(--muted)] transition-colors hover:border-[color-mix(in_srgb,var(--primary)_30%,var(--border))] hover:text-[var(--foreground)]",
+          className,
         )}
       >
-        <div className="flex items-center gap-2 px-1 pb-2 text-sm font-bold">
-          <Languages className="size-4 text-[var(--primary)]" />
+        <Globe className="size-4" aria-hidden="true" />
+        <span className="uppercase">{locale}</span>
+      </button>
+
+      <AnchoredPopover id={popoverId} className="w-48 p-2.5">
+        <p className="flex items-center gap-2 px-1 pb-2 text-xs font-bold text-[var(--muted)]">
+          <Languages className="size-3.5 text-[var(--primary)]" aria-hidden="true" />
           {t.language}
-        </div>
+        </p>
         <div
           className="grid grid-cols-2 gap-1 rounded-full bg-[var(--surface-muted)] p-1"
           role="group"
           aria-label={t.language}
         >
-          {(
-            [
-              ["en", t.english],
-              ["de", t.german],
-            ] as const
-          ).map(([value, label]) => (
+          {(["en", "de"] as const).map((value) => (
             <button
               key={value}
               type="button"
               onClick={() => setLocale(value)}
               className={cn(
-                "focus-ring flex h-11 items-center justify-center rounded-full px-3 text-sm font-semibold transition",
+                "focus-ring flex h-8 items-center justify-center rounded-full px-3 text-xs font-bold transition",
                 locale === value
                   ? "bg-[var(--surface)] text-[var(--primary)] shadow-sm"
                   : "text-[var(--muted)] hover:text-[var(--foreground)]",
               )}
               aria-pressed={locale === value}
+              lang={value}
+              aria-label={value === "en" ? "English" : "Deutsch"}
             >
-              {label}
+              {value.toUpperCase()}
             </button>
           ))}
         </div>
 
-        <div className="mt-4 px-1 pb-2 text-sm font-bold">{t.appearance}</div>
+        <p className="mt-3 flex items-center gap-2 px-1 pb-2 text-xs font-bold text-[var(--muted)]">
+          <Palette className="size-3.5 text-[var(--primary)]" aria-hidden="true" />
+          {t.appearance}
+        </p>
         <ThemeSelector
           value={theme}
           onValueChange={setTheme}
           labels={{ light: t.light, dark: t.dark, system: t.system }}
           ariaLabel={t.appearance}
+          iconOnly
         />
-      </div>
-    </details>
+      </AnchoredPopover>
+    </>
   );
 }

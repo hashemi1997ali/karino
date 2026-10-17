@@ -2,19 +2,19 @@
 
 import { Moon, Sun } from "lucide-react";
 import { useSyncExternalStore } from "react";
-import { flushSync } from "react-dom";
 
+import { withThemeReveal } from "@/components/ui/theme-selector";
 import { cn } from "@/lib/utils";
 import { usePreferences } from "@/providers/preferences-provider";
 
 const subscribeToMount = () => () => undefined;
 
 const useIsMounted = (): boolean =>
-  useSyncExternalStore(subscribeToMount, () => true, () => false);
-
-type DocumentWithViewTransition = Document & {
-  startViewTransition?: (update: () => void) => { finished: Promise<void> };
-};
+  useSyncExternalStore(
+    subscribeToMount,
+    () => true,
+    () => false,
+  );
 
 export function ThemeToggle({ className }: { className?: string }) {
   const mounted = useIsMounted();
@@ -30,34 +30,8 @@ export function ThemeToggle({ className }: { className?: string }) {
         : "Switch to dark theme";
 
   const toggleTheme = (event: React.MouseEvent<HTMLButtonElement>) => {
-    const nextTheme = isDark ? "light" : "dark";
-    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const documentWithTransition = document as DocumentWithViewTransition;
-
-    if (!documentWithTransition.startViewTransition || reduceMotion) {
-      setTheme(nextTheme);
-      return;
-    }
-
-    const rect = event.currentTarget.getBoundingClientRect();
-    const centerX = rect.left + rect.width / 2;
-    const centerY = rect.top + rect.height / 2;
-    const radius = Math.hypot(
-      Math.max(centerX, window.innerWidth - centerX),
-      Math.max(centerY, window.innerHeight - centerY),
-    );
-    const root = document.documentElement;
-    root.style.setProperty("--theme-cx", `${centerX}px`);
-    root.style.setProperty("--theme-cy", `${centerY}px`);
-    root.style.setProperty("--theme-r", `${radius}px`);
-    root.dataset.themeAnim = "1";
-
-    const transition = documentWithTransition.startViewTransition(() => {
-      flushSync(() => setTheme(nextTheme));
-    });
-    transition.finished.finally(() => {
-      delete root.dataset.themeAnim;
-    });
+    const target = event.currentTarget;
+    withThemeReveal(target, () => setTheme(isDark ? "light" : "dark"));
   };
 
   return (

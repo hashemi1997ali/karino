@@ -22,8 +22,9 @@ import { Button } from "@/components/ui/button";
 import { UserAvatar } from "@/components/user-avatar";
 import { Card, Badge } from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { Field, Input } from "@/components/ui/form-controls";
+import { Field, Input, PasswordInput } from "@/components/ui/form-controls";
 import { PageHeading } from "@/components/ui/page-heading";
+import { PasswordChecklist } from "@/components/ui/password-checklist";
 import { ErrorState, LoadingState } from "@/components/ui/states";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { ThemeSelector } from "@/components/ui/theme-selector";
@@ -73,6 +74,7 @@ interface AccountCopy {
   passwordDescription: string;
   currentPassword: string;
   emailPasswordHint: string;
+  required: string;
   newPassword: string;
   confirmPassword: string;
   changePassword: string;
@@ -167,6 +169,7 @@ const copy = {
     passwordDescription: "Use your current password",
     currentPassword: "Current password",
     emailPasswordHint: "Enter your current password to confirm the new email.",
+    required: "Required",
     newPassword: "New password",
     confirmPassword: "Confirm new password",
     changePassword: "Change password",
@@ -241,6 +244,7 @@ const copy = {
     currentPassword: "Aktuelles Passwort",
     emailPasswordHint:
       "Gib dein aktuelles Passwort ein, um die neue E-Mail-Adresse zu bestätigen.",
+    required: "Erforderlich",
     newPassword: "Neues Passwort",
     confirmPassword: "Neues Passwort bestätigen",
     changePassword: "Passwort ändern",
@@ -417,12 +421,14 @@ export function AccountView({ embedded = false }: { embedded?: boolean }) {
   const profileHasChanges =
     profileForm.formState.isDirty || Boolean(profileImage) || removeProfileImage;
   const watchedEmail = useWatch({ control: profileForm.control, name: "email" });
+  const newPassword =
+    useWatch({ control: passwordForm.control, name: "newPassword" }) ?? "";
   const emailChanged =
     watchedEmail !== undefined && watchedEmail.trim().toLowerCase() !== user?.email;
   const submitProfile = profileForm.handleSubmit((values) => {
     if (!profileHasChanges) return;
     if (emailChanged && !values.currentPassword) {
-      profileForm.setError("currentPassword", { message: t.emailPasswordHint });
+      profileForm.setError("currentPassword", { message: t.required });
       return;
     }
     return profileMutation
@@ -646,8 +652,8 @@ export function AccountView({ embedded = false }: { embedded?: boolean }) {
                 </Button>
               )}
             </div>
-            <form onSubmit={submitProfile} className="mt-5 grid gap-3" noValidate>
-              <div className="grid gap-3 sm:grid-cols-2">
+            <form onSubmit={submitProfile} className="mt-5 grid gap-4" noValidate>
+              <div className="grid gap-4 sm:grid-cols-2">
                 <Field
                   label={t.firstName}
                   error={profileForm.formState.errors.firstName?.message}
@@ -683,9 +689,7 @@ export function AccountView({ embedded = false }: { embedded?: boolean }) {
                   hint={t.emailPasswordHint}
                   error={profileForm.formState.errors.currentPassword?.message}
                 >
-                  <Input
-                    type="password"
-                    dir="ltr"
+                  <PasswordInput
                     autoComplete="current-password"
                     {...profileForm.register("currentPassword")}
                   />
@@ -820,26 +824,28 @@ export function AccountView({ embedded = false }: { embedded?: boolean }) {
         {activeTab === "security" && securityPane === "password" && (
           <Card className={cn("h-full", panelClassName)}>
             <p className="mb-5 text-xs text-[var(--muted)]">{t.passwordDescription}</p>
-            <form onSubmit={submitPassword} className="grid gap-3" noValidate>
+            <form onSubmit={submitPassword} className="grid gap-4" noValidate>
               <Field
                 label={t.currentPassword}
                 error={passwordForm.formState.errors.currentPassword?.message}
               >
-                <Input
-                  type="password"
-                  dir="ltr"
+                <PasswordInput
                   autoComplete="current-password"
                   {...passwordForm.register("currentPassword")}
                 />
               </Field>
-              <div className="grid gap-3 sm:grid-cols-2">
+              <div className="grid gap-4 sm:grid-cols-2">
                 <Field
                   label={t.newPassword}
                   error={passwordForm.formState.errors.newPassword?.message}
+                  after={
+                    <PasswordChecklist
+                      value={newPassword}
+                      open={Boolean(passwordForm.formState.errors.newPassword)}
+                    />
+                  }
                 >
-                  <Input
-                    type="password"
-                    dir="ltr"
+                  <PasswordInput
                     autoComplete="new-password"
                     {...passwordForm.register("newPassword")}
                   />
@@ -848,9 +854,7 @@ export function AccountView({ embedded = false }: { embedded?: boolean }) {
                   label={t.confirmPassword}
                   error={passwordForm.formState.errors.confirmPassword?.message}
                 >
-                  <Input
-                    type="password"
-                    dir="ltr"
+                  <PasswordInput
                     autoComplete="new-password"
                     {...passwordForm.register("confirmPassword")}
                   />

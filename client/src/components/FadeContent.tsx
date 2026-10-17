@@ -84,9 +84,9 @@ export default function FadeContent({
 
         if (disappearAfter > 0) {
           gsap.to(element, {
-          autoAlpha: initialOpacity,
-          filter: blur ? "blur(10px)" : "blur(0px)",
-          y: translateY,
+            autoAlpha: initialOpacity,
+            filter: blur ? "blur(10px)" : "blur(0px)",
+            y: translateY,
             delay: getSeconds(disappearAfter),
             duration: getSeconds(disappearDuration),
             ease: disappearEase,
