@@ -450,6 +450,7 @@ export function StaffSupportView() {
                             profileImage: null,
                           }
                         }
+                        showRole
                       />
                     }
                     title={

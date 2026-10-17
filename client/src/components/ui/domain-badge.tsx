@@ -66,9 +66,9 @@ export function RoleBadge({
 }) {
   const classNames =
     role === "super_admin"
-      ? "border-violet-200 bg-violet-50 text-violet-700 dark:border-violet-400/25 dark:bg-violet-500/15 dark:text-violet-300"
+      ? "border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-400/25 dark:bg-amber-500/15 dark:text-amber-300"
       : role === "admin"
-        ? "border-indigo-200 bg-indigo-50 text-indigo-700 dark:border-indigo-400/25 dark:bg-indigo-500/15 dark:text-indigo-300"
+        ? "border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-400/25 dark:bg-sky-500/15 dark:text-sky-300"
         : "border-slate-200 bg-slate-50 text-slate-700 dark:border-slate-500/25 dark:bg-slate-500/15 dark:text-slate-300";
   return <span className={cn(base, classNames, className)}>{children}</span>;
 }
@@ -93,7 +93,7 @@ export function UserTypeBadge({
     <span
       className={cn(
         base,
-        "border-cyan-200 bg-cyan-50 text-cyan-700 dark:border-cyan-400/25 dark:bg-cyan-500/15 dark:text-cyan-300",
+        "border-dashed border-slate-300 bg-transparent text-slate-600 dark:border-slate-500/40 dark:text-slate-300",
         className,
       )}
     >

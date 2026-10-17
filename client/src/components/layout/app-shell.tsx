@@ -228,7 +228,7 @@ export function AppShell({
         title={compact ? label : undefined}
         onClick={() => setMoreOpen(false)}
         className={cn(
-          "desk-nav-link focus-ring flex h-11 w-full items-center gap-3 overflow-hidden rounded-[0.85rem] px-3.5 text-sm font-bold transition-[background-color,color,box-shadow] duration-150",
+          "desk-nav-link focus-ring flex h-11 w-full items-center gap-3 overflow-hidden rounded-[0.85rem] px-[0.9375rem] text-sm font-bold transition-[background-color,color,box-shadow] duration-150",
           active ? "is-active" : undefined,
         )}
       >
@@ -248,7 +248,7 @@ export function AppShell({
   };
 
   const sidebarDivider = (compact: boolean, label?: string) => (
-    <div className="flex h-9 shrink-0 items-center px-3.5" aria-hidden="true">
+    <div className="flex h-9 shrink-0 items-center px-[0.9375rem]" aria-hidden="true">
       {compact || !label ? (
         <span
           className={cn("desk-sidebar-separator block h-px", compact ? "w-5" : "w-full")}
@@ -270,14 +270,14 @@ export function AppShell({
         aria-expanded={userMenuOpen}
         onClick={() => setUserMenuOpen((open) => !open)}
         className={cn(
-          "desk-nav-link focus-ring flex h-11 w-full items-center gap-3 overflow-hidden rounded-[0.85rem] px-3.5 text-left text-sm font-bold transition-colors",
+          "desk-nav-link focus-ring flex h-11 w-full items-center gap-2.5 overflow-hidden rounded-[0.85rem] px-[0.6875rem] text-left text-sm font-bold transition-colors",
           userMenuOpen ? "is-active" : undefined,
         )}
       >
         <UserAvatar
           user={user}
-          className="size-6 shrink-0 border-white/6 text-[10px]"
-          imageSizes="24px"
+          className="size-7 shrink-0 border-white/10 text-[10px]"
+          imageSizes="28px"
         />
         <span
           className={cn(
@@ -300,7 +300,7 @@ export function AppShell({
 
     return (
       <>
-        <div className="desk-sidebar-head flex h-16 shrink-0 items-center gap-2 overflow-hidden px-4">
+        <div className="desk-sidebar-head flex h-16 shrink-0 items-center gap-2 overflow-hidden pr-4 pl-[1.0625rem]">
           <div
             className={cn(
               "group/sidebar-logo relative h-11 min-w-0",
@@ -617,8 +617,9 @@ export function AppShell({
               <Dialog.Title className="sr-only">{t.more}</Dialog.Title>
               <UserAvatar
                 user={user}
-                className="size-14 border-white/6"
+                className="size-14 border-white/6 text-lg"
                 imageSizes="56px"
+                showRole
               />
               <div className="min-w-0 flex-1">
                 <h2 className="truncate text-lg font-bold tracking-[-0.025em] text-white">

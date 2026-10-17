@@ -475,7 +475,12 @@ export function AdminUsersView() {
                       </AccountStatusBadge>
                     </div>
                     <div className="mt-3 flex min-w-0 items-center gap-3">
-                      <UserAvatar user={user} className="size-10" imageSizes="40px" />
+                      <UserAvatar
+                        user={user}
+                        className="size-10"
+                        imageSizes="40px"
+                        showRole
+                      />
                       <div className="flex min-h-10 min-w-0 flex-1 flex-col justify-center">
                         <Link
                           href={`/admin/users/${id}`}

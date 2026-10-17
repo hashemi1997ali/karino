@@ -576,8 +576,9 @@ export function AccountView({ embedded = false }: { embedded?: boolean }) {
                 <div className="relative shrink-0">
                   <UserAvatar
                     user={user}
-                    className="size-14"
+                    className="size-14 text-lg"
                     imageSizes="56px"
+                    showRole
                     imageUrl={
                       removeProfileImage ? null : (profileImagePreview ?? undefined)
                     }

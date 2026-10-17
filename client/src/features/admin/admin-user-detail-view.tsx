@@ -291,8 +291,9 @@ export function AdminUserDetailView({ userId }: { userId: string }) {
               <div className="flex min-w-0 items-center gap-4 sm:gap-5">
                 <UserAvatar
                   user={user}
-                  className="size-16 shrink-0 sm:size-20"
+                  className="size-16 shrink-0 text-xl sm:size-20 sm:text-2xl"
                   imageSizes="80px"
+                  showRole
                 />
                 <div className="min-w-0">
                   <h2 className="break-words text-2xl font-black tracking-tight sm:text-3xl">
