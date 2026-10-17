@@ -1,5 +1,5 @@
-import { outputGuardrail } from "../guardrails/index.ts";
-import { aiUnavailableReply } from "../fallback/unavailable.ts";
+import { hasUnsupportedScript, outputGuardrail } from "../guardrails/index.ts";
+import { aiUnavailableReply, unsupportedLanguageReply } from "../fallback/unavailable.ts";
 import { isStronglyMixedLanguage } from "../language.ts";
 import {
   runProviders,
@@ -119,6 +119,16 @@ export const runTaskAgent = async ({
   context: AssistantContext;
   getTaskContext: () => Promise<TaskContextItem[]>;
 }): Promise<TaskAssistantResult> => {
+  // Only the script check runs here: the stop-word heuristic would reject terse
+  // task titles such as "Buy milk eggs bread cheese".
+  if (hasUnsupportedScript(message)) {
+    return {
+      reply: unsupportedLanguageReply(context.locale),
+      provider: UNAVAILABLE_PROVIDER,
+      proposal: null,
+    };
+  }
+
   const systemPrompt = buildPrompt(context);
   let result = await runProviders({
     systemPrompt,

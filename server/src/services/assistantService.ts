@@ -12,6 +12,7 @@
  */
 
 import {
+  classifySupportReason,
   detectMessageLocale,
   generateReplySuggestions,
   rewriteStaffDraft,
@@ -30,7 +31,7 @@ export type {
   AssistantResult,
   SupportTranscriptMessage,
 };
-export { detectMessageLocale };
+export { classifySupportReason, detectMessageLocale };
 
 /** Agent identifier surfaced to callers (kept as an alias for compatibility). */
 export type AssistantAgent = ReplyAgentId;

@@ -15,6 +15,7 @@ import {
 import {
   banUser,
   CHAT_WELCOME_SENDER,
+  classifySupportReason,
   chatWelcomeMessage,
   clearAssistantIdleClose,
   closeInactiveAssistantChats,
@@ -189,6 +190,37 @@ const endChatDocument = async (
   return false;
 };
 
+const STAFF_COMMANDS = new Set([
+  "/user",
+  "/ban",
+  "/confirm-ban",
+  "/unban",
+  "/confirm-unban",
+  "/promote",
+  "/confirm-promote",
+  "/demote",
+  "/confirm-demote",
+]);
+
+// ponytail: per-process memory, so a confirmation must hit the same API
+// instance. Move to MongoDB/Redis (with a TTL) when running several instances.
+const PENDING_ACTION_TTL_MS = 2 * 60 * 1000;
+const pendingStaffActions = new Map<string, { action: string; expiresAt: number }>();
+
+const rememberPendingAction = (actorId: string, action: string): void => {
+  pendingStaffActions.set(actorId, {
+    action,
+    expiresAt: Date.now() + PENDING_ACTION_TTL_MS,
+  });
+};
+
+/** A /confirm-* command only runs right after its own preparing command. */
+const consumePendingAction = (actorId: string, action: string): boolean => {
+  const pending = pendingStaffActions.get(actorId);
+  pendingStaffActions.delete(actorId);
+  return pending?.action === action && pending.expiresAt > Date.now();
+};
+
 const parseStaffCommand = async (
   message: string,
   actor: HydratedDocument<IUser>,
@@ -196,8 +228,16 @@ const parseStaffCommand = async (
 ): Promise<string | null> => {
   if (!message.startsWith("/") || !isStaffRoles(actor.roles)) return null;
 
-  const [command, emailValue, reasonValue] = message.trim().split(/\s+/, 3);
+  const [command = "", emailValue, reasonValue] = message.trim().split(/\s+/, 3);
   const email = emailValue?.trim().toLowerCase();
+
+  if (!STAFF_COMMANDS.has(command)) {
+    return localized(
+      locale,
+      "Unknown command. Use /ban, /unban, /user, and—if you are a super admin—/promote or /demote.",
+      "Unbekannter Befehl. Verwende /ban, /unban, /user und als Super-Admin zusätzlich /promote oder /demote.",
+    );
+  }
 
   if (!email) {
     return localized(
@@ -217,6 +257,18 @@ const parseStaffCommand = async (
   }
 
   const actorInfo = { userId: String(actor._id), roles: actor.roles };
+  const pendingAction = `${command.replace("/confirm-", "/")} ${target.email} ${reasonValue ?? ""}`;
+
+  if (
+    command.startsWith("/confirm-") &&
+    !consumePendingAction(actorInfo.userId, pendingAction)
+  ) {
+    return localized(
+      locale,
+      `Nothing to confirm. Send ${command.replace("/confirm-", "/")} ${target.email} first, then confirm within two minutes.`,
+      `Nichts zu bestätigen. Sende zuerst ${command.replace("/confirm-", "/")} ${target.email} und bestätige dann innerhalb von zwei Minuten.`,
+    );
+  }
 
   if (command === "/ban" || command === "/confirm-ban") {
     if (
@@ -233,6 +285,7 @@ const parseStaffCommand = async (
       throw new AppError("You cannot ban this account", 403);
     }
     if (command === "/ban") {
+      rememberPendingAction(actorInfo.userId, pendingAction);
       return localized(
         locale,
         `Confirm banning ${target.email} for "${reasonValue}" by sending /confirm-ban ${target.email} ${reasonValue}.`,
@@ -259,6 +312,7 @@ const parseStaffCommand = async (
       );
     }
     if (command === "/unban") {
+      rememberPendingAction(actorInfo.userId, pendingAction);
       return localized(
         locale,
         `Confirm removing the ban from ${target.email} by sending /confirm-unban ${target.email}.`,
@@ -288,6 +342,7 @@ const parseStaffCommand = async (
     const promote = command === "/promote" || command === "/confirm-promote";
     const confirmed = command === "/confirm-promote" || command === "/confirm-demote";
     if (!confirmed) {
+      rememberPendingAction(actorInfo.userId, pendingAction);
       const confirmation = promote ? "/confirm-promote" : "/confirm-demote";
       return localized(
         locale,
@@ -420,31 +475,36 @@ const supportRequiresSuperAdmin = (
   roles: readonly string[],
 ): boolean => isAdminRoles(roles) || reason === "account_banned" || reason === "security";
 
+/**
+ * The pre-escalation history comes from the client, so only the user's own
+ * turns are stored. Client-supplied "assistant" turns could be forged and
+ * would otherwise appear to staff as genuine AI replies.
+ */
+const userTurns = (history: AssistantHistoryMessage[]): string[] =>
+  history.filter((item) => item.role === "user").map((item) => item.content);
+
 const transcriptMessages = (
   history: AssistantHistoryMessage[],
   options: { userId?: mongoose.Types.ObjectId; userName: string },
 ) =>
-  history.map((item) => ({
-    sender: item.role === "user" ? ("user" as const) : ("ai" as const),
-    senderId: item.role === "user" ? (options.userId ?? null) : null,
-    senderName: item.role === "user" ? options.userName : "website-help",
-    content: item.content,
+  userTurns(history).map((content) => ({
+    sender: "user" as const,
+    senderId: options.userId ?? null,
+    senderName: options.userName,
+    content,
     createdAt: new Date(),
   }));
 
 export const createGuestSupportChat: RequestHandler = async (request, response) => {
-  const { history, locale, reason } = request.body as {
+  const { history, locale } = request.body as {
     history: AssistantHistoryMessage[];
     locale: SupportChatLocale;
-    reason: SupportEscalationReason;
   };
   const token = randomBytes(32).toString("base64url");
-  const firstUserMessage = history.find((item) => item.role === "user")?.content ?? "";
-  const email = history
-    .map((item) => item.content)
-    .join(" ")
-    .match(EMAIL_PATTERN)?.[0]
-    ?.toLowerCase();
+  const userMessages = userTurns(history);
+  const reason = classifySupportReason(userMessages);
+  const firstUserMessage = userMessages[0] ?? "";
+  const email = userMessages.join(" ").match(EMAIL_PATTERN)?.[0]?.toLowerCase();
   const requiresSuperAdmin = supportRequiresSuperAdmin(reason, []);
   const chat = await SupportChat.create({
     user: null,
@@ -487,12 +547,13 @@ export const createGuestSupportChat: RequestHandler = async (request, response) 
 
 export const createSupportChat: RequestHandler = async (request, response) => {
   const user = await getCurrentUser(request);
-  const { history, locale, reason } = request.body as {
+  const { history, locale } = request.body as {
     history: AssistantHistoryMessage[];
     locale: SupportChatLocale;
-    reason: SupportEscalationReason;
   };
-  const firstUserMessage = history.find((item) => item.role === "user")?.content ?? "";
+  const userMessages = userTurns(history);
+  const reason = classifySupportReason(userMessages);
+  const firstUserMessage = userMessages[0] ?? "";
   const requiresSuperAdmin = supportRequiresSuperAdmin(reason, user.roles);
   const chat = await SupportChat.create({
     user: user._id,
@@ -892,7 +953,7 @@ export const claimStaffChat: RequestHandler = async (request, response) => {
       },
       $push: { messages: { $each: transitionMessages } },
     },
-    { new: true, runValidators: true },
+    { returnDocument: "after", runValidators: true },
   );
 
   if (!chat) {

@@ -12,9 +12,14 @@ import {
   taskRouter,
 } from "#routers";
 import { startAssistantChatLifecycle } from "#services";
-import { getNonNegativeIntegerEnv } from "#utils";
+import { getNonNegativeIntegerEnv, getRequiredEnv } from "#utils";
 
-const app = express();
+// Fail at startup instead of on the first login request.
+if (getRequiredEnv("ACCESS_JWT_SECRET") === getRequiredEnv("REFRESH_JWT_SECRET")) {
+  throw new Error("ACCESS_JWT_SECRET and REFRESH_JWT_SECRET must be different");
+}
+
+export const app = express();
 const port = Number(process.env.PORT) || 4000;
 const trustProxyHops = getNonNegativeIntegerEnv("TRUST_PROXY_HOPS", 0);
 
@@ -46,8 +51,11 @@ app.use("/contact", contactRouter);
 app.use(notFound);
 app.use(errorHandler);
 
-startAssistantChatLifecycle();
+// Only when run directly: tests import `app` without opening a port.
+if (import.meta.main) {
+  startAssistantChatLifecycle();
 
-app.listen(port, () => {
-  console.log(`Server is running at http://localhost:${port}`);
-});
+  app.listen(port, () => {
+    console.log(`Server is running at http://localhost:${port}`);
+  });
+}

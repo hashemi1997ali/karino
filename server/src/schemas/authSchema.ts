@@ -51,6 +51,8 @@ export const updateProfileSchema = z
     firstName: firstNameSchema.optional(),
     lastName: lastNameSchema.optional(),
     email: emailSchema.optional(),
+    // Required by the controller only when the email actually changes.
+    currentPassword: z.string().min(1).max(200).optional(),
     removeProfileImage: z
       .preprocess(
         (value) => (value === undefined ? undefined : value === true || value === "true"),

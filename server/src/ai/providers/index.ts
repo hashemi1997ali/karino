@@ -1,51 +1,28 @@
 /**
- * Provider registry.
- *
- * The active provider is chosen by the `AI_PROVIDER` env var (preserving the
- * original behaviour). `runProviders` tries the selected provider and returns
- * the first successful reply. If it fails or is unconfigured, the caller gets
- * an explicit unavailable state.
+ * Provider entry point. The assistant talks to one OpenAI-compatible endpoint
+ * configured by AI_BASE_URL, AI_API_KEY and AI_MODEL (see openai-compatible.ts).
+ * When it is unconfigured or fails, callers get an explicit unavailable state.
  */
 
 import type { AssistantHistoryMessage } from "../types.ts";
-import type {
-  ChatProvider,
-  ProviderRequest,
-  ProviderToolCall,
-  ProviderToolDefinition,
-} from "./types.ts";
-import { anthropicProvider } from "./anthropic.ts";
-import { geminiProvider } from "./gemini.ts";
-import { ollamaProvider } from "./ollama.ts";
-import { openAiProvider, openRouterProvider } from "./openai.ts";
+import type { ProviderToolCall, ProviderToolDefinition } from "./types.ts";
+import { completeChat, getAiConfig } from "./openai-compatible.ts";
 
 export type {
-  ChatProvider,
   ProviderRequest,
   ProviderToolCall,
   ProviderToolDefinition,
 } from "./types.ts";
 
-const REGISTRY: Record<string, ChatProvider> = {
-  openai: openAiProvider,
-  openrouter: openRouterProvider,
-  anthropic: anthropicProvider,
-  gemini: geminiProvider,
-  ollama: ollamaProvider,
-};
-
-/** Reads and normalises the configured provider name. */
-export const getConfiguredProviderName = (): string =>
-  (process.env.AI_PROVIDER ?? "none").trim().toLowerCase();
-
-/**
- * Returns the ordered list of providers to attempt. Currently this is the
- * single provider selected by `AI_PROVIDER`, but the array shape allows a
- * future multi-provider chain without changing the orchestrator.
- */
-export const getActiveProviders = (): ChatProvider[] => {
-  const provider = REGISTRY[getConfiguredProviderName()];
-  return provider ? [provider] : [];
+/** Label reported with each reply, e.g. "api.groq.com", or "none". */
+export const getConfiguredProviderName = (): string => {
+  const config = getAiConfig();
+  if (!config) return "none";
+  try {
+    return new URL(config.baseUrl).hostname;
+  } catch {
+    return config.baseUrl;
+  }
 };
 
 export interface ProviderRunResult {
@@ -54,10 +31,7 @@ export interface ProviderRunResult {
   toolCalls: ProviderToolCall[];
 }
 
-/**
- * Attempts each active provider in order and returns the first success.
- * Returns `null` when no provider is configured or every attempt fails.
- */
+/** Returns `null` when no provider is configured or the request fails. */
 export const runProviders = async (params: {
   systemPrompt: string;
   history: AssistantHistoryMessage[];
@@ -66,24 +40,21 @@ export const runProviders = async (params: {
   maxTokens?: number;
   tools?: ProviderToolDefinition[];
 }): Promise<ProviderRunResult | null> => {
-  const request: ProviderRequest = {
-    systemPrompt: params.systemPrompt,
-    history: params.history,
-    message: params.message,
-    temperature: params.temperature ?? 0.2,
-    maxTokens: params.maxTokens ?? 700,
-    tools: params.tools,
-  };
+  const config = getAiConfig();
+  if (!config) return null;
 
-  for (const provider of getActiveProviders()) {
-    if (!provider.isConfigured()) continue;
-    try {
-      const completion = await provider.complete(request);
-      return { ...completion, provider: provider.name };
-    } catch (error) {
-      console.error(`AI provider ${provider.name} failed:`, error);
-    }
+  try {
+    const completion = await completeChat(config, {
+      systemPrompt: params.systemPrompt,
+      history: params.history,
+      message: params.message,
+      temperature: params.temperature ?? 0.2,
+      maxTokens: params.maxTokens ?? 700,
+      tools: params.tools,
+    });
+    return { ...completion, provider: getConfiguredProviderName() };
+  } catch (error) {
+    console.error(`AI provider ${getConfiguredProviderName()} failed:`, error);
+    return null;
   }
-
-  return null;
 };

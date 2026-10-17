@@ -1,3 +1,4 @@
+import bcrypt from "bcrypt";
 import type { Request, RequestHandler, Response } from "express";
 import mongoose from "mongoose";
 
@@ -21,6 +22,10 @@ import {
   REFRESH_TOKEN_COOKIE_NAME,
   setRefreshTokenCookie,
 } from "#utils";
+
+// Compared against when the email is unknown so both login failure paths take
+// the same bcrypt time and do not reveal which emails are registered.
+const TIMING_SAFE_HASH = bcrypt.hashSync("karino-timing-placeholder", 12);
 
 const serializeUser = (user: {
   _id: unknown;
@@ -136,7 +141,11 @@ export const login: RequestHandler = async (request, response) => {
 
   const user = await User.findOne({ email }).select("+password");
 
-  if (!user || !(await user.comparePassword(password))) {
+  const passwordMatches = user
+    ? await user.comparePassword(password)
+    : await bcrypt.compare(password, TIMING_SAFE_HASH).then(() => false);
+
+  if (!user || !passwordMatches) {
     throw new AppError("Invalid email or password", 401);
   }
 
@@ -174,14 +183,21 @@ export const getMe: RequestHandler = async (request, response) => {
 
 export const updateMe: RequestHandler = async (request, response) => {
   const authUser = requireAuthUser(request);
-  const user = await User.findById(authUser.userId);
+  const user = await User.findById(authUser.userId).select("+password");
 
   if (!user) {
     throw new AppError("User not found", 404);
   }
 
-  const { firstName, lastName, email, removeProfileImage } = request.body;
+  const { firstName, lastName, email, currentPassword, removeProfileImage } =
+    request.body;
   if (email !== undefined && email !== user.email) {
+    // A stolen session alone must not be enough to take over the account by
+    // redirecting password-reset emails.
+    if (!currentPassword || !(await user.comparePassword(currentPassword))) {
+      throw new AppError("Current password is required to change your email", 400);
+    }
+
     const emailAlreadyExists = await User.exists({
       _id: { $ne: user._id },
       email,
@@ -254,15 +270,13 @@ export const changePassword: RequestHandler = async (request, response) => {
     throw new AppError("New password must be different", 400);
   }
 
-  const revokedSessions = await revokeOtherRefreshSessions(
-    authUser.userId,
-    authUser.sessionId,
-    "password-changed",
-  );
-
   user.password = newPassword;
   await user.save();
-  await PasswordReset.deleteMany({ user: user._id });
+
+  const [revokedSessions] = await Promise.all([
+    revokeOtherRefreshSessions(authUser.userId, authUser.sessionId, "password-changed"),
+    PasswordReset.deleteMany({ user: user._id }),
+  ]);
 
   response.status(200).json({
     success: true,

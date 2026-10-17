@@ -52,7 +52,9 @@ export const refreshSessionRateLimiter = rateLimit({
   ...standardOptions,
   identifier: "auth-refresh-session",
   windowMs: getPositiveIntegerEnv("AUTH_REFRESH_SESSION_RATE_WINDOW_MS", 15 * 60 * 1000),
-  limit: getPositiveIntegerEnv("AUTH_REFRESH_SESSION_RATE_LIMIT", 30),
+  // Every page load refreshes once, so a low limit logs out users who reload
+  // often or open several tabs. This only needs to stop automated flooding.
+  limit: getPositiveIntegerEnv("AUTH_REFRESH_SESSION_RATE_LIMIT", 300),
   keyGenerator: (request) =>
     request.refreshAuth?.sessionId ?? "unverified-refresh-session",
   message: {

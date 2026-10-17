@@ -42,6 +42,23 @@ const ACCESS_PATTERN =
 const ACCOUNT_PATTERN =
   /\b(account|profile|password|email change|session|device|konto|profil|passwort|e-mail ändern|sitzung|gerät)\b/i;
 
+const matchEscalationReason = (message: string): EscalationReason | null => {
+  if (BANNED_PATTERN.test(message)) return "account_banned";
+  if (SECURITY_PATTERN.test(message)) return "security";
+  if (HUMAN_PATTERN.test(message)) return "human_requested";
+  if (ACCESS_PATTERN.test(message) || ACCOUNT_PATTERN.test(message)) {
+    return "account_access";
+  }
+  return null;
+};
+
+/**
+ * Derives the support-queue reason from what the user actually wrote, so a
+ * client cannot pick "security" to jump into the super-admin queue.
+ */
+export const classifySupportReason = (userMessages: string[]): EscalationReason =>
+  matchEscalationReason(userMessages.join("\n")) ?? "human_requested";
+
 const deterministicEscalation = (
   message: string,
   context: AssistantContext,
@@ -53,22 +70,12 @@ const deterministicEscalation = (
       ? { reason: "human_requested", requiresSuperAdmin: true }
       : null;
   }
-  if (BANNED_PATTERN.test(message)) {
-    return { reason: "account_banned", requiresSuperAdmin: true };
-  }
-  if (SECURITY_PATTERN.test(message)) {
-    return { reason: "security", requiresSuperAdmin: true };
-  }
-  if (HUMAN_PATTERN.test(message)) {
-    return { reason: "human_requested", requiresSuperAdmin: false };
-  }
-  if (ACCESS_PATTERN.test(message)) {
-    return { reason: "account_access", requiresSuperAdmin: false };
-  }
-  if (ACCOUNT_PATTERN.test(message)) {
-    return { reason: "account_access", requiresSuperAdmin: false };
-  }
-  return null;
+  const reason = matchEscalationReason(message);
+  if (!reason) return null;
+  return {
+    reason,
+    requiresSuperAdmin: reason === "account_banned" || reason === "security",
+  };
 };
 
 const ESCALATION_MARKER =

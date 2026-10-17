@@ -6,15 +6,15 @@ import { commonPromptRules, completeOrFallback, tierOf } from "./base.ts";
 const commandsFor = (tier: RoleTier): string => {
   const caps = getStaffCapabilities(tier);
   const commands: string[] = [];
-  if (caps.viewUserStatus) commands.push("/user <email> â€” view account status");
+  if (caps.viewUserStatus) commands.push("/user <email> — view account status");
   if (caps.banUsers)
-    commands.push("/ban <email> <reason> â€” prepare a ban for confirmation");
+    commands.push("/ban <email> <reason> — prepare a ban for confirmation");
   if (caps.unbanUsers)
-    commands.push("/unban <email> â€” prepare removal of a ban for confirmation");
+    commands.push("/unban <email> — prepare removal of a ban for confirmation");
   if (caps.promoteAdmin)
-    commands.push("/promote <email> â€” prepare granting the admin role");
+    commands.push("/promote <email> — prepare granting the admin role");
   if (caps.demoteAdmin)
-    commands.push("/demote <email> â€” prepare removal of the admin role");
+    commands.push("/demote <email> — prepare removal of the admin role");
   return commands.join("\n");
 };
 

@@ -206,7 +206,7 @@ export const confirmAssistantTask: RequestHandler = async (request, response) =>
     },
     { $set: { "messages.$[message].taskProposal.status": "creating" } },
     {
-      new: true,
+      returnDocument: "after",
       arrayFilters: [{ "message._id": messageId }],
       runValidators: true,
     },
@@ -244,7 +244,7 @@ export const confirmAssistantTask: RequestHandler = async (request, response) =>
           "messages.$[message].taskProposal.taskId": task._id,
         },
       },
-      { new: true, arrayFilters: [{ "message._id": messageId }] },
+      { returnDocument: "after", arrayFilters: [{ "message._id": messageId }] },
     );
     if (!conversation) throw new AppError("Conversation not found", 404);
     response.status(201).json({
@@ -280,7 +280,7 @@ export const dismissAssistantTask: RequestHandler = async (request, response) =>
     },
     { $set: { "messages.$[message].taskProposal.status": "dismissed" } },
     {
-      new: true,
+      returnDocument: "after",
       arrayFilters: [{ "message._id": messageId }],
       runValidators: true,
     },

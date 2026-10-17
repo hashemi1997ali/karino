@@ -16,15 +16,6 @@ const assistantHistorySchema = z
   .optional()
   .default([]);
 
-const supportReasonSchema = z.enum([
-  "account_banned",
-  "account_access",
-  "security",
-  "human_requested",
-  "permission",
-  "unresolved",
-]);
-
 export const guestAssistantSchema = z
   .object({
     message: contentSchema,
@@ -48,8 +39,10 @@ export const createSupportChatSchema = z
       .array(historyItemSchema)
       .max(40)
       .transform(withoutEmptyHistoryItems)
-      .refine((items) => items.length > 0, "Conversation history is required"),
-    reason: supportReasonSchema.optional().default("human_requested"),
+      .refine(
+        (items) => items.some((item) => item.role === "user"),
+        "Conversation history is required",
+      ),
   })
   .strict();
 

@@ -77,7 +77,21 @@ const EN_DE_STOPWORDS = new Set([
   "user",
   "email",
   "register",
+  "me",
+  "it",
+  "be",
+  "have",
+  "will",
+  "new",
+  "today",
+  "tomorrow",
   // German
+  "mir",
+  "mich",
+  "es",
+  "neue",
+  "heute",
+  "morgen",
   "der",
   "die",
   "das",
@@ -156,14 +170,12 @@ const isNonLatinChar = (code: number): boolean =>
  * Returns `true` when the message appears to be in a language we do not
  * support (i.e. neither English nor German).
  */
-export const detectWrongLanguage = (message: string): boolean => {
-  const trimmed = message.trim();
-  if (!trimmed) return false;
-
+/** True when more than 20 % of the letters are in an unsupported script. */
+export const hasUnsupportedScript = (message: string): boolean => {
   let nonLatinCount = 0;
   let totalLetters = 0;
 
-  for (const char of trimmed) {
+  for (const char of message) {
     const code = char.codePointAt(0) ?? 0;
     if (char.match(/\p{L}/u)) {
       totalLetters++;
@@ -171,17 +183,22 @@ export const detectWrongLanguage = (message: string): boolean => {
     }
   }
 
-  // If more than 20 % of letters are in a non-Latin script, reject.
-  if (totalLetters > 0 && nonLatinCount / totalLetters > 0.2) return true;
+  return totalLetters > 0 && nonLatinCount / totalLetters > 0.2;
+};
 
-  // Word-density heuristic: if fewer than 15 % of words are recognisable
-  // English/German stop-words AND the message has 4+ words, treat as foreign.
+export const detectWrongLanguage = (message: string): boolean => {
+  const trimmed = message.trim();
+  if (!trimmed) return false;
+
+  if (hasUnsupportedScript(trimmed)) return true;
+
+  // Word-density heuristic: a 5+ word message without a single recognisable
+  // English/German stop-word is treated as foreign. A ratio threshold here
+  // rejected terse English such as "Schedule dentist appointment next Monday please".
   const words = trimmed.toLowerCase().split(/\s+/).filter(Boolean);
-  if (words.length >= 4) {
-    const known = words.filter((w) =>
-      EN_DE_STOPWORDS.has(w.replace(/[^a-zäöüß]/g, "")),
-    ).length;
-    if (known / words.length < 0.15) return true;
+  if (words.length >= 5) {
+    const known = words.some((w) => EN_DE_STOPWORDS.has(w.replace(/[^a-zäöüß]/g, "")));
+    if (!known) return true;
   }
 
   return false;
@@ -219,7 +236,6 @@ const OUT_OF_SCOPE_KEYWORDS = [
   "government",
   "parliament",
   "politik",
-  "wahl",
   "präsident",
   "regierung",
   "bundestag",
@@ -231,15 +247,12 @@ const OUT_OF_SCOPE_KEYWORDS = [
   "trading",
   "aktie",
   "krypto",
-  "bitcoin",
   "anlageberatung",
-  "handel",
   // Medical / legal advice
   "diagnose",
   "prescribe",
   "medical advice",
   "legal advice",
-  "diagnose",
   "verschreiben",
   "medizinischer rat",
   "rechtlicher rat",
@@ -263,6 +276,12 @@ const OUT_OF_SCOPE_KEYWORDS = [
   "mache meine hausaufgabe",
 ];
 
+// Whole-word matches (plus simple plural endings) so "cookie", "Stockholm" or
+// "newsletter" do not trip "cook", "stock" or "news".
+const OUT_OF_SCOPE_MATCHERS = OUT_OF_SCOPE_KEYWORDS.map(
+  (kw) => new RegExp(`(?<!\\p{L})${kw}(?:s|es|n|en)?(?!\\p{L})`, "u"),
+);
+
 /**
  * Scope guardrail — applied to the **inbound** user message.
  * Returns `passed: false` when the message is predominantly about topics
@@ -272,7 +291,7 @@ export const scopeGuardrail = (message: string): GuardrailResult => {
   const lower = message.toLowerCase();
 
   // Count how many out-of-scope keywords appear.
-  const hits = OUT_OF_SCOPE_KEYWORDS.filter((kw) => lower.includes(kw));
+  const hits = OUT_OF_SCOPE_MATCHERS.filter((matcher) => matcher.test(lower));
 
   // If 2+ distinct out-of-scope keywords appear, or the message is short
   // and contains even one, treat it as out of scope.
@@ -342,7 +361,9 @@ const HALLUCINATED_ACTION_PATTERNS = [
 ];
 
 const SECRET_PATTERNS = [
-  /sk-[a-zA-Z0-9]{20,}/i, // OpenAI-style keys
+  /sk-[\w-]{20,}/i, // OpenAI / OpenRouter / Anthropic (sk-ant-…) keys
+  /AIza[\w-]{35}/, // Google / Gemini keys
+  /eyJ[\w-]+\.[\w-]+\.[\w-]+/, // JWTs
   /Bearer\s+[a-zA-Z0-9._-]{20,}/i,
 ];
 
