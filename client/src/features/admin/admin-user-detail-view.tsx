@@ -62,6 +62,7 @@ const copy = {
     noTasks: "This user has no tasks yet.",
     loading: "Loading user profile…",
     edit: "Edit task",
+    editDescription: "Update the details of this task for its owner.",
     delete: "Delete task",
     deleteTitle: "Delete this user's task?",
     deleteDescription: "This action permanently deletes the selected task.",
@@ -99,6 +100,7 @@ const copy = {
     noTasks: "Dieser Benutzer hat noch keine Aufgaben.",
     loading: "Benutzerprofil wird geladen…",
     edit: "Aufgabe bearbeiten",
+    editDescription: "Ändere die Details dieser Aufgabe für die Person.",
     delete: "Aufgabe löschen",
     deleteTitle: "Diese Benutzeraufgabe löschen?",
     deleteDescription: "Die ausgewählte Aufgabe wird dauerhaft gelöscht.",
@@ -507,6 +509,7 @@ export function AdminUserDetailView({ userId }: { userId: string }) {
         open={Boolean(editingTask)}
         onOpenChange={(open) => !open && setEditingTask(null)}
         title={t.edit}
+        description={t.editDescription}
       >
         {editingTask && (
           <TaskForm

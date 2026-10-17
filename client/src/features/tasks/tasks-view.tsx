@@ -478,7 +478,6 @@ export function TasksView({ admin = false }: { admin?: boolean }) {
 
       <Dialog
         open={modalOpen}
-        variant="drawer"
         onOpenChange={(open) => {
           if (!open) {
             setCreating(false);

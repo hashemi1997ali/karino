@@ -14,7 +14,6 @@ export function Dialog({
   description,
   children,
   className,
-  variant = "modal",
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -22,18 +21,15 @@ export function Dialog({
   description?: string;
   children: ReactNode;
   className?: string;
-  variant?: "modal" | "drawer";
 }) {
   const { locale } = usePreferences();
   return (
     <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
       <DialogPrimitive.Portal>
-        <DialogPrimitive.Overlay className="fixed inset-0 z-[100] bg-slate-950/45 backdrop-blur-sm data-[state=closed]:animate-out data-[state=open]:animate-in" />
+        <DialogPrimitive.Overlay className="modal-overlay fixed inset-0 z-[100]" />
         <DialogPrimitive.Content
           className={cn(
-            variant === "drawer"
-              ? "surface-shadow fixed inset-0 z-[100] overflow-y-auto bg-[var(--surface)] p-5 outline-none sm:inset-y-0 sm:left-auto sm:right-0 sm:w-[min(92vw,32rem)] sm:border-l sm:p-6"
-              : "surface-shadow fixed inset-x-3 top-1/2 z-[100] max-h-[92vh] -translate-y-1/2 overflow-y-auto rounded-[var(--container-radius)] border bg-[var(--surface)] p-5 outline-none sm:inset-x-auto sm:left-1/2 sm:w-[min(92vw,36rem)] sm:-translate-x-1/2 sm:p-6",
+            "modal-surface fixed inset-x-3 top-1/2 z-[100] max-h-[92dvh] -translate-y-1/2 overflow-y-auto p-5 outline-none sm:inset-x-auto sm:left-1/2 sm:w-[min(92vw,36rem)] sm:-translate-x-1/2 sm:p-6",
             className,
           )}
         >
@@ -48,7 +44,7 @@ export function Dialog({
             )}
           </div>
           {children}
-          <DialogPrimitive.Close className="focus-ring absolute right-4 top-4 grid size-11 place-items-center rounded-full text-slate-500 hover:bg-slate-100 dark:hover:bg-white/8">
+          <DialogPrimitive.Close className="focus-ring absolute right-4 top-4 grid size-11 place-items-center rounded-full text-[var(--muted)] transition-colors hover:bg-[var(--surface-muted)] hover:text-[var(--foreground)]">
             <X className="size-4" />
             <span className="sr-only">{locale === "de" ? "Schließen" : "Close"}</span>
           </DialogPrimitive.Close>

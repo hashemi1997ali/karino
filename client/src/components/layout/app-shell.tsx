@@ -587,8 +587,8 @@ export function AppShell({
 
       <Dialog.Root open={accountSettingsOpen} onOpenChange={setAccountSettingsOpen}>
         <Dialog.Portal>
-          <Dialog.Overlay className="fixed inset-0 z-[80] hidden bg-black/60 backdrop-blur-sm md:block" />
-          <Dialog.Content className="fixed left-1/2 top-1/2 z-[90] hidden h-[min(78dvh,46rem)] w-[min(68rem,calc(100%-3rem))] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-[1.5rem] border border-[color-mix(in_srgb,var(--foreground)_6%,transparent)] bg-[var(--surface)] shadow-[var(--shadow-float)] outline-none md:block">
+          <Dialog.Overlay className="modal-overlay fixed inset-0 z-[80] hidden md:block" />
+          <Dialog.Content className="modal-surface fixed left-1/2 top-1/2 z-[90] hidden h-[min(78dvh,46rem)] w-[min(68rem,calc(100%-3rem))] -translate-x-1/2 -translate-y-1/2 overflow-hidden outline-none md:block">
             <div className="absolute left-0 top-0 z-30 flex h-12 w-[13rem] items-center border-r border-b border-[color-mix(in_srgb,var(--foreground)_6%,transparent)] bg-[color-mix(in_srgb,var(--surface-muted)_94%,transparent)] px-3 backdrop-blur-xl">
               <Dialog.Close asChild>
                 <Button
