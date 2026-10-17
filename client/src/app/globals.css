@@ -1151,6 +1151,27 @@ select option {
   }
 }
 
+/* Placeholder block for content that is still loading. */
+@layer components {
+  /* Layered so size and radius utilities (rounded-full) still win. */
+  .skeleton {
+    border-radius: var(--control-radius);
+    background: color-mix(in srgb, var(--foreground) 7%, var(--surface-muted));
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .skeleton {
+      animation: skeleton-pulse 1.5s ease-in-out infinite;
+    }
+  }
+}
+
+@keyframes skeleton-pulse {
+  50% {
+    opacity: 0.55;
+  }
+}
+
 /* Brand-coloured even when idle, so an empty box shows a soft send button
    instead of a greyed-out blob. */
 .chat-send-button {

@@ -22,7 +22,8 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Dialog } from "@/components/ui/dialog";
 import { AccountStatusBadge, RoleBadge } from "@/components/ui/domain-badge";
 import { PageHeading } from "@/components/ui/page-heading";
-import { EmptyState, ErrorState, LoadingState } from "@/components/ui/states";
+import { TaskListSkeleton, UserDetailSkeleton } from "@/components/ui/skeleton";
+import { EmptyState, ErrorState } from "@/components/ui/states";
 import {
   banUserRequest,
   deleteUserRequest,
@@ -248,7 +249,7 @@ export function AdminUserDetailView({ userId }: { userId: string }) {
     return (
       <div>
         {heading}
-        <LoadingState label={t.loading} />
+        <UserDetailSkeleton />
       </div>
     );
   }
@@ -409,9 +410,7 @@ export function AdminUserDetailView({ userId }: { userId: string }) {
           <h2 className="desk-section-title">{t.tasksHeading(user.firstName)}</h2>
 
           {tasksQuery.isPending ? (
-            <div className="mt-5">
-              <LoadingState label={t.tasks} />
-            </div>
+            <TaskListSkeleton rows={4} className="mt-5" />
           ) : tasksQuery.isError ? (
             <div className="mt-5">
               <ErrorState

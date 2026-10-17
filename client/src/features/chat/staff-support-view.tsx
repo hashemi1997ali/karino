@@ -18,7 +18,8 @@ import { UserAvatar } from "@/components/user-avatar";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { ChatStatusBadge, UserTypeBadge } from "@/components/ui/domain-badge";
 import { PageHeading } from "@/components/ui/page-heading";
-import { EmptyState, ErrorState, LoadingState } from "@/components/ui/states";
+import { ChatWorkspaceSkeleton } from "@/components/ui/skeleton";
+import { EmptyState, ErrorState } from "@/components/ui/states";
 import { useAuth } from "@/features/auth/auth-provider";
 import { ChatMessageBubble } from "@/features/chat/chat-message-bubble";
 import { ChatHistoryItem } from "@/features/chat/chat-history-item";
@@ -314,9 +315,7 @@ export function StaffSupportView() {
         <PageHeading title={t.title} description={t.description} />
 
         {chatsQuery.isPending ? (
-          <div>
-            <LoadingState label={t.loading} />
-          </div>
+          <ChatWorkspaceSkeleton />
         ) : chatsQuery.isError ? (
           <div>
             <ErrorState

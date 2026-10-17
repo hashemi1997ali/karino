@@ -25,7 +25,8 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Field, Input, PasswordInput } from "@/components/ui/form-controls";
 import { PageHeading } from "@/components/ui/page-heading";
 import { PasswordChecklist } from "@/components/ui/password-checklist";
-import { ErrorState, LoadingState } from "@/components/ui/states";
+import { SessionsSkeleton } from "@/components/ui/skeleton";
+import { ErrorState } from "@/components/ui/states";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { ThemeSelector } from "@/components/ui/theme-selector";
 import {
@@ -874,7 +875,7 @@ export function AccountView({ embedded = false }: { embedded?: boolean }) {
             <p className="mb-3 text-xs text-[var(--muted)]">{t.sessionsDescription}</p>
 
             {sessionsQuery.isPending ? (
-              <LoadingState label={t.loadingSessions} />
+              <SessionsSkeleton />
             ) : sessionsQuery.isError ? (
               <ErrorState
                 message={getErrorMessage(sessionsQuery.error, locale)}

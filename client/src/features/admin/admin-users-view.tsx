@@ -16,7 +16,8 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Dialog } from "@/components/ui/dialog";
 import { Field, Input, Select } from "@/components/ui/form-controls";
 import { PageHeading } from "@/components/ui/page-heading";
-import { EmptyState, ErrorState, LoadingState } from "@/components/ui/states";
+import { UserListSkeleton } from "@/components/ui/skeleton";
+import { EmptyState, ErrorState } from "@/components/ui/states";
 import { getUsersRequest, type UserFilters } from "@/features/admin/api";
 import { useAuth } from "@/features/auth/auth-provider";
 import { createProfileSchema, type ProfileFormValues } from "@/features/auth/schemas";
@@ -425,9 +426,7 @@ export function AdminUsersView() {
 
       <div className="mt-6">
         {usersQuery.isPending ? (
-          <Card>
-            <LoadingState label={t.loading} />
-          </Card>
+          <UserListSkeleton />
         ) : usersQuery.isError ? (
           <Card className="p-5">
             <ErrorState

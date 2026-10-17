@@ -17,7 +17,8 @@ import Link from "next/link";
 
 import { PageHeading } from "@/components/ui/page-heading";
 import { PanelHeader } from "@/components/ui/panel-header";
-import { ErrorState, LoadingState } from "@/components/ui/states";
+import { AdminOverviewSkeleton } from "@/components/ui/skeleton";
+import { ErrorState } from "@/components/ui/states";
 import { TrendChart } from "@/components/ui/trend-chart";
 import { getAdminOverviewRequest } from "@/features/admin/api";
 import { getErrorMessage } from "@/lib/api-error";
@@ -88,7 +89,7 @@ export function AdminOverviewView() {
     return (
       <div className="space-y-5">
         {heading}
-        <LoadingState />
+        <AdminOverviewSkeleton />
       </div>
     );
   }

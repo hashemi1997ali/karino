@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import { Suspense } from "react";
 
-import { TasksView } from "@/features/tasks/tasks-view";
+import { TasksView, TasksViewFallback } from "@/features/tasks/tasks-view";
 import { LOCALE_COOKIE_NAME, parseLocale } from "@/lib/preferences";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -12,9 +12,7 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default function AdminTasksPage() {
   return (
-    <Suspense
-      fallback={<div className="h-96 animate-pulse rounded-2xl bg-[var(--surface)]" />}
-    >
+    <Suspense fallback={<TasksViewFallback admin />}>
       <TasksView admin />
     </Suspense>
   );

@@ -15,7 +15,8 @@ import { toast } from "sonner";
 import { FormStatusBadge } from "@/components/ui/domain-badge";
 import { UserAvatar } from "@/components/user-avatar";
 import { PageHeading } from "@/components/ui/page-heading";
-import { EmptyState, ErrorState, LoadingState } from "@/components/ui/states";
+import { ChatWorkspaceSkeleton } from "@/components/ui/skeleton";
+import { EmptyState, ErrorState } from "@/components/ui/states";
 import { ChatMessageBubble } from "@/features/chat/chat-message-bubble";
 import { ChatHistoryItem } from "@/features/chat/chat-history-item";
 import { ChatIconButton } from "@/features/chat/chat-icon-button";
@@ -181,9 +182,7 @@ export function AdminContactView() {
       <PageHeading title={t.title} description={t.description} />
 
       {contactsQuery.isPending ? (
-        <div>
-          <LoadingState label={t.loading} />
-        </div>
+        <ChatWorkspaceSkeleton />
       ) : contactsQuery.isError ? (
         <div>
           <ErrorState

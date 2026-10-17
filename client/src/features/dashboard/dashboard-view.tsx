@@ -20,7 +20,8 @@ import { buttonClassName } from "@/components/ui/button";
 import { TaskPriorityBadge } from "@/components/ui/domain-badge";
 import { PageHeading } from "@/components/ui/page-heading";
 import { PanelHeader, TextLink } from "@/components/ui/panel-header";
-import { ErrorState, LoadingState } from "@/components/ui/states";
+import { DashboardSkeleton } from "@/components/ui/skeleton";
+import { ErrorState } from "@/components/ui/states";
 import { TrendChart } from "@/components/ui/trend-chart";
 import { useAuth } from "@/features/auth/auth-provider";
 import { getTodayDashboardRequest, updateTaskRequest } from "@/features/tasks/api";
@@ -170,7 +171,7 @@ export function DashboardView() {
     return (
       <div className="space-y-5">
         {heading}
-        <LoadingState />
+        <DashboardSkeleton />
       </div>
     );
   }

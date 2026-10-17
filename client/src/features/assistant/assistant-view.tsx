@@ -27,7 +27,8 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { TaskPriorityBadge } from "@/components/ui/domain-badge";
 import { PageHeading } from "@/components/ui/page-heading";
-import { ErrorState, LoadingState } from "@/components/ui/states";
+import { ChatWorkspaceSkeleton } from "@/components/ui/skeleton";
+import { ErrorState } from "@/components/ui/states";
 import { avatarFrameClassName } from "@/components/user-avatar";
 import {
   confirmAssistantTaskRequest,
@@ -408,9 +409,9 @@ export function AssistantView() {
 
   if (conversationsQuery.isPending) {
     return (
-      <div>
+      <div className="md:flex md:h-[calc(100dvh-3rem)] md:min-h-0 md:flex-col md:overflow-hidden lg:h-[calc(100dvh-4rem)]">
         {heading}
-        <LoadingState />
+        <ChatWorkspaceSkeleton />
       </div>
     );
   }

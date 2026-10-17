@@ -19,7 +19,8 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Dialog } from "@/components/ui/dialog";
 import { Input, Select } from "@/components/ui/form-controls";
 import { PageHeading } from "@/components/ui/page-heading";
-import { EmptyState, ErrorState, LoadingState } from "@/components/ui/states";
+import { TaskListSkeleton } from "@/components/ui/skeleton";
+import { EmptyState, ErrorState } from "@/components/ui/states";
 import {
   createTaskRequest,
   deleteTaskRequest,
@@ -396,7 +397,7 @@ export function TasksView({ admin = false }: { admin?: boolean }) {
 
       <div className="mt-6">
         {tasksQuery.isPending ? (
-          <LoadingState />
+          <TaskListSkeleton />
         ) : tasksQuery.isError ? (
           <ErrorState
             message={getErrorMessage(tasksQuery.error, locale)}
@@ -510,6 +511,21 @@ export function TasksView({ admin = false }: { admin?: boolean }) {
           }
         }}
       />
+    </div>
+  );
+}
+
+/** Suspense fallback while the URL filters are read: real heading, skeleton below. */
+export function TasksViewFallback({ admin = false }: { admin?: boolean }) {
+  const { locale } = usePreferences();
+  const t = copy[locale];
+  return (
+    <div>
+      <PageHeading
+        title={admin ? t.adminTitle : t.userTitle}
+        description={admin ? t.adminDescription : t.userDescription}
+      />
+      <TaskListSkeleton className="mt-6" />
     </div>
   );
 }
