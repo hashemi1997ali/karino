@@ -15,7 +15,8 @@
     "build": "tsc",
     "prestart": "npm run build",
     "start": "node dist/app.js",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit && tsc -p tsconfig.test.json",
+    "test": "node --test --conditions=development \"test/**/*.test.ts\""
   },
   "imports": {
     "#ai": {
@@ -74,6 +75,9 @@
     "@types/jsonwebtoken": "^9.0.10",
     "@types/multer": "^2.2.0",
     "@types/node": "^24.0.0",
+    "@types/supertest": "^7.2.1",
+    "mongodb-memory-server": "^11.3.0",
+    "supertest": "^7.3.1",
     "typescript": "^5.8.3"
   }
 }

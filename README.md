@@ -75,7 +75,7 @@ karino/
 - Human-support escalation, claiming, transfer, rating, and closure
 - Context-aware reply suggestions for administrators
 - Draft rewriting that improves a staff message without answering it
-- OpenAI, OpenRouter, Anthropic, Gemini, and Ollama provider support
+- Works with any OpenAI-compatible provider (Groq, OpenRouter, OpenAI, Gemini, Ollama) through three settings
 
 ### ✉️ Contact and Email
 
@@ -156,13 +156,15 @@ REFRESH_JWT_SECRET=replace_with_a_different_long_random_refresh_secret
 APP_URL=http://localhost:3000
 ```
 
-Select one assistant provider. For example, a local Ollama setup can use:
+The assistant works with any OpenAI-compatible API (Groq, OpenRouter, OpenAI, Gemini, a local Ollama, …). Set the provider's address, key, and model:
 
 ```env
-AI_PROVIDER=ollama
-OLLAMA_BASE_URL=http://127.0.0.1:11434
-OLLAMA_MODEL=qwen3:4b
+AI_BASE_URL=https://api.groq.com/openai/v1
+AI_API_KEY=your_groq_key
+AI_MODEL=openai/gpt-oss-120b
 ```
+
+For Ollama use `AI_BASE_URL=http://127.0.0.1:11434/v1` and leave `AI_API_KEY` empty. Choose a model that supports tool calling so the assistant can prepare task drafts.
 
 The complete configuration, including provider keys, Brevo, Cloudinary, rate limits, retention, and contact details, is documented inline in `server/.env.example`.
 
@@ -189,6 +191,7 @@ The browser sends `/api/*` requests through the Next.js same-origin rewrite. `AP
 | `npm run dev:client`   | Start only the Next.js client                   |
 | `npm run dev:server`   | Start only the Express API                      |
 | `npm run typecheck`    | Type-check both workspaces                      |
+| `npm test`             | Run the API unit and integration tests          |
 | `npm run lint`         | Run the client ESLint configuration             |
 | `npm run format`       | Format the repository with Prettier             |
 | `npm run format:check` | Check formatting without changing files         |
@@ -208,6 +211,21 @@ Then run the client and server in separate processes:
 npm run start:client
 npm run start:server
 ```
+
+---
+
+## 🧪 Testing
+
+```bash
+npm test
+```
+
+The API suite uses Node's built-in test runner and needs no running database:
+
+- **Integration tests** (`server/test/api.test.ts`) run the real Express app against an in-memory MongoDB: refresh-token rotation and reuse detection, immediate session revocation on logout and ban, per-user task isolation, staff command confirmation, and email-change protection.
+- **Unit tests** cover JWT verification, the authentication middleware, the role hierarchy, request validation, and the AI guardrails and routing.
+
+GitHub Actions runs type checking, linting, and the tests on every push and pull request.
 
 ---
 
