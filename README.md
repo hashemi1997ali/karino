@@ -4,14 +4,10 @@ A responsive full-stack productivity platform built with **Next.js, Express, Typ
 
 Karino combines personal task planning, a private AI assistant, secure account management, role-based administration, contact workflows, and persistent support chat in one bilingual web application.
 
----
-
 ## 🚀 Live Demo
 
 🔗 **Website:**  
 Click [here](https://karino.vercel.app) to view the live demo.
-
----
 
 ## 📖 Project Overview
 
@@ -27,8 +23,6 @@ karino/
 ├── package.json
 └── README.md
 ```
-
----
 
 ## ✨ Features
 
@@ -92,8 +86,6 @@ karino/
 - Configurable public contact and social information
 - JPG, PNG, and WEBP profile-image uploads through Cloudinary
 
----
-
 ## 🛠️ Technology Stack
 
 ### Client
@@ -114,8 +106,6 @@ karino/
 - Zod
 - Multer and Cloudinary
 - Brevo transactional email
-
----
 
 ## 🚀 Getting Started
 
@@ -188,8 +178,6 @@ npm run dev
 
 The browser sends `/api/*` requests through the Next.js same-origin rewrite. `API_SERVER_URL` in `client/.env.local` controls the internal API destination.
 
----
-
 ## 📜 Available Scripts
 
 | Command                           | Description                                     |
@@ -220,8 +208,6 @@ npm run start:client
 npm run start:server
 ```
 
----
-
 ## 🎭 Demo Data
 
 Fill a development database with realistic demo content:
@@ -240,8 +226,6 @@ Every demo account uses the password `KarinoDemo1`:
 | User   | `james.carter@example.com`, `lena.wagner@example.com` (German) and more            |
 | Banned | `mia.schneider@example.com`                                                        |
 
----
-
 ## 🧪 Testing
 
 ```bash
@@ -254,8 +238,6 @@ The API suite uses Node's built-in test runner and needs no running database:
 - **Unit tests** cover JWT verification, the authentication middleware, the role hierarchy, request validation, and the AI guardrails and routing.
 
 GitHub Actions runs type checking, linting, and the tests on every push and pull request.
-
----
 
 ## 🛣️ Main Routes
 
@@ -315,8 +297,6 @@ Errors generally follow:
 }
 ```
 
----
-
 ## 👑 Initial Super Administrator
 
 Register the account normally, then set its email in `server/.env`:
@@ -326,8 +306,6 @@ SUPER_ADMIN_EMAIL=owner@example.com
 ```
 
 The matching account is promoted when the server starts. Additional role changes are available from the admin interface.
-
----
 
 ## 📌 Production Notes
 
