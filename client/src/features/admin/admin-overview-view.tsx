@@ -4,20 +4,24 @@ import { useQuery } from "@tanstack/react-query";
 import {
   AlertTriangle,
   CheckCircle2,
+  ChevronRight,
   Headphones,
+  Inbox,
   ListTodo,
   Mail,
+  TrendingUp,
   UsersRound,
+  UserX,
 } from "lucide-react";
 import Link from "next/link";
 
-import { Badge, Card } from "@/components/ui/card";
 import { PageHeading } from "@/components/ui/page-heading";
+import { PanelHeader } from "@/components/ui/panel-header";
 import { ErrorState, LoadingState } from "@/components/ui/states";
 import { TrendChart } from "@/components/ui/trend-chart";
 import { getAdminOverviewRequest } from "@/features/admin/api";
 import { getErrorMessage } from "@/lib/api-error";
-import { cn, formatNumber, formatPercent } from "@/lib/utils";
+import { cn, formatNumber } from "@/lib/utils";
 import { usePreferences } from "@/providers/preferences-provider";
 
 const copy = {
@@ -31,13 +35,17 @@ const copy = {
     completionDetail: (completed: string, total: string) =>
       `${completed} of ${total} tasks completed`,
     adminQueues: "Admin queues",
-    queueSummary: (count: string) => `${count} items`,
+    queueSummary: (count: string) => `${count} items waiting for staff`,
+    usersDetail: (banned: string) => `${banned} banned`,
+    tasksDetail: (open: string) => `${open} still open`,
+    completedDetail: (week: string) => `${week} this week`,
+    overdueDetail: (count: number) => (count ? "Across all users" : "All on track"),
     overdue: "Overdue tasks",
     support: "Waiting support chats",
     contact: "Unanswered contact forms",
     banned: "Banned users",
     weekly: "Weekly progress",
-    lastSevenDays: "Last 7 days",
+    weeklySubtitle: "Tasks completed by all users, last 7 days",
     completedTasks: (count: number) => `${count} task${count === 1 ? "" : "s"} completed`,
   },
   de: {
@@ -50,13 +58,17 @@ const copy = {
     completionDetail: (completed: string, total: string) =>
       `${completed} von ${total} Aufgaben erledigt`,
     adminQueues: "Admin-Warteschlangen",
-    queueSummary: (count: string) => `${count} Einträge`,
+    queueSummary: (count: string) => `${count} Einträge warten auf das Team`,
+    usersDetail: (banned: string) => `${banned} gesperrt`,
+    tasksDetail: (open: string) => `${open} noch offen`,
+    completedDetail: (week: string) => `${week} diese Woche`,
+    overdueDetail: (count: number) => (count ? "Über alle Benutzer" : "Alles im Plan"),
     overdue: "Überfällige Aufgaben",
     support: "Wartende Support-Chats",
     contact: "Unbeantwortete Kontaktformulare",
     banned: "Gesperrte Benutzer",
     weekly: "Wochenfortschritt",
-    lastSevenDays: "Letzte 7 Tage",
+    weeklySubtitle: "Von allen Benutzern erledigt, letzte 7 Tage",
     completedTasks: (count: number) =>
       `${count} Aufgabe${count === 1 ? "" : "n"} erledigt`,
   },
@@ -70,196 +82,209 @@ export function AdminOverviewView() {
     queryFn: getAdminOverviewRequest,
   });
 
-  if (query.isPending) return <LoadingState />;
-  if (query.isError)
-    return (
-      <ErrorState
-        message={getErrorMessage(query.error, locale)}
-        retry={() => void query.refetch()}
-      />
-    );
+  const heading = <PageHeading title={t.title} description={t.subtitle} />;
 
-  const stats = [
-    {
-      label: t.totalUsers,
-      value: formatNumber(query.data.totalUsers, intlLocale),
-      icon: UsersRound,
-      iconClassName: "bg-[var(--primary-soft)] text-[var(--primary)]",
-    },
-    {
-      label: t.totalTasks,
-      value: formatNumber(query.data.totalTasks, intlLocale),
-      icon: ListTodo,
-      iconClassName:
-        "bg-[color-mix(in_srgb,var(--success)_12%,transparent)] text-[var(--success)]",
-    },
-    {
-      label: t.completedToday,
-      value: formatNumber(query.data.completedToday, intlLocale),
-      icon: CheckCircle2,
-      iconClassName:
-        "bg-[color-mix(in_srgb,var(--success)_12%,transparent)] text-[var(--success)]",
-    },
-    {
-      label: t.overdue,
-      value: formatNumber(query.data.overdueTasks, intlLocale),
-      icon: AlertTriangle,
-      iconClassName:
-        "bg-[color-mix(in_srgb,var(--danger)_11%,transparent)] text-[var(--danger)]",
-    },
-  ];
+  if (query.isPending) {
+    return (
+      <div className="space-y-5">
+        {heading}
+        <LoadingState />
+      </div>
+    );
+  }
+  if (query.isError) {
+    return (
+      <div className="space-y-5">
+        {heading}
+        <ErrorState
+          message={getErrorMessage(query.error, locale)}
+          retry={() => void query.refetch()}
+        />
+      </div>
+    );
+  }
+
+  const data = query.data;
   const attention = [
     {
       label: t.support,
-      value: query.data.waitingSupport,
+      value: data.waitingSupport,
       href: "/admin/support",
       icon: Headphones,
-      iconClassName: "bg-[var(--primary-soft)] text-[var(--primary)]",
     },
     {
       label: t.contact,
-      value: query.data.unansweredContacts,
+      value: data.unansweredContacts,
       href: "/admin/contact",
       icon: Mail,
-      iconClassName:
-        "bg-[color-mix(in_srgb,var(--success)_12%,transparent)] text-[var(--success)]",
     },
     {
       label: t.banned,
-      value: query.data.bannedUsers,
+      value: data.bannedUsers,
       href: "/admin/users?banned=true",
-      icon: UsersRound,
-      iconClassName:
-        "bg-[color-mix(in_srgb,var(--danger)_11%,transparent)] text-[var(--danger)]",
+      icon: UserX,
     },
   ];
-  const completionPercent = Math.min(100, Math.max(0, query.data.completionRate * 100));
-  const formattedCompletedTasks = formatNumber(query.data.completedTasks, intlLocale);
-  const formattedTotalTasks = formatNumber(query.data.totalTasks, intlLocale);
+  const completionPercent = Math.min(100, Math.max(0, data.completionRate * 100));
+  const completedThisWeek = data.weeklyProgress.reduce(
+    (total, day) => total + day.completed,
+    0,
+  );
   const queueTotal = attention.reduce((total, item) => total + item.value, 0);
+  const hasOverdue = data.overdueTasks > 0;
 
   return (
-    <div className="desk-reveal space-y-5">
-      <PageHeading title={t.title} description={t.subtitle} />
-      <section className="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-[1.35fr_repeat(4,minmax(0,1fr))]">
-        <Card className="relative col-span-2 h-28 overflow-hidden border-[color-mix(in_srgb,var(--primary)_22%,var(--border))] bg-[linear-gradient(145deg,color-mix(in_srgb,var(--primary-soft)_68%,var(--surface)),var(--surface))] p-4 md:col-span-4 xl:col-span-1">
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex items-center gap-2.5">
-              <span className="grid size-9 place-items-center rounded-xl bg-[var(--primary)] text-[var(--on-primary)] shadow-[0_8px_20px_var(--primary-glow)]">
-                <CheckCircle2 className="size-4" aria-hidden="true" />
-              </span>
-              <p className="text-xs font-bold text-[var(--muted)]">{t.completionRate}</p>
-            </div>
-            <p className="text-2xl font-black tracking-[-0.04em] tabular-nums">
-              {formatPercent(query.data.completionRate, intlLocale)}
-            </p>
-          </div>
-          <div
-            className="mt-3 h-2 overflow-hidden rounded-full bg-[color-mix(in_srgb,var(--primary)_12%,var(--surface))]"
-            role="progressbar"
-            aria-label={t.completionRate}
-            aria-valuemin={0}
-            aria-valuemax={100}
-            aria-valuenow={Math.round(completionPercent)}
-          >
-            <span
-              className="block h-full rounded-full bg-[var(--primary)] transition-[width] duration-500 motion-reduce:transition-none"
-              style={{ width: `${completionPercent}%` }}
-            />
-          </div>
-          <p className="mt-2.5 text-[10px] font-semibold text-[var(--muted)]">
-            {t.completionDetail(formattedCompletedTasks, formattedTotalTasks)}
-          </p>
-        </Card>
+    <div className="space-y-5">
+      {heading}
 
-        {stats.map(({ label, value, icon: Icon, iconClassName }) => (
-          <Card
-            key={label}
-            className="flex h-28 min-w-0 flex-col justify-between overflow-hidden p-4"
-          >
-            <div className="flex items-start justify-between gap-3">
-              <span
-                className={cn("grid size-9 place-items-center rounded-xl", iconClassName)}
+      {/* Same summary panel as the personal dashboard, with the staff figures. */}
+      <section className="desk-panel overflow-hidden" aria-label={t.completionRate}>
+        <dl className="desk-stagger grid grid-cols-2 divide-[color-mix(in_srgb,var(--border)_80%,transparent)] lg:grid-cols-5 lg:divide-x [&>*:nth-child(-n+4)]:max-lg:border-b [&>*:nth-child(odd)]:max-lg:border-r [&>*:first-child]:max-lg:col-span-2 [&>*:first-child]:max-lg:border-r-0">
+          <div className="summary-figure">
+            <dt className="summary-label">
+              <CheckCircle2 className="size-3.5" aria-hidden="true" />
+              {t.completionRate}
+            </dt>
+            <dd className="metric-value">
+              {Math.round(completionPercent)}
+              <small>%</small>
+            </dd>
+            <dd className="grid gap-2">
+              <div
+                className="summary-meter"
+                role="progressbar"
+                aria-label={t.completionRate}
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={Math.round(completionPercent)}
               >
-                <Icon className="size-4" aria-hidden="true" />
+                <i style={{ transform: `scaleX(${completionPercent / 100})` }} />
+              </div>
+              <span className="text-xs text-[var(--muted)]">
+                {t.completionDetail(
+                  formatNumber(data.completedTasks, intlLocale),
+                  formatNumber(data.totalTasks, intlLocale),
+                )}
               </span>
-              <p className="text-2xl font-black tracking-[-0.04em] tabular-nums">
-                {value}
-              </p>
-            </div>
-            <p className="mt-4 text-xs font-bold">{label}</p>
-          </Card>
-        ))}
+            </dd>
+          </div>
+          <div className="summary-figure">
+            <dt className="summary-label">
+              <UsersRound className="size-3.5" aria-hidden="true" />
+              {t.totalUsers}
+            </dt>
+            <dd className="metric-value">{formatNumber(data.totalUsers, intlLocale)}</dd>
+            <dd className="text-xs text-[var(--muted)]">
+              {t.usersDetail(formatNumber(data.bannedUsers, intlLocale))}
+            </dd>
+          </div>
+          <div className="summary-figure">
+            <dt className="summary-label">
+              <ListTodo className="size-3.5" aria-hidden="true" />
+              {t.totalTasks}
+            </dt>
+            <dd className="metric-value">{formatNumber(data.totalTasks, intlLocale)}</dd>
+            <dd className="text-xs text-[var(--muted)]">
+              {t.tasksDetail(formatNumber(data.openTasks, intlLocale))}
+            </dd>
+          </div>
+          <div className="summary-figure">
+            <dt className="summary-label">
+              <CheckCircle2 className="size-3.5" aria-hidden="true" />
+              {t.completedToday}
+            </dt>
+            <dd className="metric-value">
+              {formatNumber(data.completedToday, intlLocale)}
+            </dd>
+            <dd className="text-xs text-[var(--muted)]">
+              {t.completedDetail(formatNumber(completedThisWeek, intlLocale))}
+            </dd>
+          </div>
+          <div className="summary-figure">
+            <dt className="summary-label">
+              <AlertTriangle className="size-3.5" aria-hidden="true" />
+              {t.overdue}
+            </dt>
+            <dd className={cn("metric-value", hasOverdue && "text-[var(--danger)]")}>
+              {formatNumber(data.overdueTasks, intlLocale)}
+            </dd>
+            <dd
+              className={cn(
+                "flex items-center gap-1.5 text-xs font-medium",
+                hasOverdue ? "text-[var(--danger)]" : "text-[var(--success)]",
+              )}
+            >
+              <span className="size-1.5 rounded-full bg-current" aria-hidden="true" />
+              {t.overdueDetail(data.overdueTasks)}
+            </dd>
+          </div>
+        </dl>
       </section>
 
-      <div className="grid items-stretch gap-5 xl:grid-cols-[minmax(0,1.55fr)_minmax(19rem,.75fr)]">
-        <section className="desk-panel flex min-w-0 flex-col overflow-hidden">
-          <div className="flex items-center justify-between gap-3 border-b px-4 py-3.5 sm:px-5">
-            <h2 className="desk-section-title min-w-0 truncate">{t.adminQueues}</h2>
-            <span
-              className="max-w-[55%] shrink-0 truncate whitespace-nowrap rounded-full bg-[var(--surface-muted)] px-3 py-1.5 text-[10px] font-bold text-[var(--muted)]"
-              title={t.queueSummary(formatNumber(queueTotal, intlLocale))}
-            >
-              {t.queueSummary(formatNumber(queueTotal, intlLocale))}
-            </span>
-          </div>
-          <div className="divide-y">
-            {attention.map(({ label, value, href, icon: Icon, iconClassName }) => (
-              <Link
-                key={label}
-                href={href}
-                className="focus-ring flex min-h-16 items-center gap-3 px-4 py-3 transition-colors hover:bg-[var(--surface-muted)] sm:px-5"
-              >
-                <span
-                  className={cn(
-                    "grid size-8 shrink-0 place-items-center rounded-lg",
-                    iconClassName,
-                  )}
+      <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1.6fr)_minmax(20rem,1fr)]">
+        <section className="desk-panel min-w-0 overflow-hidden">
+          <PanelHeader
+            icon={Inbox}
+            title={t.adminQueues}
+            subtitle={t.queueSummary(formatNumber(queueTotal, intlLocale))}
+            className="p-5 pb-3"
+          />
+          <ul className="grid gap-1.5 px-3 pb-3">
+            {attention.map(({ label, value, href, icon: Icon }) => (
+              <li key={label}>
+                <Link
+                  href={href}
+                  className="focus-ring group flex min-h-14 items-center gap-3 rounded-[var(--control-radius)] px-2.5 py-2 transition-colors hover:bg-[var(--surface-muted)]/70"
                 >
-                  <Icon className="size-4" aria-hidden="true" />
-                </span>
-                <p className="min-w-0 flex-1 text-sm leading-5 font-semibold">{label}</p>
-                <Badge className="border-[var(--primary)]/15 bg-[var(--primary-soft)] text-[var(--primary)]">
-                  {formatNumber(value, intlLocale)}
-                </Badge>
-              </Link>
+                  <span className="grid size-9 shrink-0 place-items-center rounded-full bg-[var(--surface-muted)] text-[var(--muted)] transition-colors group-hover:text-[var(--primary)]">
+                    <Icon className="size-4" aria-hidden="true" />
+                  </span>
+                  <span className="min-w-0 flex-1 truncate text-sm font-semibold">
+                    {label}
+                  </span>
+                  <span
+                    className={cn(
+                      "min-w-8 rounded-full px-2.5 py-1 text-center text-xs font-bold tabular-nums",
+                      value > 0
+                        ? "bg-[var(--primary-soft)] text-[var(--primary)]"
+                        : "bg-[var(--surface-muted)] text-[var(--muted)]",
+                    )}
+                  >
+                    {formatNumber(value, intlLocale)}
+                  </span>
+                  <ChevronRight
+                    className="size-4 shrink-0 text-[var(--muted)] transition-transform group-hover:translate-x-0.5"
+                    aria-hidden="true"
+                  />
+                </Link>
+              </li>
             ))}
-          </div>
+          </ul>
         </section>
 
-        <Card className="desk-panel flex min-w-0 flex-col overflow-hidden p-0">
-          <div className="flex items-center justify-between gap-3 border-b px-4 py-3.5 sm:px-5">
-            <h2 className="desk-section-title min-w-0 truncate">{t.weekly}</h2>
-            <span
-              className="max-w-[55%] shrink-0 truncate whitespace-nowrap rounded-full bg-[var(--surface-muted)] px-3 py-1.5 text-[10px] font-bold text-[var(--muted)]"
-              title={t.lastSevenDays}
-            >
-              {t.lastSevenDays}
-            </span>
-          </div>
-          <div className="flex min-h-0 flex-1 items-center overflow-hidden p-3 sm:p-4">
-            <TrendChart
-              data={query.data.weeklyProgress.map((item) => {
-                const date = new Date(`${item.date}T12:00:00Z`);
-                const dateLabel = new Intl.DateTimeFormat(intlLocale, {
-                  dateStyle: "medium",
+        <section className="desk-panel min-w-0 overflow-hidden p-5">
+          <PanelHeader icon={TrendingUp} title={t.weekly} subtitle={t.weeklySubtitle} />
+          <TrendChart
+            data={data.weeklyProgress.map((item) => {
+              const date = new Date(`${item.date}T12:00:00Z`);
+              const dateLabel = new Intl.DateTimeFormat(intlLocale, {
+                dateStyle: "medium",
+                timeZone: "UTC",
+              }).format(date);
+              return {
+                key: item.date,
+                value: item.completed,
+                shortLabel: new Intl.DateTimeFormat(intlLocale, {
+                  weekday: "short",
                   timeZone: "UTC",
-                }).format(date);
-                return {
-                  key: item.date,
-                  value: item.completed,
-                  shortLabel: new Intl.DateTimeFormat(intlLocale, {
-                    weekday: "narrow",
-                    timeZone: "UTC",
-                  }).format(date),
-                  accessibleLabel: `${dateLabel}: ${t.completedTasks(item.completed)}`,
-                };
-              })}
-              label={t.weekly}
-              className="h-48 xl:h-40"
-            />
-          </div>
-        </Card>
+                }).format(date),
+                accessibleLabel: `${dateLabel}: ${t.completedTasks(item.completed)}`,
+              };
+            })}
+            label={t.weekly}
+            className="mt-3 h-40"
+          />
+        </section>
       </div>
     </div>
   );

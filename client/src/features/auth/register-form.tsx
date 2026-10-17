@@ -85,7 +85,7 @@ export function RegisterForm() {
         {t.title}
       </h1>
       <p className="mt-2 text-sm leading-7 text-[var(--muted)]">{t.description}</p>
-      <form onSubmit={onSubmit} className="mt-7 grid gap-3" noValidate>
+      <form onSubmit={onSubmit} className="mt-8 grid gap-3" noValidate>
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label={t.firstName} error={errors.firstName?.message}>
             <Input autoComplete="given-name" {...register("firstName")} />

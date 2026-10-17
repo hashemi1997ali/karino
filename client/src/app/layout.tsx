@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Inter } from "next/font/google";
 import { cookies } from "next/headers";
 
 import { AppProviders } from "@/providers/app-providers";
@@ -11,6 +12,8 @@ import {
   type ThemePreference,
 } from "@/lib/preferences";
 import "./globals.css";
+
+const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 
 const metadataByLocale: Record<Locale, { title: string; description: string }> = {
   en: {
@@ -65,7 +68,7 @@ export default async function RootLayout({
     <html
       lang={locale}
       dir="ltr"
-      className="h-full antialiased"
+      className={`${inter.variable} h-full antialiased`}
       data-scroll-behavior="smooth"
       suppressHydrationWarning
     >

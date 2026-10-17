@@ -6,6 +6,8 @@ const apiServerUrl = (process.env.API_SERVER_URL ?? "http://127.0.0.1:4000").rep
 );
 
 const nextConfig: NextConfig = {
+  // Stops `next dev` from writing an AGENTS.md into the repo.
+  agentRules: false,
   images: {
     remotePatterns: [
       {

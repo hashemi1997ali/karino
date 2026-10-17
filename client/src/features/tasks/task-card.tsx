@@ -225,7 +225,7 @@ export function TaskCard({
         )}
         dir="auto"
       >
-        {task.description || "—"}
+        {task.description}
       </p>
 
       {onStatusChange && !compact && (

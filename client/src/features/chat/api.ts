@@ -48,12 +48,11 @@ export const guestChatRequest = (
 export const createGuestSupportChatRequest = (
   history: ChatHistoryItem[],
   locale: "en" | "de",
-  reason: SupportChat["escalationReason"],
 ): Promise<SupportChat> =>
   apiRequest<{ chat: SupportChat }>("/chat/guest/support", {
     method: "POST",
     auth: false,
-    json: { history, locale, reason: reason ?? "human_requested" },
+    json: { history, locale },
   }).then((data) => data.chat);
 
 export const sendGuestMessageRequest = (
@@ -98,11 +97,10 @@ export const createChatRequest = (
 export const createSupportChatRequest = (
   history: ChatHistoryItem[],
   locale: "en" | "de",
-  reason: SupportChat["escalationReason"],
 ): Promise<SupportChat> =>
   apiRequest<{ chat: SupportChat }>("/chat/support", {
     method: "POST",
-    json: { history, locale, reason: reason ?? "human_requested" },
+    json: { history, locale },
   }).then((data) => data.chat);
 
 export const sendChatMessageRequest = (

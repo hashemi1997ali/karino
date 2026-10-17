@@ -200,7 +200,8 @@ export function EditUserDialog({
   const submitChanges = async (values: ProfileFormValues) => {
     const changedAdminRole =
       canChangeAdminRole && selectedAdminRole !== userIsAdmin ? selectedAdminRole : null;
-    await onSave(values, changedAdminRole);
+    // onSave's mutation shows its own error toast.
+    await onSave(values, changedAdminRole).catch(() => undefined);
   };
 
   return (
@@ -325,7 +326,7 @@ export function AdminUsersView() {
   const filterLabelClass =
     "flex items-center gap-1.5 text-[10px] font-extrabold tracking-[0.1em] text-[var(--muted)] uppercase";
   const filterSelectClass =
-    "h-7 min-w-0 rounded-none border-0 bg-transparent px-0 shadow-none";
+    "h-7 min-w-0 rounded-none border-0 bg-transparent px-0 pr-6 shadow-none focus:bg-transparent focus:shadow-none";
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [role, setRole] = useState<UserFilters["role"]>("");
@@ -356,7 +357,7 @@ export function AdminUsersView() {
     <div>
       <PageHeading title={t.title} description={t.description} />
 
-      <section className="glass-panel mt-6 grid gap-3 rounded-[var(--container-radius)] p-3">
+      <section className="glass-panel grid gap-3 rounded-[var(--container-radius)] p-3">
         <label className="relative min-w-0">
           <Search className="pointer-events-none absolute left-4 top-4 size-4 text-slate-400" />
           <Input

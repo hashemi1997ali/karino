@@ -7,7 +7,13 @@ import { LoadingState } from "@/components/ui/states";
 import { useAuth } from "@/features/auth/auth-provider";
 import { usePreferences } from "@/providers/preferences-provider";
 
-export function AuthGate({ children }: { children: ReactNode }) {
+export function AuthGate({
+  children,
+  fallback,
+}: {
+  children: ReactNode;
+  fallback?: ReactNode;
+}) {
   const { status } = useAuth();
   const { locale } = usePreferences();
   const pathname = usePathname();
@@ -15,11 +21,14 @@ export function AuthGate({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (status === "anonymous") {
-      router.replace(`/login?next=${encodeURIComponent(pathname)}`);
+      // Keep the query string too (e.g. a prompt typed on the landing page).
+      const next = pathname + window.location.search;
+      router.replace(`/login?next=${encodeURIComponent(next)}`);
     }
   }, [status, pathname, router]);
 
   if (status !== "authenticated") {
+    if (fallback) return fallback;
     return (
       <main id="main-content" tabIndex={-1} className="grid min-h-dvh place-items-center">
         <LoadingState

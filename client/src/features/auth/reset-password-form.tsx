@@ -81,7 +81,7 @@ export function ResetPasswordForm() {
           <p className="mt-4 text-sm leading-7 text-[var(--muted)]">{t.success}</p>
         </div>
       ) : !token ? (
-        <p className="mt-6 rounded-2xl bg-rose-50 p-4 text-sm text-rose-700">
+        <p className="mt-7 rounded-[var(--container-radius)] bg-rose-50 p-4 text-sm text-rose-700 dark:bg-rose-500/15 dark:text-rose-300">
           {t.invalid}
         </p>
       ) : (

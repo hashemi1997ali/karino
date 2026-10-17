@@ -5,6 +5,7 @@ export interface ProfileValues {
   firstName: string;
   lastName: string;
   email: string;
+  currentPassword?: string;
   profileImage?: File | null;
   removeProfileImage?: boolean;
 }
@@ -14,6 +15,7 @@ export const updateProfileRequest = async (values: ProfileValues): Promise<User>
   formData.set("firstName", values.firstName);
   formData.set("lastName", values.lastName);
   formData.set("email", values.email);
+  if (values.currentPassword) formData.set("currentPassword", values.currentPassword);
   if (values.profileImage) formData.set("profileImage", values.profileImage);
   if (values.removeProfileImage) formData.set("removeProfileImage", "true");
 

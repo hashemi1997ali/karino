@@ -151,7 +151,7 @@ const copy = {
     sort: "Sortieren",
     newest: "Neueste",
     recentlyUpdated: "Zuletzt aktualisiert",
-    dueSoon: "Bald fÃ¤llig",
+    dueSoon: "Bald fällig",
     titleSort: "Titel",
     owner: "Besitzer",
     actions: "Aktionen",
@@ -169,7 +169,7 @@ export function TasksView({ admin = false }: { admin?: boolean }) {
   const filterLabelClass =
     "flex items-center gap-1.5 text-[10px] font-extrabold tracking-[0.1em] text-[var(--muted)] uppercase";
   const filterSelectClass =
-    "h-7 min-w-0 rounded-none border-0 bg-transparent px-0 shadow-none";
+    "h-7 min-w-0 rounded-none border-0 bg-transparent px-0 pr-6 shadow-none focus:bg-transparent focus:shadow-none";
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [status, setStatus] = useState<TaskStatus | "">("");
@@ -286,7 +286,7 @@ export function TasksView({ admin = false }: { admin?: boolean }) {
         description={admin ? t.adminDescription : t.userDescription}
       />
 
-      <section className="glass-panel mt-7 grid gap-3 rounded-[var(--container-radius)] p-3">
+      <section className="glass-panel grid gap-3 rounded-[var(--container-radius)] p-3">
         <label className="relative min-w-0">
           <Search className="pointer-events-none absolute left-4 top-4 size-4 text-slate-400" />
           <Input

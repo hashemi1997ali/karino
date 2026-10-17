@@ -1,9 +1,19 @@
 import type { Metadata } from "next";
+import { cookies } from "next/headers";
+import { Suspense } from "react";
 
 import { AssistantView } from "@/features/assistant/assistant-view";
+import { LOCALE_COOKIE_NAME, parseLocale } from "@/lib/preferences";
 
-export const metadata: Metadata = { title: "AI Assistant" };
+export async function generateMetadata(): Promise<Metadata> {
+  const locale = parseLocale((await cookies()).get(LOCALE_COOKIE_NAME)?.value);
+  return { title: locale === "de" ? "KI-Assistent" : "AI Assistant" };
+}
 
 export default function AssistantPage() {
-  return <AssistantView />;
+  return (
+    <Suspense>
+      <AssistantView />
+    </Suspense>
+  );
 }

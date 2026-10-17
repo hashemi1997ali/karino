@@ -7,21 +7,19 @@ import {
   Lightbulb,
   Mail,
   MailCheck,
-  Send,
   WandSparkles,
 } from "lucide-react";
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
-import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { FormStatusBadge } from "@/components/ui/domain-badge";
 import { UserAvatar } from "@/components/user-avatar";
 import { PageHeading } from "@/components/ui/page-heading";
-import { ErrorState, LoadingState } from "@/components/ui/states";
+import { EmptyState, ErrorState, LoadingState } from "@/components/ui/states";
 import { ChatMessageBubble } from "@/features/chat/chat-message-bubble";
 import { ChatHistoryItem } from "@/features/chat/chat-history-item";
 import { ChatIconButton } from "@/features/chat/chat-icon-button";
+import { ChatComposer, ChatToolButton } from "@/features/chat/chat-composer";
 import { ChatSuggestionPanel } from "@/features/chat/chat-suggestion-panel";
 import { ChatThreadHeader } from "@/features/chat/chat-thread-header";
 import { DateGroupedMessageList } from "@/features/chat/date-grouped-message-list";
@@ -183,25 +181,22 @@ export function AdminContactView() {
       <PageHeading title={t.title} description={t.description} />
 
       {contactsQuery.isPending ? (
-        <div className="mt-8">
+        <div>
           <LoadingState label={t.loading} />
         </div>
       ) : contactsQuery.isError ? (
-        <div className="mt-8">
+        <div>
           <ErrorState
             message={getErrorMessage(contactsQuery.error, locale)}
             retry={() => void contactsQuery.refetch()}
           />
         </div>
       ) : contacts.length === 0 ? (
-        <Card className="mt-8 grid min-h-52 place-items-center p-8 text-center text-sm text-[var(--muted)]">
-          <Mail className="mb-3 size-8 text-[var(--primary)]" />
-          {t.empty}
-        </Card>
+        <EmptyState icon={Mail} title={t.empty} />
       ) : (
         <div
           className={cn(
-            "chat-workspace mt-5 grid min-h-[38rem] overflow-hidden rounded-[var(--container-radius)] md:min-h-0 md:flex-1 xl:grid-cols-[18rem_minmax(0,1fr)]",
+            "chat-workspace grid min-h-[38rem] overflow-hidden rounded-[var(--container-radius)] md:min-h-0 md:flex-1 xl:grid-cols-[18rem_minmax(0,1fr)]",
             threadOpen &&
               "max-md:fixed max-md:inset-0 max-md:z-50 max-md:mt-0 max-md:h-dvh max-md:min-h-0 max-md:rounded-none max-md:border-0",
           )}
@@ -341,63 +336,46 @@ export function AdminContactView() {
                   />
                 </div>
                 <footer className="chat-composer-footer shrink-0 p-3 max-md:pb-[max(0.75rem,env(safe-area-inset-bottom))]">
-                  <div className="mb-2 flex flex-wrap gap-2">
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      loading={suggestionsMutation.isPending}
-                      aria-expanded={suggestions.length > 0}
-                      onClick={() => {
-                        if (suggestions.length > 0) {
-                          setSuggestions([]);
-                          return;
-                        }
-                        if (selected) suggestionsMutation.mutate(selected.id);
-                      }}
-                    >
-                      <Lightbulb className="size-4" />
-                      {suggestions.length > 0 ? t.hideSuggestions : t.suggestions}
-                    </Button>
-                  </div>
-                  <div className="chat-composer-shell flex items-end gap-2">
-                    <textarea
-                      value={reply}
-                      onChange={(event) => setReply(event.target.value)}
-                      placeholder={t.reply}
-                      aria-label={t.reply}
-                      dir="auto"
-                      rows={1}
-                      className="min-h-11 max-h-32 min-w-0 flex-1 resize-none bg-transparent px-2 py-2.5 text-base leading-6 outline-none placeholder:text-[var(--muted)] sm:text-sm"
-                    />
-                    <Button
-                      variant="secondary"
-                      size="icon"
-                      className="size-11 shrink-0 rounded-full"
-                      disabled={!reply.trim()}
-                      loading={rewriteMutation.isPending}
-                      onClick={() => {
-                        const message = reply.trim();
-                        if (selected && message) {
-                          rewriteMutation.mutate({ id: selected.id, message });
-                        }
-                      }}
-                      aria-label={t.improve}
-                      title={t.improve}
-                    >
-                      <WandSparkles className="size-4" />
-                    </Button>
-                    <Button
-                      size="icon"
-                      className="size-11 shrink-0 rounded-full"
-                      disabled={!reply.trim()}
-                      loading={replyMutation.isPending}
-                      onClick={sendReply}
-                      aria-label={t.send}
-                      title={t.send}
-                    >
-                      <Send className="size-4" />
-                    </Button>
-                  </div>
+                  <ChatComposer
+                    value={reply}
+                    onValueChange={setReply}
+                    onSubmit={sendReply}
+                    placeholder={t.reply}
+                    sendLabel={t.send}
+                    sending={replyMutation.isPending}
+                    submitOnEnter={false}
+                    tools={
+                      <>
+                        <ChatToolButton
+                          icon={Lightbulb}
+                          loading={suggestionsMutation.isPending}
+                          pressed={suggestions.length > 0}
+                          onClick={() => {
+                            if (suggestions.length > 0) {
+                              setSuggestions([]);
+                              return;
+                            }
+                            if (selected) suggestionsMutation.mutate(selected.id);
+                          }}
+                        >
+                          {t.suggestions}
+                        </ChatToolButton>
+                        <ChatToolButton
+                          icon={WandSparkles}
+                          disabled={!reply.trim()}
+                          loading={rewriteMutation.isPending}
+                          onClick={() => {
+                            const message = reply.trim();
+                            if (selected && message) {
+                              rewriteMutation.mutate({ id: selected.id, message });
+                            }
+                          }}
+                          aria-label={t.improve}
+                          title={t.improve}
+                        />
+                      </>
+                    }
+                  />
                 </footer>
               </>
             )}

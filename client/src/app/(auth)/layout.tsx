@@ -66,7 +66,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
                   className="flex items-center gap-3 rounded-[var(--control-radius)] bg-white/[.055] p-3.5"
                 >
                   {index === 2 ? (
-                    <CheckCircle2 className="size-5 text-[var(--primary)]" />
+                    <CheckCircle2 className="size-5 text-[#bbb3ff]" />
                   ) : (
                     <Circle className="size-5 text-white/75" />
                   )}

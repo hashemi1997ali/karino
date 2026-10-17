@@ -4,25 +4,29 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AlertTriangle,
   CalendarCheck2,
+  CalendarDays,
   CheckCircle2,
   Circle,
   Clock3,
   ListTodo,
   Sparkles,
+  Target,
+  TrendingUp,
 } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
 
 import { buttonClassName } from "@/components/ui/button";
-import { Badge, Card } from "@/components/ui/card";
-import { TaskPriorityBadge, TaskStatusBadge } from "@/components/ui/domain-badge";
+import { TaskPriorityBadge } from "@/components/ui/domain-badge";
+import { PageHeading } from "@/components/ui/page-heading";
+import { PanelHeader, TextLink } from "@/components/ui/panel-header";
 import { ErrorState, LoadingState } from "@/components/ui/states";
 import { TrendChart } from "@/components/ui/trend-chart";
 import { useAuth } from "@/features/auth/auth-provider";
 import { getTodayDashboardRequest, updateTaskRequest } from "@/features/tasks/api";
 import { getErrorMessage } from "@/lib/api-error";
 import type { Task } from "@/lib/types";
-import { cn, formatNumber, formatPercent, getId } from "@/lib/utils";
+import { cn, formatNumber, getId } from "@/lib/utils";
 import { usePreferences } from "@/providers/preferences-provider";
 
 const copy = {
@@ -40,14 +44,27 @@ const copy = {
     overallProgressDetail: (completed: string, total: string) =>
       `${completed} of ${total} tasks completed`,
     focus: "Today focus",
-    focusCount: (count: number) => `${count} in focus`,
+    focusSubtitle: "Overdue and due today",
+    allTasks: "All tasks",
     upcoming: "Next 7 days",
     upcomingSummary: (count: string) => `${count} open in the next 7 days`,
-    aiBrief: "AI Daily Brief",
-    aiMeta: "Karino AI",
+    aiBrief: "Plan with AI",
+    aiSubtitle: "Your assistant, with today's context",
     aiAction: "Fix my schedule",
+    aiPlanAction: "Plan my day",
+    aiOverdue: (count: number) =>
+      `${count} overdue ${count === 1 ? "task needs" : "tasks need"} a new date.`,
+    aiToday: (count: number) =>
+      `${count} ${count === 1 ? "task is" : "tasks are"} due today. Ask for the best order.`,
+    aiIdle: "Nothing urgent. Ask the assistant to plan what comes next.",
+    aiOverduePrompt: "Help me reschedule my overdue tasks and plan the rest of today.",
+    aiPlanPrompt: "Plan my day based on my current tasks and priorities.",
     weekly: "Weekly progress",
-    lastSevenDays: "Last 7 days",
+    weeklySubtitle: "Tasks completed in the last 7 days",
+    dueTodayDetail: (count: number) =>
+      count ? "Due before midnight" : "Nothing due today",
+    completedDetail: (week: string) => `${week} this week`,
+    overdueDetail: (count: number) => (count ? "Need a new date" : "All on track"),
     noTasks: "No active tasks need your attention.",
     today: "Today",
     overdueLabel: "Overdue",
@@ -73,14 +90,29 @@ const copy = {
     overallProgressDetail: (completed: string, total: string) =>
       `${completed} von ${total} Aufgaben erledigt`,
     focus: "Fokus für heute",
-    focusCount: (count: number) => `${count} im Fokus`,
+    focusSubtitle: "Überfällig und heute fällig",
+    allTasks: "Alle Aufgaben",
     upcoming: "Nächste 7 Tage",
     upcomingSummary: (count: string) => `${count} offen in den nächsten 7 Tagen`,
-    aiBrief: "KI-Tagesübersicht",
-    aiMeta: "Karino KI",
-    aiAction: "Zeitplan optimieren",
+    aiBrief: "Mit KI planen",
+    aiSubtitle: "Dein Assistent mit dem Kontext von heute",
+    aiAction: "Zeitplan reparieren",
+    aiPlanAction: "Tag planen",
+    aiOverdue: (count: number) =>
+      `${count} überfällige ${count === 1 ? "Aufgabe braucht" : "Aufgaben brauchen"} ein neues Datum.`,
+    aiToday: (count: number) =>
+      `${count} ${count === 1 ? "Aufgabe ist" : "Aufgaben sind"} heute fällig. Frag nach der besten Reihenfolge.`,
+    aiIdle: "Nichts Dringendes. Lass den Assistenten planen, was als Nächstes kommt.",
+    aiOverduePrompt:
+      "Hilf mir, meine überfälligen Aufgaben neu zu planen und den Rest des Tages zu ordnen.",
+    aiPlanPrompt: "Plane meinen Tag anhand meiner aktuellen Aufgaben und Prioritäten.",
     weekly: "Wochenfortschritt",
-    lastSevenDays: "Letzte 7 Tage",
+    weeklySubtitle: "In den letzten 7 Tagen erledigte Aufgaben",
+    dueTodayDetail: (count: number) =>
+      count ? "Bis Mitternacht fällig" : "Heute nichts fällig",
+    completedDetail: (week: string) => `${week} diese Woche`,
+    overdueDetail: (count: number) =>
+      count ? "Brauchen ein neues Datum" : "Alles im Plan",
     noTasks: "Keine aktiven Aufgaben benötigen deine Aufmerksamkeit.",
     today: "Heute",
     overdueLabel: "Überfällig",
@@ -125,39 +157,37 @@ export function DashboardView() {
     onError: (error) => toast.error(getErrorMessage(error, locale)),
   });
 
-  if (dashboardQuery.isPending) return <LoadingState />;
+  // The heading only needs the signed-in user, so it stays in place while the
+  // dashboard loads or fails.
+  const heading = (
+    <PageHeading
+      title={`${t.greetings[getGreetingKey()]}, ${user?.firstName ?? ""}`}
+      description={t.intro}
+    />
+  );
+
+  if (dashboardQuery.isPending) {
+    return (
+      <div className="space-y-5">
+        {heading}
+        <LoadingState />
+      </div>
+    );
+  }
   if (dashboardQuery.isError) {
     return (
-      <ErrorState
-        message={getErrorMessage(dashboardQuery.error, locale)}
-        retry={() => void dashboardQuery.refetch()}
-      />
+      <div className="space-y-5">
+        {heading}
+        <ErrorState
+          message={getErrorMessage(dashboardQuery.error, locale)}
+          retry={() => void dashboardQuery.refetch()}
+        />
+      </div>
     );
   }
 
   const dashboard = dashboardQuery.data;
-  const dailyStats = [
-    {
-      label: t.tasksToday,
-      value: formatNumber(dashboard.stats.tasksToday, intlLocale),
-      icon: Clock3,
-      iconClassName: "bg-[var(--primary-soft)] text-[var(--primary)]",
-    },
-    {
-      label: t.completed,
-      value: formatNumber(dashboard.stats.completed, intlLocale),
-      icon: CheckCircle2,
-      iconClassName:
-        "bg-[color-mix(in_srgb,var(--success)_12%,transparent)] text-[var(--success)]",
-    },
-    {
-      label: t.overdue,
-      value: formatNumber(dashboard.stats.overdue, intlLocale),
-      icon: AlertTriangle,
-      iconClassName:
-        "bg-[color-mix(in_srgb,var(--danger)_11%,transparent)] text-[var(--danger)]",
-    },
-  ];
+  const { stats } = dashboard;
   const todayKey = new Intl.DateTimeFormat("en-CA", {
     timeZone: dashboard.timeZone,
     year: "numeric",
@@ -175,194 +205,248 @@ export function DashboardView() {
     (total, day) => total + day.count,
     0,
   );
-  const formattedTotalTasks = formatNumber(dashboard.stats.totalTasks, intlLocale);
-  const formattedCompletedTasks = formatNumber(
-    dashboard.stats.totalCompleted,
-    intlLocale,
+  const completedThisWeek = dashboard.weeklyProgress.reduce(
+    (total, day) => total + day.completed,
+    0,
   );
-  const completionPercent = Math.min(
-    100,
-    Math.max(0, dashboard.stats.completionRate * 100),
-  );
+  const completionPercent = Math.min(100, Math.max(0, stats.completionRate * 100));
+  const hasOverdue = stats.overdue > 0;
 
   return (
-    <div className="desk-reveal space-y-5">
-      <header className="desk-page-header">
-        <div>
-          <h1 className="text-[1.625rem] leading-8 font-bold tracking-[-0.025em]">
-            {t.greetings[getGreetingKey()]}, {user?.firstName}
-          </h1>
-          <p className="mt-1 text-sm text-[var(--muted)]">{t.intro}</p>
-          <time className="sr-only" dateTime={dashboard.generatedAt}>
-            {new Intl.DateTimeFormat(intlLocale, { dateStyle: "full" }).format(
-              new Date(dashboard.generatedAt),
-            )}
-          </time>
-        </div>
-      </header>
+    <div className="space-y-5">
+      {heading}
+      <time className="sr-only" dateTime={dashboard.generatedAt}>
+        {new Intl.DateTimeFormat(intlLocale, { dateStyle: "full" }).format(
+          new Date(dashboard.generatedAt),
+        )}
+      </time>
 
-      <section className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-[1.35fr_repeat(3,minmax(0,1fr))]">
-        <Card className="relative col-span-2 h-28 overflow-hidden border-[color-mix(in_srgb,var(--primary)_22%,var(--border))] bg-[linear-gradient(145deg,color-mix(in_srgb,var(--primary-soft)_68%,var(--surface)),var(--surface))] p-4 md:col-span-3 xl:col-span-1">
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex items-center gap-2.5">
-              <span className="grid size-9 place-items-center rounded-xl bg-[var(--primary)] text-[var(--on-primary)] shadow-[0_8px_20px_var(--primary-glow)]">
-                <ListTodo className="size-4" aria-hidden="true" />
-              </span>
-              <p className="text-xs font-bold text-[var(--muted)]">{t.completionRate}</p>
-            </div>
-            <p className="text-2xl font-black tracking-[-0.04em] tabular-nums">
-              {formatPercent(dashboard.stats.completionRate, intlLocale)}
-            </p>
-          </div>
-          <div
-            className="mt-3 h-2 overflow-hidden rounded-full bg-[color-mix(in_srgb,var(--primary)_12%,var(--surface))]"
-            role="progressbar"
-            aria-label={t.completionRate}
-            aria-valuemin={0}
-            aria-valuemax={100}
-            aria-valuenow={Math.round(completionPercent)}
-          >
-            <span
-              className="block h-full rounded-full bg-[var(--primary)] transition-[width] duration-500 motion-reduce:transition-none"
-              style={{ width: `${completionPercent}%` }}
-            />
-          </div>
-          <p className="mt-2.5 text-[10px] font-semibold text-[var(--muted)]">
-            {t.overallProgressDetail(formattedCompletedTasks, formattedTotalTasks)}
-          </p>
-        </Card>
-
-        <Card className="col-span-2 overflow-hidden p-0 md:hidden">
-          <dl className="divide-y">
-            {dailyStats.map(({ label, value, icon: Icon, iconClassName }) => (
-              <div key={label} className="flex min-h-16 items-center gap-3 px-4">
-                <dt className="flex min-w-0 flex-1 items-center gap-3 text-sm font-semibold">
-                  <span
-                    className={cn(
-                      "grid size-8 shrink-0 place-items-center rounded-lg",
-                      iconClassName,
-                    )}
-                  >
-                    <Icon className="size-4" aria-hidden="true" />
-                  </span>
-                  <span className="truncate">{label}</span>
-                </dt>
-                <dd className="shrink-0">
-                  <Badge className="border-[var(--primary)]/15 bg-[var(--primary-soft)] text-[var(--primary)]">
-                    {value}
-                  </Badge>
-                </dd>
-              </div>
-            ))}
-          </dl>
-        </Card>
-
-        {dailyStats.map(({ label, value, icon: Icon, iconClassName }) => (
-          <Card
-            key={label}
-            className="hidden h-28 flex-col justify-between overflow-hidden p-4 md:flex"
-          >
-            <div className="flex items-start justify-between gap-3">
+      {/* One summary panel instead of four unrelated cards. */}
+      <section className="desk-panel overflow-hidden" aria-label={t.completionRate}>
+        <dl className="desk-stagger grid grid-cols-2 divide-[color-mix(in_srgb,var(--border)_80%,transparent)] lg:grid-cols-4 lg:divide-x [&>*:nth-child(-n+2)]:max-lg:border-b [&>*:nth-child(odd)]:max-lg:border-r">
+          <div className="summary-figure">
+            <dt className="summary-label">
+              <ListTodo className="size-3.5" aria-hidden="true" />
+              {t.completionRate}
+            </dt>
+            <dd className="metric-value">
+              {Math.round(completionPercent)}
+              <small>%</small>
+            </dd>
+            <dd className="grid gap-2">
               <div
-                className={cn("grid size-9 place-items-center rounded-xl", iconClassName)}
+                className="summary-meter"
+                role="progressbar"
+                aria-label={t.completionRate}
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={Math.round(completionPercent)}
               >
-                <Icon className="size-4" aria-hidden="true" />
+                <i style={{ transform: `scaleX(${completionPercent / 100})` }} />
               </div>
-              <p className="text-2xl font-black tracking-[-0.04em] tabular-nums">
-                {value}
-              </p>
-            </div>
-            <p className="mt-4 text-xs font-bold">{label}</p>
-          </Card>
-        ))}
+              <span className="text-xs text-[var(--muted)]">
+                {t.overallProgressDetail(
+                  formatNumber(stats.totalCompleted, intlLocale),
+                  formatNumber(stats.totalTasks, intlLocale),
+                )}
+              </span>
+            </dd>
+          </div>
+          <div className="summary-figure">
+            <dt className="summary-label">
+              <Clock3 className="size-3.5" aria-hidden="true" />
+              {t.tasksToday}
+            </dt>
+            <dd className="metric-value">{formatNumber(stats.tasksToday, intlLocale)}</dd>
+            <dd className="text-xs text-[var(--muted)]">
+              {t.dueTodayDetail(stats.tasksToday)}
+            </dd>
+          </div>
+          <div className="summary-figure">
+            <dt className="summary-label">
+              <CheckCircle2 className="size-3.5" aria-hidden="true" />
+              {t.completed}
+            </dt>
+            <dd className="metric-value">{formatNumber(stats.completed, intlLocale)}</dd>
+            <dd className="text-xs text-[var(--muted)]">
+              {t.completedDetail(formatNumber(completedThisWeek, intlLocale))}
+            </dd>
+          </div>
+          <div className="summary-figure">
+            <dt className="summary-label">
+              <AlertTriangle className="size-3.5" aria-hidden="true" />
+              {t.overdue}
+            </dt>
+            <dd className={cn("metric-value", hasOverdue && "text-[var(--danger)]")}>
+              {formatNumber(stats.overdue, intlLocale)}
+            </dd>
+            <dd
+              className={cn(
+                "flex items-center gap-1.5 text-xs font-medium",
+                hasOverdue ? "text-[var(--danger)]" : "text-[var(--success)]",
+              )}
+            >
+              <span className="size-1.5 rounded-full bg-current" aria-hidden="true" />
+              {t.overdueDetail(stats.overdue)}
+            </dd>
+          </div>
+        </dl>
       </section>
 
-      <div className="grid items-stretch gap-5 xl:grid-cols-[minmax(0,1.55fr)_minmax(19rem,.75fr)]">
-        <section className="desk-panel flex min-w-0 flex-col overflow-hidden">
-          <div className="flex items-center justify-between gap-3 border-b px-4 py-3.5 sm:px-5">
-            <h2 className="desk-section-title min-w-0 truncate">{t.upcoming}</h2>
-            <span
-              className="max-w-[55%] shrink-0 truncate whitespace-nowrap rounded-full bg-[var(--surface-muted)] px-3 py-1.5 text-[10px] font-bold text-[var(--muted)]"
-              title={t.upcomingSummary(formatNumber(upcomingTaskTotal, intlLocale))}
-            >
-              {t.upcomingSummary(formatNumber(upcomingTaskTotal, intlLocale))}
-            </span>
-          </div>
-          <div className="flex flex-1 items-center overflow-x-auto p-3 sm:p-4">
-            <div
-              className="grid min-w-[32rem] flex-1 grid-cols-7 gap-2 sm:min-w-0"
-              role="list"
-            >
-              {dashboard.upcoming.map((day) => {
-                const date = new Date(`${day.date}T12:00:00Z`);
-                const dateLabel = new Intl.DateTimeFormat(intlLocale, {
-                  weekday: "long",
-                  month: "long",
-                  day: "numeric",
-                  timeZone: "UTC",
-                }).format(date);
-                return (
-                  <div
-                    key={day.date}
-                    className={cn(
-                      "flex min-h-28 min-w-0 flex-col rounded-xl border px-2 py-2.5 text-center",
-                      day.count
-                        ? "border-[color-mix(in_srgb,var(--primary)_20%,var(--border))] bg-[color-mix(in_srgb,var(--primary-soft)_42%,var(--surface))]"
-                        : "bg-[var(--surface-muted)]/38",
-                    )}
-                    role="listitem"
-                    aria-label={`${dateLabel}: ${
-                      day.count ? t.openTasks(day.count) : t.noUpcoming
-                    }`}
-                  >
-                    <span className="text-[10px] font-bold uppercase tracking-[0.06em] text-[var(--muted)]">
-                      {new Intl.DateTimeFormat(intlLocale, {
-                        weekday: "short",
-                        timeZone: "UTC",
-                      }).format(date)}
-                    </span>
-                    <span className="mt-2 text-xl font-black tracking-[-0.04em] tabular-nums">
-                      {new Intl.DateTimeFormat(intlLocale, {
-                        day: "numeric",
-                        timeZone: "UTC",
-                      }).format(date)}
-                    </span>
-                    <span className="text-[9px] font-medium text-[var(--muted)]">
-                      {new Intl.DateTimeFormat(intlLocale, {
-                        month: "short",
-                        timeZone: "UTC",
-                      }).format(date)}
-                    </span>
-                    <span
-                      className={cn(
-                        "mt-auto rounded-lg px-1.5 py-1 text-[9px] font-bold",
-                        day.count
-                          ? "bg-[var(--primary)] text-[var(--on-primary)]"
-                          : "bg-[var(--surface)] text-[var(--muted)]",
-                      )}
+      <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1.6fr)_minmax(20rem,1fr)]">
+        <div className="grid min-w-0 gap-5">
+          <section className="desk-panel flex min-w-0 flex-col overflow-hidden">
+            <PanelHeader
+              icon={Target}
+              title={t.focus}
+              subtitle={t.focusSubtitle}
+              action={<TextLink href="/tasks">{t.allTasks}</TextLink>}
+              className="p-5 pb-3"
+            />
+            {dashboard.focusTasks.length === 0 ? (
+              <div className="mx-5 mb-5 flex min-h-24 items-center justify-center gap-3 rounded-[var(--control-radius)] bg-[var(--surface-muted)]/60 px-4 text-center text-sm text-[var(--muted)]">
+                <CalendarCheck2 className="size-5 shrink-0 text-[var(--success)]" />
+                <span>{t.noTasks}</span>
+              </div>
+            ) : (
+              <ul className="grid gap-1.5 px-3 pb-3">
+                {dashboard.focusTasks.map((task) => {
+                  const taskDateKey = task.dueDate ? dateKeyFor(task.dueDate) : "";
+                  const overdue = taskDateKey < todayKey && task.status !== "done";
+                  return (
+                    <li
+                      key={getId(task)}
+                      className="group flex min-h-16 items-center gap-3 rounded-[var(--control-radius)] px-2.5 py-2 transition-colors hover:bg-[var(--surface-muted)]/70"
                     >
-                      {day.count > 0
-                        ? t.taskCountShort(formatNumber(day.count, intlLocale), day.count)
-                        : t.noUpcoming}
-                    </span>
-                  </div>
-                );
-              })}
+                      <button
+                        type="button"
+                        onClick={() => statusMutation.mutate(task)}
+                        aria-label={`${t.status[task.status]}: ${task.title}`}
+                        disabled={statusMutation.isPending}
+                        className="focus-ring grid size-9 shrink-0 place-items-center rounded-full text-[var(--muted)] transition-colors hover:text-[var(--primary)] disabled:opacity-50"
+                      >
+                        {task.status === "done" ? (
+                          <CheckCircle2 className="size-5 text-[var(--primary)]" />
+                        ) : (
+                          <Circle className="size-5" />
+                        )}
+                      </button>
+                      <div className="min-w-0 flex-1">
+                        <h3 className="truncate text-sm font-semibold">{task.title}</h3>
+                        <p
+                          className={cn(
+                            "mt-0.5 flex items-center gap-1.5 text-xs",
+                            overdue ? "text-[var(--danger)]" : "text-[var(--muted)]",
+                          )}
+                        >
+                          <span
+                            className="size-1.5 rounded-full bg-current"
+                            aria-hidden="true"
+                          />
+                          {overdue ? t.overdueLabel : t.today}
+                          <span className="text-[var(--muted)]">·</span>
+                          <span className="text-[var(--muted)]">
+                            {t.status[task.status]}
+                          </span>
+                        </p>
+                      </div>
+                      <TaskPriorityBadge priority={task.priority}>
+                        {t.priority[task.priority]}
+                      </TaskPriorityBadge>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </section>
+          <section className="desk-panel overflow-hidden p-5">
+            <PanelHeader
+              icon={CalendarDays}
+              title={t.upcoming}
+              subtitle={t.upcomingSummary(formatNumber(upcomingTaskTotal, intlLocale))}
+              action={<TextLink href="/tasks">{t.allTasks}</TextLink>}
+            />
+            <div className="-mx-1 mt-4 overflow-x-auto px-1 pb-1">
+              <ol className="grid min-w-[30rem] grid-cols-7 gap-2">
+                {dashboard.upcoming.map((day) => {
+                  const date = new Date(`${day.date}T12:00:00Z`);
+                  const dateLabel = new Intl.DateTimeFormat(intlLocale, {
+                    weekday: "long",
+                    month: "long",
+                    day: "numeric",
+                    timeZone: "UTC",
+                  }).format(date);
+                  return (
+                    <li
+                      key={day.date}
+                      className={cn(
+                        "flex flex-col items-center gap-1 rounded-[var(--control-radius)] px-1 py-3 text-center transition-colors",
+                        day.count
+                          ? "bg-[var(--primary-soft)] text-[var(--primary)]"
+                          : "bg-[var(--surface-muted)]/60 text-[var(--muted)]",
+                      )}
+                      aria-label={`${dateLabel}: ${
+                        day.count ? t.openTasks(day.count) : t.noUpcoming
+                      }`}
+                    >
+                      <span className="text-[0.6875rem] font-semibold uppercase tracking-[0.06em]">
+                        {new Intl.DateTimeFormat(intlLocale, {
+                          weekday: "short",
+                          timeZone: "UTC",
+                        }).format(date)}
+                      </span>
+                      <span
+                        className={cn(
+                          "text-xl font-semibold tracking-[-0.03em] tabular-nums",
+                          day.count ? "text-[var(--foreground)]" : null,
+                        )}
+                      >
+                        {new Intl.DateTimeFormat(intlLocale, {
+                          day: "numeric",
+                          timeZone: "UTC",
+                        }).format(date)}
+                      </span>
+                      <span className="text-[0.6875rem] font-semibold tabular-nums">
+                        {day.count > 0
+                          ? t.taskCountShort(
+                              formatNumber(day.count, intlLocale),
+                              day.count,
+                            )
+                          : "—"}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ol>
             </div>
-          </div>
-        </section>
+          </section>
+        </div>
 
-        <Card className="desk-panel flex min-w-0 flex-col overflow-hidden p-0">
-          <div className="flex items-center justify-between gap-3 border-b px-4 py-3.5 sm:px-5">
-            <h2 className="desk-section-title min-w-0 truncate">{t.weekly}</h2>
-            <span
-              className="max-w-[55%] shrink-0 truncate whitespace-nowrap rounded-full bg-[var(--surface-muted)] px-3 py-1.5 text-[10px] font-bold text-[var(--muted)]"
-              title={t.lastSevenDays}
+        <div className="grid min-w-0 gap-5">
+          {/* One contextual suggestion from today's numbers; the button opens
+              the assistant with a matching prompt pre-filled, not sent. */}
+          <section className="desk-panel overflow-hidden bg-[linear-gradient(150deg,color-mix(in_srgb,var(--primary-soft)_70%,var(--surface)),var(--surface)_70%)] p-5">
+            <PanelHeader icon={Sparkles} title={t.aiBrief} subtitle={t.aiSubtitle} />
+            <p className="mt-4 text-sm leading-6 text-[var(--foreground)]/80">
+              {hasOverdue
+                ? t.aiOverdue(stats.overdue)
+                : stats.tasksToday > 0
+                  ? t.aiToday(stats.tasksToday)
+                  : t.aiIdle}
+            </p>
+            <Link
+              href={`/assistant?prompt=${encodeURIComponent(
+                hasOverdue ? t.aiOverduePrompt : t.aiPlanPrompt,
+              )}`}
+              className={buttonClassName({ className: "mt-4 flex w-full" })}
             >
-              {t.lastSevenDays}
-            </span>
-          </div>
-          <div className="flex min-h-0 flex-1 items-center overflow-hidden p-3 sm:p-4">
+              <Sparkles className="size-4" />
+              {hasOverdue ? t.aiAction : t.aiPlanAction}
+            </Link>
+          </section>
+
+          <section className="desk-panel min-w-0 overflow-hidden p-5">
+            <PanelHeader icon={TrendingUp} title={t.weekly} subtitle={t.weeklySubtitle} />
             <TrendChart
               data={dashboard.weeklyProgress.map((item) => ({
                 key: item.date,
@@ -379,100 +463,10 @@ export function DashboardView() {
                 )}`,
               }))}
               label={t.weekly}
-              className="h-48 xl:h-40"
+              className="mt-3 h-40"
             />
-          </div>
-        </Card>
-      </div>
-
-      <div className="grid items-stretch gap-5 xl:grid-cols-[minmax(0,1.55fr)_minmax(19rem,.75fr)]">
-        <section className="desk-panel flex flex-col overflow-hidden">
-          <div className="flex items-center justify-between gap-3 border-b px-4 py-3.5 sm:px-5">
-            <h2 className="desk-section-title min-w-0 truncate">{t.focus}</h2>
-            <span
-              className="max-w-[55%] shrink-0 truncate whitespace-nowrap rounded-full bg-[var(--surface-muted)] px-3 py-1.5 text-[10px] font-bold text-[var(--muted)]"
-              title={t.focusCount(dashboard.focusTasks.length)}
-            >
-              {t.focusCount(dashboard.focusTasks.length)}
-            </span>
-          </div>
-          {dashboard.focusTasks.length === 0 ? (
-            <div className="flex min-h-[4.5rem] items-center justify-center gap-3 px-4 text-center text-sm text-[var(--muted)]">
-              <CalendarCheck2 className="size-5 shrink-0 text-[var(--success)]" />
-              <span>{t.noTasks}</span>
-            </div>
-          ) : (
-            <div className="divide-y">
-              {dashboard.focusTasks.map((task) => {
-                const taskDateKey = task.dueDate ? dateKeyFor(task.dueDate) : "";
-                return (
-                  <article
-                    key={getId(task)}
-                    className="grid min-h-[4.5rem] grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-2 gap-y-2 px-3 py-2.5 transition-colors hover:bg-[var(--surface-muted)]/55 sm:grid-cols-[auto_minmax(0,1fr)_auto_auto] sm:px-5"
-                  >
-                    <button
-                      type="button"
-                      onClick={() => statusMutation.mutate(task)}
-                      aria-label={`${t.status[task.status]}: ${task.title}`}
-                      disabled={statusMutation.isPending}
-                      className="focus-ring row-span-2 grid size-10 place-items-center rounded-full border bg-[var(--surface)] disabled:opacity-50 sm:row-span-1"
-                    >
-                      {task.status === "done" ? (
-                        <CheckCircle2 className="size-5 text-[var(--primary)]" />
-                      ) : (
-                        <Circle className="size-5 text-[var(--muted)]" />
-                      )}
-                    </button>
-                    <div className="col-span-2 min-w-0 sm:col-span-1">
-                      <h3 className="truncate text-sm font-semibold">{task.title}</h3>
-                      <p
-                        className={cn(
-                          "mt-1 text-xs text-[var(--muted)]",
-                          taskDateKey < todayKey &&
-                            task.status !== "done" &&
-                            "text-[var(--danger)]",
-                        )}
-                      >
-                        {taskDateKey < todayKey && task.status !== "done"
-                          ? t.overdueLabel
-                          : t.today}
-                      </p>
-                    </div>
-                    <TaskPriorityBadge priority={task.priority}>
-                      {t.priority[task.priority]}
-                    </TaskPriorityBadge>
-                    <TaskStatusBadge status={task.status}>
-                      {t.status[task.status]}
-                    </TaskStatusBadge>
-                  </article>
-                );
-              })}
-            </div>
-          )}
-        </section>
-
-        <aside className="h-32 self-start">
-          <Card className="desk-panel flex h-full flex-col overflow-hidden p-0">
-            <div className="flex items-center justify-between gap-3 border-b px-4 py-3.5 sm:px-5">
-              <h2 className="desk-section-title min-w-0 truncate">{t.aiBrief}</h2>
-              <span
-                className="max-w-[55%] shrink-0 truncate whitespace-nowrap rounded-full bg-[var(--surface-muted)] px-3 py-1.5 text-[10px] font-bold text-[var(--muted)]"
-                title={t.aiMeta}
-              >
-                {t.aiMeta}
-              </span>
-            </div>
-            <div className="flex min-h-[4.5rem] flex-1 items-center px-4 sm:px-5">
-              <Link
-                href="/assistant"
-                className={buttonClassName({ className: "flex w-full" })}
-              >
-                <Sparkles className="size-4" />
-                {t.aiAction}
-              </Link>
-            </div>
-          </Card>
-        </aside>
+          </section>
+        </div>
       </div>
     </div>
   );

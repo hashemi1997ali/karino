@@ -87,7 +87,7 @@ const copy = {
     lightTheme: "Hell",
     darkTheme: "Dunkel",
     systemTheme: "System",
-    userMenu: "KontomenÃ¼",
+    userMenu: "Kontomenü",
     overview: "Übersicht",
     allTasks: "Alle Aufgaben",
     users: "Benutzer",
@@ -506,9 +506,7 @@ export function AppShell({
           aria-expanded={moreOpen}
           className={cn(
             "focus-ring grid place-items-center content-center gap-1 rounded-[1rem] text-[10px] font-bold",
-            moreOpen || isSettingsPage
-              ? "bg-white/8 text-[#aaa1ff]"
-              : "text-white/48",
+            moreOpen || isSettingsPage ? "bg-white/8 text-[#aaa1ff]" : "text-white/48",
           )}
         >
           <UserAvatar
@@ -745,6 +743,62 @@ export function AppShell({
         loading={logoutPending}
         onConfirm={doLogout}
       />
+    </div>
+  );
+}
+
+/**
+ * Shown while the session is being restored, with the same sidebar width and
+ * content padding as the shell, so the page does not jump when it appears.
+ */
+export function ShellSkeleton({
+  tabletSidebarCollapsed,
+  desktopSidebarCollapsed,
+}: {
+  tabletSidebarCollapsed: boolean;
+  desktopSidebarCollapsed: boolean;
+}) {
+  const { locale } = usePreferences();
+  const block =
+    "animate-pulse rounded-[var(--control-radius)] bg-[var(--surface-muted)] motion-reduce:animate-none";
+
+  return (
+    <div
+      className={cn(
+        "desk-shell min-h-dvh",
+        tabletSidebarCollapsed ? "md:pl-[5.75rem]" : "md:pl-[17.25rem]",
+        desktopSidebarCollapsed ? "xl:pl-[5.75rem]" : "xl:pl-[17.25rem]",
+      )}
+      role="status"
+      aria-label={
+        locale === "de" ? "Deine Sitzung wird geprüft …" : "Checking your session …"
+      }
+    >
+      <div
+        className={cn(
+          "desk-sidebar fixed inset-y-3 left-3 max-md:hidden xl:hidden",
+          tabletSidebarCollapsed ? "w-[4.75rem]" : "w-[15.75rem]",
+        )}
+      />
+      <div
+        className={cn(
+          "desk-sidebar fixed inset-y-3 left-3 max-xl:hidden",
+          desktopSidebarCollapsed ? "w-[4.75rem]" : "w-[15.75rem]",
+        )}
+      />
+      <div className="desk-main px-4 pt-[5.25rem] sm:px-6 md:py-6 lg:px-8 lg:py-8">
+        <div className={cn(block, "h-10 w-56 sm:h-12 sm:w-72")} />
+        <div className={cn(block, "mt-3 h-4 w-full max-w-sm")} />
+        <div className="mt-7 grid grid-cols-2 gap-3 xl:grid-cols-4">
+          {Array.from({ length: 4 }, (_, index) => (
+            <div
+              key={index}
+              className={cn(block, "h-28 rounded-[var(--container-radius)]")}
+            />
+          ))}
+        </div>
+        <div className={cn(block, "mt-5 h-72 rounded-[var(--container-radius)]")} />
+      </div>
     </div>
   );
 }

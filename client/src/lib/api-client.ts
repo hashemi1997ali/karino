@@ -41,7 +41,11 @@ const performRefresh = async (): Promise<string> => {
   const payload = await parseResponse<{ accessToken: string }>(response);
 
   if (!response.ok || !payload.data?.accessToken) {
-    clearAccessToken({ broadcast: true });
+    // Only a rejected session signs the user out; a rate limit, server error
+    // or network hiccup must not end a still-valid session.
+    if (response.status === 401 || response.status === 403) {
+      clearAccessToken({ broadcast: true });
+    }
     const message = payload.message ?? "Your session has expired. Please sign in again.";
     throw new ApiError(message, response.status, payload.errors, payload.details);
   }

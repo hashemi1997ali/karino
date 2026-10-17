@@ -8,7 +8,6 @@ import {
   History,
   MessageCircle,
   Plus,
-  Send,
   Star,
   X,
 } from "lucide-react";
@@ -18,7 +17,7 @@ import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { Input, Textarea } from "@/components/ui/form-controls";
+import { Textarea } from "@/components/ui/form-controls";
 import { avatarFrameClassName } from "@/components/user-avatar";
 import { useAuth } from "@/features/auth/auth-provider";
 import {
@@ -36,6 +35,7 @@ import {
   type AssistantChatTurnResult,
   type ChatHistoryItem,
 } from "@/features/chat/api";
+import { ChatComposer, ChatToolButton } from "@/features/chat/chat-composer";
 import { ChatMessageBubble } from "@/features/chat/chat-message-bubble";
 import { ChatIconButton } from "@/features/chat/chat-icon-button";
 import { DateGroupedMessageList } from "@/features/chat/date-grouped-message-list";
@@ -60,7 +60,7 @@ const copy = {
     history: "Chat history",
     welcome: "Hello! I'm the AI Assistant. How can I help you today?",
     placeholder: "Write a message…",
-    staffPlaceholder: "Ask a question or use /ban, /unban, /user…",
+    staffPlaceholder: "Message, or /user, /ban, /unban…",
     send: "Send",
     waiting: "Waiting for support",
     active: (name: string) => `${name} is helping you`,
@@ -91,7 +91,7 @@ const copy = {
     history: "Chatverlauf",
     welcome: "Hallo! Ich bin der AI Assistant. Wie kann ich dir heute helfen?",
     placeholder: "Nachricht schreiben…",
-    staffPlaceholder: "Frage stellen oder /ban, /unban, /user verwenden…",
+    staffPlaceholder: "Nachricht oder /user, /ban, /unban…",
     send: "Senden",
     waiting: "Wartet auf Support",
     active: (name: string) => `${name} hilft dir`,
@@ -270,16 +270,15 @@ export function ChatWidget() {
 
   const transferMutation = useMutation({
     mutationFn: async () => {
-      const reason = supportOffer?.reason ?? "human_requested";
       if (status !== "authenticated") {
         return {
           kind: "guest" as const,
-          chat: await createGuestSupportChatRequest(transcriptHistory, locale, reason),
+          chat: await createGuestSupportChatRequest(transcriptHistory, locale),
         };
       }
       return {
         kind: "authenticated" as const,
-        chat: await createSupportChatRequest(transcriptHistory, locale, reason),
+        chat: await createSupportChatRequest(transcriptHistory, locale),
       };
     },
     onSuccess: ({ chat, kind }) => {
@@ -592,50 +591,28 @@ export function ChatWidget() {
                 </Button>
               </div>
             )}
-            {canEnd && (
-              <div className="mb-2 flex justify-end">
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  disabled={endMutation.isPending}
-                  onClick={() => setEndIntent("end")}
-                  aria-label={t.end}
-                  title={t.end}
-                >
-                  <CircleStop className="size-4" />
-                  {t.end}
-                </Button>
-              </div>
-            )}
-            <div className="chat-composer-shell flex gap-2">
-              <Input
-                value={input}
-                disabled={disabledInput}
-                onChange={(event) => setInput(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter" && !event.shiftKey) {
-                    event.preventDefault();
-                    submitMessage();
-                  }
-                }}
-                placeholder={
-                  disabledInput ? t.ended : isAdmin ? t.staffPlaceholder : t.placeholder
-                }
-                className="min-w-0 border-0 bg-transparent shadow-none focus:border-transparent focus:shadow-none"
-                dir="auto"
-              />
-              <Button
-                size="icon"
-                disabled={disabledInput}
-                loading={sendMutation.isPending}
-                onClick={submitMessage}
-                className="size-12 shrink-0 rounded-full"
-                aria-label={t.send}
-                title={t.send}
-              >
-                <Send className="size-4" />
-              </Button>
-            </div>
+            <ChatComposer
+              value={input}
+              onValueChange={setInput}
+              onSubmit={submitMessage}
+              placeholder={
+                disabledInput ? t.ended : isAdmin ? t.staffPlaceholder : t.placeholder
+              }
+              sendLabel={t.send}
+              disabled={disabledInput}
+              sending={sendMutation.isPending}
+              tools={
+                canEnd && (
+                  <ChatToolButton
+                    icon={CircleStop}
+                    disabled={endMutation.isPending}
+                    onClick={() => setEndIntent("end")}
+                  >
+                    {t.end}
+                  </ChatToolButton>
+                )
+              }
+            />
           </footer>
         </section>
       )}

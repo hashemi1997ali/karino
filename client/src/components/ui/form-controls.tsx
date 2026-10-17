@@ -7,14 +7,13 @@ import {
   type SelectHTMLAttributes,
   type TextareaHTMLAttributes,
 } from "react";
-import { CircleAlert } from "lucide-react";
+import { ChevronDown, CircleAlert } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
-const fieldClass =
-  "focus-ring block w-full rounded-xl border border-[color-mix(in_srgb,var(--foreground)_6%,transparent)] bg-[var(--surface)] px-3.5 text-base text-[var(--foreground)] shadow-sm placeholder:text-[var(--muted)] focus:border-[var(--primary)] disabled:cursor-not-allowed disabled:bg-[var(--surface-muted)] sm:text-sm";
-const invalidFieldClass =
-  "border-rose-400 focus:border-rose-500 focus:shadow-[0_0_0_3px_rgba(244,63,94,.12)] dark:border-rose-400/80";
+// Look, hover, focus ring, error and disabled states live in `.field-control`
+// (globals.css) so every input, select and textarea behaves identically.
+const fieldClass = "field-control";
 
 interface FieldContextValue {
   controlId: string;
@@ -30,7 +29,7 @@ export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputE
     return (
       <input
         ref={ref}
-        className={cn(fieldClass, "h-11", field?.invalid && invalidFieldClass, className)}
+        className={cn(fieldClass, "h-11", className)}
         {...props}
         id={props.id ?? field?.controlId}
         aria-describedby={props["aria-describedby"] ?? field?.descriptionId}
@@ -48,12 +47,7 @@ export const Textarea = forwardRef<
   return (
     <textarea
       ref={ref}
-      className={cn(
-        fieldClass,
-        "min-h-28 resize-y py-3",
-        field?.invalid && invalidFieldClass,
-        className,
-      )}
+      className={cn(fieldClass, "min-h-28 resize-y py-2.5 leading-6", className)}
       {...props}
       id={props.id ?? field?.controlId}
       aria-describedby={props["aria-describedby"] ?? field?.descriptionId}
@@ -68,14 +62,20 @@ export const Select = forwardRef<
 >(function Select({ className, ...props }, ref) {
   const field = useContext(FieldContext);
   return (
-    <select
-      ref={ref}
-      className={cn(fieldClass, "h-11", field?.invalid && invalidFieldClass, className)}
-      {...props}
-      id={props.id ?? field?.controlId}
-      aria-describedby={props["aria-describedby"] ?? field?.descriptionId}
-      aria-invalid={props["aria-invalid"] ?? (field?.invalid || undefined)}
-    />
+    <div className="relative">
+      <select
+        ref={ref}
+        className={cn(fieldClass, "h-11 cursor-pointer appearance-none pr-10", className)}
+        {...props}
+        id={props.id ?? field?.controlId}
+        aria-describedby={props["aria-describedby"] ?? field?.descriptionId}
+        aria-invalid={props["aria-invalid"] ?? (field?.invalid || undefined)}
+      />
+      <ChevronDown
+        aria-hidden="true"
+        className="pointer-events-none absolute top-1/2 right-3.5 size-4 -translate-y-1/2 text-[var(--muted)]"
+      />
+    </div>
   );
 });
 
@@ -101,7 +101,7 @@ export function Field({
   return (
     <div
       className={cn(
-        "grid gap-1 text-sm font-medium text-[var(--foreground)]",
+        "grid gap-1.5 text-[0.8125rem] font-semibold text-[var(--foreground)]",
         compact ? null : "pb-1",
       )}
     >

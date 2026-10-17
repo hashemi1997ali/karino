@@ -18,6 +18,8 @@ const germanApiMessages: Record<string, string> = {
   "An account with this email already exists":
     "Für diese E-Mail-Adresse gibt es bereits ein Konto.",
   "Current password is incorrect": "Das aktuelle Passwort ist falsch.",
+  "Current password is required to change your email":
+    "Bestätige die neue E-Mail-Adresse mit deinem aktuellen Passwort.",
   "New password must be different": "Das neue Passwort muss sich unterscheiden.",
   "Authentication required": "Bitte melde dich an, um fortzufahren.",
   "Access token has expired": "Deine Anmeldung ist abgelaufen.",

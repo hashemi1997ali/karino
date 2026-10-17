@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -72,6 +72,7 @@ interface AccountCopy {
   passwordTitle: string;
   passwordDescription: string;
   currentPassword: string;
+  emailPasswordHint: string;
   newPassword: string;
   confirmPassword: string;
   changePassword: string;
@@ -99,6 +100,9 @@ interface AccountCopy {
   removeImage: string;
   appearanceTitle: string;
   appearanceDescription: string;
+  themeDescription: string;
+  saveHint: string;
+  dangerZone: string;
   lightTheme: string;
   darkTheme: string;
   systemTheme: string;
@@ -138,6 +142,9 @@ const copy = {
     removeImage: "Remove image",
     appearanceTitle: "General",
     appearanceDescription: "Manage theme and language preferences",
+    themeDescription: "Choose how Karino looks on this device",
+    saveHint: "Changes apply to your whole account.",
+    dangerZone: "Danger zone",
     lightTheme: "Light",
     darkTheme: "Dark",
     systemTheme: "System",
@@ -159,6 +166,7 @@ const copy = {
     passwordTitle: "Change password",
     passwordDescription: "Use your current password",
     currentPassword: "Current password",
+    emailPasswordHint: "Enter your current password to confirm the new email.",
     newPassword: "New password",
     confirmPassword: "Confirm new password",
     changePassword: "Change password",
@@ -207,6 +215,9 @@ const copy = {
     removeImage: "Bild entfernen",
     appearanceTitle: "Allgemein",
     appearanceDescription: "Design und Sprache verwalten",
+    themeDescription: "Wähle, wie Karino auf diesem Gerät aussieht",
+    saveHint: "Änderungen gelten für dein gesamtes Konto.",
+    dangerZone: "Gefahrenbereich",
     lightTheme: "Hell",
     darkTheme: "Dunkel",
     systemTheme: "System",
@@ -228,6 +239,8 @@ const copy = {
     passwordTitle: "Passwort ändern",
     passwordDescription: "Aktuelles Passwort verwenden",
     currentPassword: "Aktuelles Passwort",
+    emailPasswordHint:
+      "Gib dein aktuelles Passwort ein, um die neue E-Mail-Adresse zu bestätigen.",
     newPassword: "Neues Passwort",
     confirmPassword: "Neues Passwort bestätigen",
     changePassword: "Passwort ändern",
@@ -403,11 +416,21 @@ export function AccountView({ embedded = false }: { embedded?: boolean }) {
 
   const profileHasChanges =
     profileForm.formState.isDirty || Boolean(profileImage) || removeProfileImage;
+  const watchedEmail = useWatch({ control: profileForm.control, name: "email" });
+  const emailChanged =
+    watchedEmail !== undefined && watchedEmail.trim().toLowerCase() !== user?.email;
   const submitProfile = profileForm.handleSubmit((values) => {
     if (!profileHasChanges) return;
+    if (emailChanged && !values.currentPassword) {
+      profileForm.setError("currentPassword", { message: t.emailPasswordHint });
+      return;
+    }
     return profileMutation
       .mutateAsync({ ...values, profileImage, removeProfileImage })
-      .then(() => undefined);
+      .then(
+        () => undefined,
+        () => undefined, // onError already shows a toast
+      );
   });
   const submitPassword = passwordForm.handleSubmit((values) =>
     passwordMutation
@@ -415,7 +438,10 @@ export function AccountView({ embedded = false }: { embedded?: boolean }) {
         currentPassword: values.currentPassword,
         newPassword: values.newPassword,
       })
-      .then(() => undefined),
+      .then(
+        () => undefined,
+        () => undefined, // onError already shows a toast
+      ),
   );
 
   const panelClassName = cn(
@@ -534,11 +560,11 @@ export function AccountView({ embedded = false }: { embedded?: boolean }) {
         className={cn(
           embedded
             ? "col-start-2 row-start-1 min-h-0 overflow-y-auto p-6 pt-[4.5rem]"
-            : "mt-5",
+            : "max-w-3xl",
         )}
       >
         {activeTab === "account" && (
-          <Card className={cn("h-full", panelClassName)}>
+          <Card className={panelClassName}>
             <div className="flex min-h-[4.5rem] items-center justify-between gap-3 border-b pb-4">
               <div className="flex min-w-0 items-center gap-3">
                 <div className="relative shrink-0">
@@ -651,47 +677,75 @@ export function AccountView({ embedded = false }: { embedded?: boolean }) {
                   {...profileForm.register("email")}
                 />
               </Field>
-              <div className="mt-2 flex justify-end">
+              {emailChanged && (
+                <Field
+                  label={t.currentPassword}
+                  hint={t.emailPasswordHint}
+                  error={profileForm.formState.errors.currentPassword?.message}
+                >
+                  <Input
+                    type="password"
+                    dir="ltr"
+                    autoComplete="current-password"
+                    {...profileForm.register("currentPassword")}
+                  />
+                </Field>
+              )}
+              <div className="mt-3 flex flex-col-reverse gap-3 border-t pt-4 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-xs text-[var(--muted)]">{t.saveHint}</p>
                 <Button
                   type="submit"
                   loading={profileMutation.isPending}
                   disabled={processingImage || !profileHasChanges}
+                  className="w-full sm:w-auto"
                 >
                   <Save className="size-4" /> {t.saveChanges}
                 </Button>
               </div>
             </form>
-            <div className="mt-6 flex flex-col gap-3 border-t pt-5 sm:flex-row sm:items-center sm:justify-between">
-              <div className="min-w-0">
-                <h3 className="text-sm font-semibold text-[var(--danger)]">
-                  {t.deleteAccount}
-                </h3>
-                <p className="mt-1 text-xs leading-5 text-[var(--muted)]">
-                  {t.deleteAccountHelp}
-                </p>
-              </div>
-              <Button
-                type="button"
-                variant="danger"
-                className="w-full shrink-0 sm:w-auto"
-                onClick={() => setConfirmDeleteAccount(true)}
-              >
-                <Trash2 className="size-4" />
-                {t.deleteAccount}
-              </Button>
-            </div>
           </Card>
+        )}
+
+        {activeTab === "account" && (
+          <section
+            className={cn(
+              "mt-5 flex flex-col gap-4 rounded-[var(--container-radius)] border border-rose-200/80 bg-rose-50/40 p-5 sm:flex-row sm:items-center sm:justify-between dark:border-rose-500/25 dark:bg-rose-500/[0.06]",
+              embedded && "mx-auto w-full max-w-[46rem]",
+            )}
+          >
+            <div className="min-w-0">
+              <p className="text-[0.6875rem] font-bold tracking-[0.08em] text-[var(--danger)] uppercase">
+                {t.dangerZone}
+              </p>
+              <h3 className="mt-1 text-sm font-semibold">{t.deleteAccount}</h3>
+              <p className="mt-0.5 text-xs leading-5 text-[var(--muted)]">
+                {t.deleteAccountHelp}
+              </p>
+            </div>
+            <Button
+              type="button"
+              variant="danger"
+              size="sm"
+              className="w-full shrink-0 sm:w-auto"
+              onClick={() => setConfirmDeleteAccount(true)}
+            >
+              <Trash2 className="size-4" />
+              {t.deleteAccount}
+            </Button>
+          </section>
         )}
 
         {activeTab === "general" && (
           <Card className={panelClassName}>
-            <section className="pb-6">
-              <h3 className="text-sm font-semibold text-[var(--foreground)]">
-                {t.themeTitle}
-              </h3>
-              <p className="mt-1 text-xs leading-5 text-[var(--muted)]">
-                {t.appearanceDescription}
-              </p>
+            <section className="grid gap-4 pb-6 sm:grid-cols-[minmax(0,1fr)_20rem] sm:items-center">
+              <div>
+                <h3 className="text-sm font-semibold text-[var(--foreground)]">
+                  {t.themeTitle}
+                </h3>
+                <p className="mt-1 text-xs leading-5 text-[var(--muted)]">
+                  {t.themeDescription}
+                </p>
+              </div>
               <ThemeSelector
                 value={theme}
                 onValueChange={setTheme}
@@ -701,16 +755,18 @@ export function AccountView({ embedded = false }: { embedded?: boolean }) {
                   system: t.systemTheme,
                 }}
                 ariaLabel={t.themeTitle}
-                className="mt-4 max-w-md"
+                className="w-full"
               />
             </section>
-            <section className="border-t pt-6">
-              <h3 className="text-sm font-semibold text-[var(--foreground)]">
-                {t.languageTitle}
-              </h3>
-              <p className="mt-1 text-xs leading-5 text-[var(--muted)]">
-                {t.languageDescription}
-              </p>
+            <section className="grid gap-4 border-t pt-6 sm:grid-cols-[minmax(0,1fr)_20rem] sm:items-center">
+              <div>
+                <h3 className="text-sm font-semibold text-[var(--foreground)]">
+                  {t.languageTitle}
+                </h3>
+                <p className="mt-1 text-xs leading-5 text-[var(--muted)]">
+                  {t.languageDescription}
+                </p>
+              </div>
               <SegmentedControl
                 value={locale}
                 onValueChange={setLocale}
@@ -719,7 +775,7 @@ export function AccountView({ embedded = false }: { embedded?: boolean }) {
                   { value: "de" as const, label: t.german },
                 ]}
                 ariaLabel={t.languageTitle}
-                className="mt-4 max-w-md"
+                className="w-full"
               />
             </section>
           </Card>
@@ -909,7 +965,10 @@ export function AccountView({ embedded = false }: { embedded?: boolean }) {
         loading={revokeMutation.isPending}
         onConfirm={() => {
           if (sessionToRevoke) {
-            return revokeMutation.mutateAsync(sessionToRevoke).then(() => undefined);
+            return revokeMutation.mutateAsync(sessionToRevoke).then(
+              () => undefined,
+              () => undefined, // onError already shows a toast
+            );
           }
         }}
       />

@@ -73,6 +73,7 @@ export const createProfileSchema = (locale: Locale) => {
     firstName: z.string().trim().min(2, t.firstNameMin),
     lastName: z.string().trim().min(2, t.lastNameMin),
     email: z.string().trim().pipe(z.email(t.invalidEmail)),
+    currentPassword: z.string().optional(),
   });
 };
 

@@ -177,12 +177,14 @@ export function TaskTable({
                   <h3 className="truncate text-sm font-bold" dir="auto">
                     {task.title}
                   </h3>
-                  <p
-                    className="mt-1 truncate text-xs leading-5 text-[var(--muted)]"
-                    dir="auto"
-                  >
-                    {task.description || "—"}
-                  </p>
+                  {task.description && (
+                    <p
+                      className="mt-1 truncate text-xs leading-5 text-[var(--muted)]"
+                      dir="auto"
+                    >
+                      {task.description}
+                    </p>
+                  )}
                 </div>
               </div>
               {showOwner && (
@@ -219,14 +221,7 @@ export function TaskTable({
                   {getTaskStatusLabel(task.status, locale)}
                 </TaskStatusBadge>
               )}
-              <TaskPriorityBadge
-                priority={task.priority}
-                className={cn(
-                  "justify-self-start",
-                  polished &&
-                    "border-[var(--border)] bg-[var(--surface-muted)] text-[var(--muted)] dark:border-[var(--border)] dark:bg-[var(--surface-muted)] dark:text-[var(--muted)]",
-                )}
-              >
+              <TaskPriorityBadge priority={task.priority} className="justify-self-start">
                 {getTaskPriorityLabel(task.priority, locale)}
               </TaskPriorityBadge>
               <span

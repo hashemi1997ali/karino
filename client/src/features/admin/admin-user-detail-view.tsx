@@ -18,11 +18,11 @@ import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { UserAvatar } from "@/components/user-avatar";
-import { Card } from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Dialog } from "@/components/ui/dialog";
 import { AccountStatusBadge, RoleBadge } from "@/components/ui/domain-badge";
-import { ErrorState, LoadingState } from "@/components/ui/states";
+import { PageHeading } from "@/components/ui/page-heading";
+import { EmptyState, ErrorState, LoadingState } from "@/components/ui/states";
 import {
   banUserRequest,
   deleteUserRequest,
@@ -49,6 +49,8 @@ import { usePreferences } from "@/providers/preferences-provider";
 const copy = {
   en: {
     back: "Back to users",
+    pageTitle: "User profile",
+    pageDescription: "Review this account, its tasks, and its access.",
     tasks: "Tasks",
     tasksHeading: (name: string) => `${name}'s tasks`,
     taskCount: "Tasks",
@@ -84,6 +86,8 @@ const copy = {
   },
   de: {
     back: "Zurück zu Benutzern",
+    pageTitle: "Benutzerprofil",
+    pageDescription: "Prüfe dieses Konto, seine Aufgaben und seinen Zugriff.",
     tasks: "Aufgaben",
     tasksHeading: (name: string) => `Aufgaben von ${name}`,
     taskCount: "Aufgaben",
@@ -222,13 +226,39 @@ export function AdminUserDetailView({ userId }: { userId: string }) {
     },
     onError: (error) => toast.error(getErrorMessage(error, locale)),
   });
-  if (userQuery.isPending) return <LoadingState label={t.loading} />;
+  const heading = (
+    <PageHeading
+      title={t.pageTitle}
+      description={t.pageDescription}
+      actions={
+        <Link
+          href="/admin/users"
+          className="focus-ring inline-flex items-center gap-2 rounded-full text-sm font-bold text-[var(--muted)] hover:text-[var(--primary)]"
+        >
+          <ArrowLeft className="size-4" />
+          {t.back}
+        </Link>
+      }
+    />
+  );
+
+  if (userQuery.isPending) {
+    return (
+      <div>
+        {heading}
+        <LoadingState label={t.loading} />
+      </div>
+    );
+  }
   if (userQuery.isError) {
     return (
-      <ErrorState
-        message={getErrorMessage(userQuery.error, locale)}
-        retry={() => void userQuery.refetch()}
-      />
+      <div>
+        {heading}
+        <ErrorState
+          message={getErrorMessage(userQuery.error, locale)}
+          retry={() => void userQuery.refetch()}
+        />
+      </div>
     );
   }
 
@@ -251,16 +281,10 @@ export function AdminUserDetailView({ userId }: { userId: string }) {
       : "—";
 
   return (
-    <div className="pt-3 md:pt-6">
-      <Link
-        href="/admin/users"
-        className="focus-ring inline-flex items-center gap-2 rounded-full text-sm font-bold text-[var(--muted)] hover:text-[var(--primary)]"
-      >
-        <ArrowLeft className="size-4" />
-        {t.back}
-      </Link>
+    <div>
+      {heading}
 
-      <div className="mt-6 min-w-0">
+      <div className="min-w-0">
         <section className="min-w-0 overflow-hidden rounded-[var(--container-radius)] border border-[color-mix(in_srgb,var(--border)_82%,transparent)] bg-[var(--surface)]">
           <div className="grid min-w-0 gap-5 p-5 md:p-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:gap-6">
             <div className="min-w-0">
@@ -271,9 +295,9 @@ export function AdminUserDetailView({ userId }: { userId: string }) {
                   imageSizes="80px"
                 />
                 <div className="min-w-0">
-                  <h1 className="break-words text-2xl font-black tracking-tight sm:text-3xl">
+                  <h2 className="break-words text-2xl font-black tracking-tight sm:text-3xl">
                     {user.firstName} {user.lastName}
-                  </h1>
+                  </h2>
                   <p className="mt-1 break-all text-sm text-[var(--muted)]">
                     {user.email}
                   </p>
@@ -379,7 +403,7 @@ export function AdminUserDetailView({ userId }: { userId: string }) {
         </section>
 
         <div id="tasks" className="mt-8 min-w-0 scroll-mt-6">
-          <h2 className="text-2xl font-black">{t.tasksHeading(user.firstName)}</h2>
+          <h2 className="desk-section-title">{t.tasksHeading(user.firstName)}</h2>
 
           {tasksQuery.isPending ? (
             <div className="mt-5">
@@ -393,9 +417,7 @@ export function AdminUserDetailView({ userId }: { userId: string }) {
               />
             </div>
           ) : tasks.length === 0 ? (
-            <Card className="mt-5 p-8 text-center text-sm text-[var(--muted)]">
-              {t.noTasks}
-            </Card>
+            <EmptyState className="mt-5" title={t.noTasks} />
           ) : (
             <div className="mt-5">
               <div className="min-w-0 overflow-hidden rounded-[var(--container-radius)] border border-[color-mix(in_srgb,var(--border)_82%,transparent)] bg-[var(--surface)] [&>*+*]:border-t [&>*+*]:border-[color-mix(in_srgb,var(--border)_54%,transparent)] lg:grid lg:grid-cols-2 lg:[&>*+*]:border-t-0 lg:[&>*]:border-b lg:[&>*]:border-[color-mix(in_srgb,var(--border)_54%,transparent)] lg:[&>*:nth-child(odd)]:border-r xl:hidden">

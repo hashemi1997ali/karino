@@ -14,9 +14,9 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 
 const variants: Record<ButtonVariant, string> = {
   primary:
-    "border border-[color-mix(in_srgb,var(--foreground)_3%,transparent)] bg-[var(--foreground)] text-[var(--background)] shadow-[0_8px_24px_rgb(0_0_0_/_0.12)] hover:opacity-88 active:opacity-78 disabled:opacity-50",
+    "btn-shine border border-[color-mix(in_srgb,var(--foreground)_3%,transparent)] bg-[var(--foreground)] text-[var(--background)] shadow-[0_1px_2px_rgb(0_0_0_/_0.12)] enabled:hover:-translate-y-px enabled:hover:shadow-[0_10px_24px_-10px_rgb(0_0_0_/_0.45)] disabled:opacity-50",
   secondary:
-    "border border-[color-mix(in_srgb,var(--foreground)_6%,transparent)] bg-[var(--surface)] text-[var(--foreground)] shadow-sm hover:border-[color-mix(in_srgb,var(--foreground)_10%,transparent)] hover:bg-[var(--surface-muted)] active:bg-[var(--surface-muted)]",
+    "border border-[color-mix(in_srgb,var(--border)_95%,transparent)] bg-[var(--surface)] text-[var(--foreground)] shadow-[0_1px_2px_rgb(0_0_0_/_0.04)] hover:border-[color-mix(in_srgb,var(--primary)_24%,var(--border))] hover:bg-[var(--surface-muted)] active:bg-[var(--surface-muted)]",
   ghost:
     "shadow-none text-[var(--muted)] hover:bg-[var(--surface-muted)] hover:text-[var(--foreground)]",
   danger:
@@ -24,9 +24,9 @@ const variants: Record<ButtonVariant, string> = {
 };
 
 const sizes: Record<ButtonSize, string> = {
-  sm: "h-11 px-3 text-sm",
-  md: "h-11 px-4 text-sm",
-  lg: "h-12 px-6 text-base",
+  sm: "h-9 px-3.5 text-[0.8125rem]",
+  md: "h-11 px-5 text-sm",
+  lg: "h-12 px-6 text-[0.9375rem]",
   icon: "size-11 overflow-hidden p-0",
 };
 
@@ -40,7 +40,7 @@ export function buttonClassName({
   className?: string;
 } = {}): string {
   return cn(
-    "focus-ring inline-flex items-center justify-center gap-2 rounded-full font-semibold transition-[background-color,border-color,color,filter,opacity,box-shadow] duration-200 disabled:cursor-not-allowed disabled:opacity-50",
+    "focus-ring inline-flex items-center justify-center gap-2 rounded-full font-semibold transition-[background-color,border-color,color,filter,opacity,box-shadow,transform] duration-200 enabled:active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:enabled:active:scale-100",
     variants[variant],
     sizes[size],
     className,

@@ -41,7 +41,14 @@ export function ConfirmDialog({
         >
           {locale === "de" ? "Abbrechen" : "Cancel"}
         </Button>
-        <Button variant={confirmVariant} loading={loading} onClick={onConfirm}>
+        <Button
+          variant={confirmVariant}
+          loading={loading}
+          onClick={() => {
+            // Callers report failures through their mutation onError toast.
+            void Promise.resolve(onConfirm()).catch(() => undefined);
+          }}
+        >
           {resolvedConfirmLabel}
         </Button>
       </div>

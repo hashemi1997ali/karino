@@ -8,7 +8,6 @@ import {
   Clock3,
   ListTodo,
   MessageSquarePlus,
-  Send,
   Sparkles,
   X,
 } from "lucide-react";
@@ -21,6 +20,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -39,6 +39,7 @@ import {
 import { ChatMessageBubble } from "@/features/chat/chat-message-bubble";
 import { ChatHistoryItem } from "@/features/chat/chat-history-item";
 import { ChatIconButton } from "@/features/chat/chat-icon-button";
+import { ChatComposer, ChatToolButton } from "@/features/chat/chat-composer";
 import { ChatSuggestionPanel } from "@/features/chat/chat-suggestion-panel";
 import { ChatThreadHeader } from "@/features/chat/chat-thread-header";
 import { DateGroupedMessageList } from "@/features/chat/date-grouped-message-list";
@@ -94,7 +95,7 @@ const copy = {
     thinking: "AI is thinking…",
   },
   de: {
-    title: "AI Assistant",
+    title: "KI-Assistent",
     subtitle: "Private Aufgabenhilfe, Planung und bestätigte Aufgabenerstellung.",
     conversations: "Unterhaltungen",
     newConversation: "Neue Unterhaltung",
@@ -114,7 +115,7 @@ const copy = {
       "Hilf mir mit überfälligen Aufgaben",
       "Erstelle eine Aufgabe für meine Wochenplanung",
     ],
-    assistant: "AI Assistant",
+    assistant: "KI-Assistent",
     you: "Du",
     privateLabel: "Nur für dich",
     privateDescription:
@@ -291,7 +292,14 @@ export function AssistantView() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [mobileThreadOpen, setMobileThreadOpen] = useState(false);
   const [suggestionsOpen, setSuggestionsOpen] = useState(false);
-  const [message, setMessage] = useState("");
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  // A prompt typed on the landing page arrives as ?prompt= and is only
+  // pre-filled, never sent automatically.
+  const [message, setMessage] = useState(() => searchParams.get("prompt") ?? "");
+  useEffect(() => {
+    if (searchParams.has("prompt")) router.replace("/assistant", { scroll: false });
+  }, [router, searchParams]);
   const [pendingUserMessage, setPendingUserMessage] = useState<PendingUserMessage | null>(
     null,
   );
@@ -396,9 +404,26 @@ export function AssistantView() {
     onError: (error) => toast.error(getErrorMessage(error, locale)),
   });
 
-  if (conversationsQuery.isPending) return <LoadingState />;
+  const heading = <PageHeading title={t.title} description={t.subtitle} />;
+
+  if (conversationsQuery.isPending) {
+    return (
+      <div>
+        {heading}
+        <LoadingState />
+      </div>
+    );
+  }
   if (conversationsQuery.isError) {
-    return <ErrorState message={getErrorMessage(conversationsQuery.error, locale)} />;
+    return (
+      <div>
+        {heading}
+        <ErrorState
+          message={getErrorMessage(conversationsQuery.error, locale)}
+          retry={() => void conversationsQuery.refetch()}
+        />
+      </div>
+    );
   }
 
   const submit = (value = message) => {
@@ -421,6 +446,9 @@ export function AssistantView() {
   };
 
   const proposalBusy = confirmMutation.isPending || dismissMutation.isPending;
+  // With no conversations the composer is shown in place of the list, but it
+  // only takes over the whole mobile screen once the user opens a thread;
+  // otherwise it covered the bottom navigation with no way back.
   const threadOpen = mobileThreadOpen || conversations.length === 0;
   const selectedMessages = selected?.messages ?? [];
   const pendingBelongsToSelected =
@@ -448,12 +476,12 @@ export function AssistantView() {
 
   return (
     <div className="md:flex md:h-[calc(100dvh-3rem)] md:min-h-0 md:flex-col md:overflow-hidden lg:h-[calc(100dvh-4rem)]">
-      <PageHeading title={t.title} description={t.subtitle} />
+      {heading}
 
       <div
         className={cn(
-          "chat-workspace mt-5 grid min-h-[38rem] overflow-hidden rounded-[var(--container-radius)] md:min-h-0 md:flex-1 xl:grid-cols-[18rem_minmax(0,1fr)]",
-          threadOpen &&
+          "chat-workspace grid min-h-[38rem] overflow-hidden rounded-[var(--container-radius)] md:min-h-0 md:flex-1 xl:grid-cols-[18rem_minmax(0,1fr)]",
+          mobileThreadOpen &&
             "max-md:fixed max-md:inset-0 max-md:z-50 max-md:mt-0 max-md:h-dvh max-md:min-h-0 max-md:rounded-none max-md:border-0",
         )}
       >
@@ -519,7 +547,7 @@ export function AssistantView() {
               setSuggestionsOpen(false);
               setMobileThreadOpen(false);
             }}
-            hideBack={conversations.length === 0}
+            hideBack={conversations.length === 0 && !mobileThreadOpen}
             avatar={
               <span
                 className={avatarFrameClassName("text-[var(--primary)]")}
@@ -626,51 +654,25 @@ export function AssistantView() {
           </div>
 
           <footer className="chat-composer-footer shrink-0 p-3 max-md:pb-[max(0.75rem,env(safe-area-inset-bottom))]">
-            <div className="mb-2 flex flex-wrap gap-2">
-              <Button
-                variant="secondary"
-                size="sm"
-                disabled={sendMutation.isPending}
-                aria-expanded={suggestionsOpen}
-                onClick={() => setSuggestionsOpen((current) => !current)}
-              >
-                <Sparkles className="size-4" />
-                {suggestionsOpen ? t.hideQuick : t.quick}
-              </Button>
-            </div>
-            <form
-              className="chat-composer-shell flex items-end gap-2"
-              onSubmit={(event) => {
-                event.preventDefault();
-                submit();
-              }}
-            >
-              <textarea
-                value={message}
-                onChange={(event) => setMessage(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter" && !event.shiftKey) {
-                    event.preventDefault();
-                    submit();
-                  }
-                }}
-                placeholder={t.placeholder}
-                aria-label={t.placeholder}
-                rows={1}
-                className="min-h-11 min-w-0 flex-1 resize-none bg-transparent px-2 py-2.5 text-base leading-6 outline-none disabled:opacity-50 sm:text-sm"
-                dir="auto"
-              />
-              <Button
-                size="icon"
-                loading={sendMutation.isPending}
-                disabled={!message.trim()}
-                aria-label={t.send}
-                title={t.send}
-                className="size-11 shrink-0 rounded-full"
-              >
-                <Send className="size-4" />
-              </Button>
-            </form>
+            <ChatComposer
+              value={message}
+              onValueChange={setMessage}
+              onSubmit={() => submit()}
+              placeholder={t.placeholder}
+              sendLabel={t.send}
+              sending={sendMutation.isPending}
+              tools={
+                <ChatToolButton
+                  icon={Sparkles}
+                  disabled={sendMutation.isPending}
+                  pressed={suggestionsOpen}
+                  aria-expanded={suggestionsOpen}
+                  onClick={() => setSuggestionsOpen((current) => !current)}
+                >
+                  {t.quick}
+                </ChatToolButton>
+              }
+            />
           </footer>
         </section>
       </div>

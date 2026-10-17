@@ -81,18 +81,21 @@ export function TaskForm({
     clearErrors();
   }, [locale, clearErrors]);
 
+  // Failures are reported by the caller's mutation onError toast.
   const submit = handleSubmit((values) =>
-    onSubmit({
-      title: values.title,
-      description: values.description,
-      status: values.status,
-      priority: values.priority,
-      dueDate: values.dueDate
-        ? new Date(values.dueDate).toISOString()
-        : task
-          ? null
-          : undefined,
-    }),
+    Promise.resolve(
+      onSubmit({
+        title: values.title,
+        description: values.description,
+        status: values.status,
+        priority: values.priority,
+        dueDate: values.dueDate
+          ? new Date(values.dueDate).toISOString()
+          : task
+            ? null
+            : undefined,
+      }),
+    ).catch(() => undefined),
   );
 
   return (

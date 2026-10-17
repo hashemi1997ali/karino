@@ -69,12 +69,16 @@
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans:
-    "Aptos", "Inter", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+    var(--font-inter), ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
     "Segoe UI", sans-serif;
 }
 
-* {
-  border-color: var(--border);
+/* Layered so Tailwind border-color utilities (border-white/6, border-[…]) can
+   override it; unlayered CSS always beats layered utilities. */
+@layer base {
+  * {
+    border-color: var(--border);
+  }
 }
 
 html {
@@ -87,7 +91,7 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family:
-    "Inter",
+    var(--font-inter),
     ui-sans-serif,
     system-ui,
     -apple-system,
@@ -156,19 +160,16 @@ html[data-theme-anim="1"]::view-transition-new(root) {
   background-color: var(--surface);
 }
 
-/* The landing prompt intentionally keeps a light, tool-like surface in both
-   themes so its controls stay legible against the animated hero. */
-.hero-prompt {
-  color-scheme: light;
+/* The landing prompt is the real chat composer, just roomier. */
+.hero-composer {
+  border-radius: 1.75rem;
+  padding: 0.875rem 0.875rem 0.75rem;
+  box-shadow: 0 16px 60px rgb(39 48 100 / 12%);
 }
 
-.dark .hero-prompt,
-.dark .hero-prompt .hero-prompt-control {
-  background-color: #f9f9fc;
-}
-
-.dark .hero-prompt .hero-prompt-control {
-  background-color: #ffffff;
+.hero-composer .chat-composer-input {
+  min-height: 5.5rem;
+  font-size: 1rem;
 }
 
 .dark .bg-slate-50,
@@ -530,8 +531,49 @@ button:not(:disabled),
   }
 }
 
+@keyframes desk-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+/* Page change: the page fades in while its sections (heading, filters,
+   content) rise one after another, 45 ms apart. `backwards` leaves no
+   transform behind, so fixed-position panels inside keep working. */
 .desk-reveal {
-  animation: desk-float-in 420ms cubic-bezier(0.2, 0.75, 0.2, 1) both;
+  animation: desk-fade-in 420ms cubic-bezier(0.2, 0.75, 0.2, 1) backwards;
+}
+.desk-reveal > * > * {
+  animation: desk-float-in 420ms cubic-bezier(0.2, 0.75, 0.2, 1) backwards;
+}
+.desk-reveal > * > :nth-child(2) {
+  animation-delay: 45ms;
+}
+.desk-reveal > * > :nth-child(3) {
+  animation-delay: 90ms;
+}
+.desk-reveal > * > :nth-child(n + 4) {
+  animation-delay: 135ms;
+}
+
+/* Cards in a stat row arrive one after another instead of all at once. */
+.desk-stagger > * {
+  animation: desk-float-in 420ms cubic-bezier(0.2, 0.75, 0.2, 1) backwards;
+}
+.desk-stagger > :nth-child(2) {
+  animation-delay: 50ms;
+}
+.desk-stagger > :nth-child(3) {
+  animation-delay: 100ms;
+}
+.desk-stagger > :nth-child(4) {
+  animation-delay: 150ms;
+}
+.desk-stagger > :nth-child(5) {
+  animation-delay: 200ms;
+}
+.desk-stagger > :nth-child(n + 6) {
+  animation-delay: 250ms;
 }
 
 @media (max-width: 47.999rem) {
@@ -548,9 +590,21 @@ button:not(:disabled),
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .desk-reveal {
+  .desk-reveal,
+  .desk-reveal > * > *,
+  .desk-stagger > * {
     animation: none;
   }
+}
+
+/* Spinners appear only if loading takes a moment, so fast loads don't flash. */
+.loading-state {
+  animation: desk-fade-in 240ms ease-out 150ms backwards;
+}
+
+/* Pressed buttons give a small physical response. */
+.chat-send-button:active:not(:disabled) {
+  transform: scale(0.94);
 }
 
 .ai-grid {
@@ -603,18 +657,331 @@ button:not(:disabled),
 }
 
 .chat-composer-shell {
+  display: grid;
+  gap: 0.25rem;
   border: 1px solid color-mix(in srgb, var(--border) 92%, transparent);
-  border-radius: 1.25rem;
+  border-radius: 1.35rem;
   background: var(--surface);
-  padding: 0.5rem;
+  padding: 0.625rem 0.625rem 0.5rem;
+  box-shadow: 0 4px 18px rgb(27 24 62 / 4%);
   transition:
     border-color 180ms ease,
     box-shadow 180ms ease;
 }
 
+/* Two lines tall by default, grows with the text up to ten lines. */
+.chat-composer-input {
+  width: 100%;
+  min-height: 3.25rem;
+  max-height: 15rem;
+  resize: none;
+  background: transparent;
+  padding: 0.25rem 0.5rem;
+  font-size: 1rem;
+  line-height: 1.5rem;
+  outline: none;
+  field-sizing: content;
+}
+
+.chat-composer-input::placeholder {
+  color: var(--muted);
+}
+
+.chat-composer-input:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+@media (min-width: 40rem) {
+  .chat-composer-input {
+    font-size: 0.875rem;
+  }
+}
+
+/* Toolbar pills: the same quiet style for every chat tool and action. */
+.chat-tool {
+  display: inline-flex;
+  height: 2rem;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 0.375rem;
+  border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--surface-muted) 55%, var(--surface));
+  padding: 0 0.75rem;
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 650;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    color 160ms ease,
+    background-color 160ms ease,
+    border-color 160ms ease,
+    transform 160ms ease;
+}
+
+.chat-tool:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--primary) 22%, var(--border));
+  background: var(--surface-muted);
+  color: var(--foreground);
+}
+
+.chat-tool:active:not(:disabled) {
+  transform: scale(0.96);
+}
+
+.chat-tool[aria-pressed="true"] {
+  border-color: color-mix(in srgb, var(--primary) 30%, transparent);
+  background: var(--primary-soft);
+  color: var(--primary);
+}
+
+.chat-tool:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.chat-tool-icon {
+  width: 2rem;
+  justify-content: center;
+  padding: 0;
+}
+
 .chat-composer-shell:focus-within {
   border-color: color-mix(in srgb, var(--primary) 48%, var(--border));
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 9%, transparent);
+}
+
+/* A light sweep across primary buttons on hover (from CareerOS). */
+.btn-shine {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+}
+
+.btn-shine::after {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(
+    105deg,
+    transparent 30%,
+    rgb(255 255 255 / 22%) 50%,
+    transparent 70%
+  );
+  content: "";
+  transform: translateX(-120%);
+  transition: transform 700ms cubic-bezier(0.22, 1, 0.36, 1);
+  pointer-events: none;
+}
+
+.btn-shine:hover:not(:disabled)::after {
+  transform: translateX(120%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btn-shine::after {
+    display: none;
+  }
+}
+
+/* Dashboard building blocks (from CareerOS): soft icon tile, panel links,
+   and the summary figures with large tabular numbers. */
+@layer components {
+  .soft-icon {
+    display: grid;
+    width: 2.25rem;
+    height: 2.25rem;
+    flex: none;
+    place-items: center;
+    border-radius: 0.75rem;
+    background: var(--primary-soft);
+    color: var(--primary);
+  }
+
+  .text-link {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    gap: 0.375rem;
+    border-radius: 0.375rem;
+    color: var(--primary);
+    font-size: 0.8125rem;
+    font-weight: 650;
+    white-space: nowrap;
+    transition: color 160ms ease;
+  }
+
+  .text-link svg {
+    transition: transform 200ms ease;
+  }
+
+  .text-link:hover svg {
+    transform: translateX(3px);
+  }
+
+  .summary-figure {
+    display: grid;
+    align-content: space-between;
+    gap: 0.75rem;
+    min-height: 9.5rem;
+    padding: 1.25rem;
+  }
+
+  .summary-label {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    color: var(--muted);
+    font-size: 0.6875rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .metric-value {
+    font-size: clamp(2rem, 1.6rem + 1.2vw, 2.75rem);
+    font-weight: 650;
+    line-height: 1;
+    letter-spacing: -0.04em;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .metric-value small {
+    margin-left: 0.125rem;
+    color: var(--muted);
+    font-size: 0.5em;
+    letter-spacing: 0;
+  }
+
+  .summary-meter {
+    height: 0.375rem;
+    overflow: hidden;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--primary) 12%, var(--surface-muted));
+  }
+
+  .summary-meter > i {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: linear-gradient(90deg, var(--primary), var(--highlight));
+    transform-origin: left;
+    animation: meter-grow 900ms cubic-bezier(0.22, 1, 0.36, 1) 200ms backwards;
+  }
+}
+
+@keyframes meter-grow {
+  from {
+    transform: scaleX(0);
+  }
+}
+
+/* Layered so call sites can still adjust a control with utility classes. */
+@layer components {
+  /* Shared look for every input, select and textarea. */
+  .field-control {
+    display: block;
+    width: 100%;
+    border: 1px solid color-mix(in srgb, var(--border) 92%, transparent);
+    border-radius: var(--control-radius);
+    background: color-mix(in srgb, var(--surface-muted) 45%, var(--surface));
+    padding-inline: 0.875rem;
+    color: var(--foreground);
+    font-size: 1rem;
+    font-weight: 500;
+    outline: none;
+    transition:
+      border-color 160ms ease,
+      background-color 160ms ease,
+      box-shadow 200ms ease;
+  }
+
+  @media (min-width: 40rem) {
+    .field-control {
+      font-size: 0.875rem;
+    }
+  }
+
+  .field-control::placeholder {
+    color: var(--muted);
+    font-weight: 400;
+  }
+
+  .field-control:hover:not(:disabled) {
+    border-color: color-mix(in srgb, var(--primary) 28%, var(--border));
+  }
+
+  .field-control:focus,
+  .field-control:focus-visible {
+    border-color: var(--primary);
+    background: var(--surface);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 16%, transparent);
+  }
+
+  .field-control[aria-invalid="true"] {
+    border-color: rgb(244 63 94 / 75%);
+  }
+
+  .field-control[aria-invalid="true"]:focus {
+    box-shadow: 0 0 0 3px rgb(244 63 94 / 16%);
+  }
+
+  .field-control:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
+
+  .field-control::-webkit-calendar-picker-indicator {
+    cursor: pointer;
+    opacity: 0.55;
+  }
+
+  .dark .field-control::-webkit-calendar-picker-indicator {
+    filter: invert(1);
+  }
+
+  .field-control[type="datetime-local"],
+  .field-control[type="date"] {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+/* Brand-coloured even when idle, so an empty box shows a soft send button
+   instead of a greyed-out blob. */
+.chat-send-button {
+  display: grid;
+  flex-shrink: 0;
+  width: 2.25rem;
+  height: 2.25rem;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--primary);
+  color: var(--on-primary);
+  box-shadow: 0 6px 18px var(--primary-glow);
+  cursor: pointer;
+  transition:
+    background-color 160ms ease,
+    color 160ms ease,
+    box-shadow 160ms ease,
+    transform 160ms ease;
+}
+
+.chat-send-button:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.chat-send-button:disabled {
+  background: color-mix(in srgb, var(--primary) 14%, var(--surface));
+  color: color-mix(in srgb, var(--primary) 55%, var(--surface));
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
+.chat-send-button[aria-busy="true"] {
+  background: var(--primary);
+  color: var(--on-primary);
 }
 
 .chat-section-header {
