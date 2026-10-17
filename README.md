@@ -6,6 +6,13 @@ Karino combines personal task planning, a private AI assistant, secure account m
 
 ---
 
+## 🚀 Live Demo
+
+🔗 **Website:**  
+Click [here](https://karino.vercel.app) to view the live demo.
+
+---
+
 ## 📖 Project Overview
 
 Karino gives users a private, responsive workspace for planning their day and managing tasks through adaptive card layouts on smaller screens and a structured table on wide screens. Administrators get an operational overview plus tools for users, tasks, support, and contact messages. Built-in assistants provide role-scoped site guidance, private task planning, confirmed task creation, and staff account tools.
