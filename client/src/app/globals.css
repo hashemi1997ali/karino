@@ -1031,6 +1031,90 @@ input::-ms-clear {
   }
 }
 
+/* Select lists. Unlayered so they win over the appearance-none utility on
+   <Select>. Options follow the theme: without this, some browsers draw the
+   native list light while the text inherits the dark theme's white. */
+select option {
+  background-color: var(--surface);
+  color: var(--foreground);
+}
+
+/* Customizable select (Chromium 135+): the open list gets the app's look.
+     Other browsers keep the native list, themed by the rule above. */
+@supports (appearance: base-select) {
+  select,
+  select::picker(select) {
+    appearance: base-select;
+  }
+
+  /* base-select lays the value out top-aligned; keep it centred. */
+  select {
+    display: flex;
+    align-items: center;
+  }
+
+  select::picker-icon {
+    display: none;
+  }
+
+  select::picker(select) {
+    margin-block: 0.375rem;
+    border: 1px solid var(--border);
+    border-radius: var(--control-radius);
+    background: var(--surface-raised);
+    padding: 0.25rem;
+    box-shadow: var(--shadow-float);
+    opacity: 0;
+    translate: 0 -0.25rem;
+    transition:
+      opacity 140ms ease,
+      translate 160ms cubic-bezier(0.22, 1, 0.36, 1),
+      overlay 160ms allow-discrete,
+      display 160ms allow-discrete;
+  }
+
+  select:open::picker(select) {
+    opacity: 1;
+    translate: 0 0;
+  }
+
+  @starting-style {
+    select:open::picker(select) {
+      opacity: 0;
+      translate: 0 -0.25rem;
+    }
+  }
+
+  select option {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    border-radius: calc(var(--control-radius) - 0.25rem);
+    background: transparent;
+    padding: 0.5rem 0.625rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+  }
+
+  select option:hover,
+  select option:focus-visible {
+    background: var(--surface-muted);
+    outline: none;
+  }
+
+  select option:checked {
+    background: var(--primary-soft);
+    color: var(--primary);
+    font-weight: 700;
+  }
+
+  select option::checkmark {
+    order: 1;
+    margin-inline-start: auto;
+  }
+}
+
 /* Brand-coloured even when idle, so an empty box shows a soft send button
    instead of a greyed-out blob. */
 .chat-send-button {

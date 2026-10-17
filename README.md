@@ -223,7 +223,7 @@ Fill a development database with realistic demo content:
 npm run seed --workspace server
 ```
 
-It creates ten accounts (three admins and no super admin; that stays the account set in `SUPER_ADMIN_EMAIL`), tasks across every status and due date, support chats in every state (waiting, active, ended and rated, guest, admin escalation), answered and open contact messages, and assistant conversations with task drafts. All demo addresses end in `@example.com`; running the command again replaces only that data, and it refuses to run with `NODE_ENV=production`.
+It creates ten accounts (three admins and no super admin; that stays the account set in `SUPER_ADMIN_EMAIL`), tasks across every status and due date, support chats in every state (waiting, active, ended and rated, guest, admin escalation), answered and open contact messages, and assistant conversations with task drafts. All demo addresses end in `@example.com`; running the command again replaces only that data, and it only runs when `ALLOW_DEMO_SEED=true` is set (add it to your local `server/.env`, never to a deployed one) and never with `NODE_ENV=production`.
 
 Every demo account uses the password `KarinoDemo1`:
 

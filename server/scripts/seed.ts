@@ -5,7 +5,8 @@
  *
  * Everything it creates uses @example.com addresses, and a re-run first removes
  * exactly that data, so real accounts are never touched. Every demo account
- * signs in with DEMO_PASSWORD. Refuses to run with NODE_ENV=production.
+ * signs in with DEMO_PASSWORD. Runs only with ALLOW_DEMO_SEED=true and never
+ * with NODE_ENV=production.
  */
 
 import { randomBytes, randomUUID } from "node:crypto";
@@ -28,8 +29,9 @@ import { CHAT_WELCOME_SENDER, chatWelcomeMessage, deleteUserAccount } from "#ser
 const DEMO_PASSWORD = "KarinoDemo1";
 const DEMO_DOMAIN = /@example\.com$/i;
 
-if (process.env.NODE_ENV === "production") {
-  console.error("Refusing to seed demo data with NODE_ENV=production.");
+// The demo admins share a public password, so seeding needs an explicit opt-in.
+if (process.env.NODE_ENV === "production" || process.env.ALLOW_DEMO_SEED !== "true") {
+  console.error("Refusing to seed: set ALLOW_DEMO_SEED=true and do not use NODE_ENV=production.");
   process.exit(1);
 }
 
