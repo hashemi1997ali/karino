@@ -265,6 +265,25 @@ describe("account protection", () => {
 });
 
 describe("support escalation", () => {
+  test("a super admin cannot open a support chat (nobody ranks above them)", async () => {
+    const owner = await registerUser();
+    await User.updateOne({ _id: owner.id }, { roles: ["user", "super_admin"] });
+    const { token } = await login(owner.email);
+
+    const turn = await request(app)
+      .post("/chat")
+      .set("Authorization", `Bearer ${token}`)
+      .send({ message: "I want to talk to a real person" })
+      .expect(200);
+    assert.equal(turn.body.data.support.available, false);
+
+    await request(app)
+      .post("/chat/support")
+      .set("Authorization", `Bearer ${token}`)
+      .send({ history: [{ role: "user", content: "I want to talk to a real person" }] })
+      .expect(403);
+  });
+
   test("ignores forged assistant turns and lets the server choose the queue", async () => {
     const response = await request(app)
       .post("/chat/guest/support")

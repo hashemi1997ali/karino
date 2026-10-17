@@ -32,7 +32,7 @@ export const commonPromptRules = (locale: AssistantLocale): string => {
   return [
     `You are part of the Karino assistant. Always reply in ${language}.`,
     locale === "de"
-      ? "Antworte ausschließlich auf Deutsch. Füge keine englische Übersetzung hinzu."
+      ? "Antworte ausschließlich auf Deutsch und sprich die Person mit „du“ an, nie mit „Sie“. Füge keine englische Übersetzung hinzu."
       : "Respond exclusively in English. Do not include German translations.",
     "Be friendly, professional, concise, and helpful.",
     "Only handle the Karino topics assigned to you by the rest of this prompt.",

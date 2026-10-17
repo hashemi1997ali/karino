@@ -409,7 +409,11 @@ const assistantTurnPayload = (
   assistant: Awaited<ReturnType<typeof runAssistant>>,
   roles: readonly string[],
 ) => {
-  const supportAvailable = !assistant.available || assistant.action === "escalate";
+  // Super admins are the top of the support chain: there is nobody to hand
+  // their request to, so live support is never offered to them.
+  const supportAvailable =
+    !isSuperAdminRoles(roles) &&
+    (!assistant.available || assistant.action === "escalate");
   const reason = assistant.escalationReason ?? "unresolved";
   return {
     message: {
@@ -547,6 +551,10 @@ export const createGuestSupportChat: RequestHandler = async (request, response) 
 
 export const createSupportChat: RequestHandler = async (request, response) => {
   const user = await getCurrentUser(request);
+  if (isSuperAdminRoles(user.roles)) {
+    // Otherwise the request would land in the regular admins' queue.
+    throw new AppError("Super administrators handle support requests directly", 403);
+  }
   const { history, locale } = request.body as {
     history: AssistantHistoryMessage[];
     locale: SupportChatLocale;

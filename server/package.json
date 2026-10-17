@@ -16,7 +16,8 @@
     "prestart": "npm run build",
     "start": "node dist/app.js",
     "typecheck": "tsc --noEmit && tsc -p tsconfig.test.json",
-    "test": "node --test --conditions=development \"test/**/*.test.ts\""
+    "test": "node --test --conditions=development \"test/**/*.test.ts\"",
+    "seed": "node --conditions=development --env-file=.env scripts/seed.ts"
   },
   "imports": {
     "#ai": {

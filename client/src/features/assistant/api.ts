@@ -6,6 +6,9 @@ export interface AssistantTurnResult {
   provider: string;
 }
 
+// The assistant reads "tomorrow at 9" in the user's own time zone.
+const browserTimeZone = (): string => Intl.DateTimeFormat().resolvedOptions().timeZone;
+
 export const listAssistantConversationsRequest = async (): Promise<
   AssistantConversation[]
 > => {
@@ -19,7 +22,7 @@ export const createAssistantConversationRequest = (
 ): Promise<AssistantTurnResult> =>
   apiRequest<AssistantTurnResult>("/assistant", {
     method: "POST",
-    json: { message, locale },
+    json: { message, locale, timeZone: browserTimeZone() },
   });
 
 export const sendAssistantMessageRequest = (
@@ -29,7 +32,7 @@ export const sendAssistantMessageRequest = (
 ): Promise<AssistantTurnResult> =>
   apiRequest<AssistantTurnResult>(`/assistant/${conversationId}/messages`, {
     method: "POST",
-    json: { message, locale },
+    json: { message, locale, timeZone: browserTimeZone() },
   });
 
 export const confirmAssistantTaskRequest = (

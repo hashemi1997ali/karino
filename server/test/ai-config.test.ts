@@ -35,3 +35,21 @@ test("a local Ollama endpoint works without a key", () => {
   process.env.AI_MODEL = "qwen3:4b";
   assert.equal(getAiConfig()?.apiKey, null);
 });
+
+test("the task assistant reads times in the user's time zone", async () => {
+  const { describeLocalTime } = await import("../src/ai/agents/taskAgent.ts");
+  const summer = new Date("2026-07-01T12:00:00Z");
+  const winter = new Date("2026-01-15T12:00:00Z");
+
+  assert.equal(describeLocalTime("Europe/Berlin", summer).offset, "+02:00");
+  assert.equal(describeLocalTime("Europe/Berlin", winter).offset, "+01:00");
+  assert.equal(describeLocalTime("Asia/Tehran", winter).offset, "+03:30");
+  // Unknown or missing zones fall back to UTC instead of failing.
+  assert.deepEqual(
+    [
+      describeLocalTime("Mars/Olympus", summer).zone,
+      describeLocalTime(undefined, summer).offset,
+    ],
+    ["UTC", "+00:00"],
+  );
+});

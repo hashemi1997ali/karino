@@ -89,10 +89,44 @@ const taskContextText = (tasks: TaskContextItem[]): string =>
         .join("\n")
     : "- No existing tasks";
 
-const buildPrompt = (context: AssistantContext): string => {
+/**
+ * Local date, time and UTC offset for the user's time zone, so "tomorrow at
+ * 9am" means 9am where the user is. Unknown zones fall back to UTC.
+ */
+export const describeLocalTime = (timeZone: string | undefined, now = new Date()) => {
+  let zone = "UTC";
+  try {
+    if (timeZone) {
+      new Intl.DateTimeFormat("en-US", { timeZone }).format(now);
+      zone = timeZone;
+    }
+  } catch {
+    zone = "UTC";
+  }
+  const local = new Intl.DateTimeFormat("en-CA", {
+    timeZone: zone,
+    weekday: "long",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).format(now);
+  const offsetName =
+    new Intl.DateTimeFormat("en-US", { timeZone: zone, timeZoneName: "longOffset" })
+      .formatToParts(now)
+      .find((part) => part.type === "timeZoneName")?.value ?? "GMT";
+  const offset = offsetName === "GMT" ? "+00:00" : offsetName.replace("GMT", "");
+  return { zone, local, offset };
+};
+
+const buildPrompt = (context: AssistantContext, timeZone?: string): string => {
+  const time = describeLocalTime(timeZone);
   const language = context.locale === "de" ? "German" : "English";
   return [
     `You are the private Karino Task Agent. Reply only in ${language}.`,
+    ...(context.locale === "de" ? ["Sprich die Person mit „du“ an, nie mit „Sie“."] : []),
     "Be friendly, practical, concise, and supportive.",
     "Your only scope is the signed-in user's tasks: planning, prioritising, scheduling, productivity guidance, and proposing a new task.",
     "Respond naturally to brief greetings, thanks, farewells, and questions about your capabilities, then gently guide the conversation toward tasks and planning.",
@@ -104,7 +138,8 @@ const buildPrompt = (context: AssistantContext): string => {
     "When the user clearly asks to create a task, call propose_task exactly once and ask them to review and confirm the returned draft.",
     "Never print tool arguments or a task-proposal JSON object in the conversational reply.",
     "Do not say a task was created. The application creates it only after a separate user confirmation.",
-    `Current UTC date: ${new Date().toISOString()}.`,
+    `The user's time zone is ${time.zone} (UTC${time.offset}). Their current local date and time: ${time.local}.`,
+    `Interpret dates and times in that time zone and write dueDate as ISO 8601 with that offset, for example 2026-01-15T09:00:00${time.offset}.`,
   ].join("\n");
 };
 
@@ -113,11 +148,13 @@ export const runTaskAgent = async ({
   history,
   context,
   getTaskContext,
+  timeZone,
 }: {
   message: string;
   history: AssistantHistoryMessage[];
   context: AssistantContext;
   getTaskContext: () => Promise<TaskContextItem[]>;
+  timeZone?: string;
 }): Promise<TaskAssistantResult> => {
   // Only the script check runs here: the stop-word heuristic would reject terse
   // task titles such as "Buy milk eggs bread cheese".
@@ -129,7 +166,7 @@ export const runTaskAgent = async ({
     };
   }
 
-  const systemPrompt = buildPrompt(context);
+  const systemPrompt = buildPrompt(context, timeZone);
   let result = await runProviders({
     systemPrompt,
     history,

@@ -91,9 +91,14 @@ export const listAssistantConversations: RequestHandler = async (request, respon
 
 export const createAssistantConversation: RequestHandler = async (request, response) => {
   const user = await getCurrentUser(request.user?.userId);
-  const { message, locale: requestedLocale } = request.body as {
+  const {
+    message,
+    locale: requestedLocale,
+    timeZone,
+  } = request.body as {
     message: string;
     locale: "en" | "de";
+    timeZone?: string;
   };
   const locale = detectMessageLocale(message, requestedLocale).locale;
   const result = await runTaskAgent({
@@ -106,6 +111,7 @@ export const createAssistantConversation: RequestHandler = async (request, respo
       userId: String(user._id),
     },
     getTaskContext: () => loadTaskContext(String(user._id)),
+    timeZone,
   });
 
   const conversation = await AssistantConversation.create({
@@ -137,9 +143,14 @@ export const createAssistantConversation: RequestHandler = async (request, respo
 export const sendAssistantMessage: RequestHandler = async (request, response) => {
   const user = await getCurrentUser(request.user?.userId);
   const conversationId = validateObjectId(request.params.id, "conversation");
-  const { message, locale: requestedLocale } = request.body as {
+  const {
+    message,
+    locale: requestedLocale,
+    timeZone,
+  } = request.body as {
     message: string;
     locale: "en" | "de";
+    timeZone?: string;
   };
   const conversation = await AssistantConversation.findOne({
     _id: conversationId,
@@ -162,6 +173,7 @@ export const sendAssistantMessage: RequestHandler = async (request, response) =>
       userId: String(user._id),
     },
     getTaskContext: () => loadTaskContext(String(user._id)),
+    timeZone,
   });
 
   conversation.locale = locale;

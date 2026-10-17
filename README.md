@@ -185,19 +185,20 @@ The browser sends `/api/*` requests through the Next.js same-origin rewrite. `AP
 
 ## 📜 Available Scripts
 
-| Command                | Description                                     |
-| ---------------------- | ----------------------------------------------- |
-| `npm run dev`          | Start the client and server in development mode |
-| `npm run dev:client`   | Start only the Next.js client                   |
-| `npm run dev:server`   | Start only the Express API                      |
-| `npm run typecheck`    | Type-check both workspaces                      |
-| `npm test`             | Run the API unit and integration tests          |
-| `npm run lint`         | Run the client ESLint configuration             |
-| `npm run format`       | Format the repository with Prettier             |
-| `npm run format:check` | Check formatting without changing files         |
-| `npm run build`        | Build the client and server                     |
-| `npm run start:client` | Start the production client build               |
-| `npm run start:server` | Build and start the production API              |
+| Command                           | Description                                     |
+| --------------------------------- | ----------------------------------------------- |
+| `npm run dev`                     | Start the client and server in development mode |
+| `npm run dev:client`              | Start only the Next.js client                   |
+| `npm run dev:server`              | Start only the Express API                      |
+| `npm run typecheck`               | Type-check both workspaces                      |
+| `npm test`                        | Run the API unit and integration tests          |
+| `npm run seed --workspace server` | Load demo users, tasks, chats and messages      |
+| `npm run lint`                    | Run the client ESLint configuration             |
+| `npm run format`                  | Format the repository with Prettier             |
+| `npm run format:check`            | Check formatting without changing files         |
+| `npm run build`                   | Build the client and server                     |
+| `npm run start:client`            | Start the production client build               |
+| `npm run start:server`            | Build and start the production API              |
 
 For production:
 
@@ -211,6 +212,26 @@ Then run the client and server in separate processes:
 npm run start:client
 npm run start:server
 ```
+
+---
+
+## 🎭 Demo Data
+
+Fill a development database with realistic demo content:
+
+```bash
+npm run seed --workspace server
+```
+
+It creates ten accounts (three admins and no super admin; that stays the account set in `SUPER_ADMIN_EMAIL`), tasks across every status and due date, support chats in every state (waiting, active, ended and rated, guest, admin escalation), answered and open contact messages, and assistant conversations with task drafts. All demo addresses end in `@example.com`; running the command again replaces only that data, and it refuses to run with `NODE_ENV=production`.
+
+Every demo account uses the password `KarinoDemo1`:
+
+| Role   | Email                                                                              |
+| ------ | ---------------------------------------------------------------------------------- |
+| Admin  | `olivia.bennett@example.com`, `sarah.klein@example.com`, `marco.rossi@example.com` |
+| User   | `james.carter@example.com`, `lena.wagner@example.com` (German) and more            |
+| Banned | `mia.schneider@example.com`                                                        |
 
 ---
 
