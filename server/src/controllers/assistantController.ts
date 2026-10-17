@@ -1,7 +1,7 @@
 import type { RequestHandler } from "express";
 import mongoose, { type HydratedDocument } from "mongoose";
 
-import { detectMessageLocale, runTaskAgent } from "#ai";
+import { detectMessageLocale, getAiConfig, runTaskAgent } from "#ai";
 import {
   AssistantConversation,
   Task,
@@ -58,13 +58,21 @@ const serializeConversation = (
   updatedAt: conversation.updatedAt,
 });
 
+// Open tasks first, soonest due date first (undated last), then done tasks.
+// ponytail: looks at the 200 most recently updated tasks; plenty for one person.
 const loadTaskContext = async (userId: string) => {
   const tasks = await Task.find({ owner: userId })
     .select("title status priority dueDate")
-    .sort({ status: 1, dueDate: 1, updatedAt: -1 })
-    .limit(20)
+    .sort({ updatedAt: -1 })
+    .limit(200)
     .lean();
-  return tasks.map((task) => ({
+  const dueTime = (date?: Date | null) => date?.getTime() ?? Number.MAX_SAFE_INTEGER;
+  tasks.sort(
+    (a, b) =>
+      Number(a.status === "done") - Number(b.status === "done") ||
+      dueTime(a.dueDate) - dueTime(b.dueDate),
+  );
+  return tasks.slice(0, 20).map((task) => ({
     title: task.title,
     status: task.status,
     priority: task.priority,
@@ -72,11 +80,29 @@ const loadTaskContext = async (userId: string) => {
   }));
 };
 
+// The draft itself lives outside the reply text, so a short note tells the
+// model what it proposed and whether the user created or dismissed it.
+const draftNote = (proposal: IAssistantMessage["taskProposal"]): string =>
+  proposal
+    ? `
+[Task draft: "${proposal.title}" · ${proposal.priority} priority · due ${
+        proposal.dueDate ? proposal.dueDate.toISOString() : "none"
+      } · ${proposal.status}]`
+    : "";
+
 const historyOf = (conversation: HydratedDocument<IAssistantConversation>) =>
   conversation.messages.slice(-30).map((message) => ({
     role: message.sender as "user" | "assistant",
-    content: message.content,
+    content: message.content + draftNote(message.taskProposal),
   }));
+
+// A failed turn is not saved, so the user can simply send the message again.
+const assertAvailable = (result: { available: boolean }): void => {
+  if (result.available) return;
+  throw getAiConfig()
+    ? new AppError("The AI assistant is temporarily unavailable. Please try again", 503)
+    : new AppError("AI assistance is currently disabled", 503);
+};
 
 export const listAssistantConversations: RequestHandler = async (request, response) => {
   const user = await getCurrentUser(request.user?.userId);
@@ -113,6 +139,7 @@ export const createAssistantConversation: RequestHandler = async (request, respo
     getTaskContext: () => loadTaskContext(String(user._id)),
     timeZone,
   });
+  assertAvailable(result);
 
   const conversation = await AssistantConversation.create({
     user: user._id,
@@ -175,6 +202,7 @@ export const sendAssistantMessage: RequestHandler = async (request, response) =>
     getTaskContext: () => loadTaskContext(String(user._id)),
     timeZone,
   });
+  assertAvailable(result);
 
   conversation.locale = locale;
   conversation.messages.push(

@@ -118,7 +118,18 @@ export const describeLocalTime = (timeZone: string | undefined, now = new Date()
       .formatToParts(now)
       .find((part) => part.type === "timeZoneName")?.value ?? "GMT";
   const offset = offsetName === "GMT" ? "+00:00" : offsetName.replace("GMT", "");
-  return { zone, local, offset };
+  // Models miscount weekdays ("Tuesday" → Thursday), so spell out the week.
+  const day = new Intl.DateTimeFormat("en-CA", {
+    timeZone: zone,
+    weekday: "short",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+  const week = Array.from({ length: 7 }, (_, index) =>
+    day.format(new Date(now.getTime() + (index + 1) * 86_400_000)),
+  ).join("; ");
+  return { zone, local, offset, week };
 };
 
 const buildPrompt = (context: AssistantContext, timeZone?: string): string => {
@@ -137,8 +148,12 @@ const buildPrompt = (context: AssistantContext, timeZone?: string): string => {
     "Call get_task_context only when current tasks are needed to answer the request.",
     "When the user clearly asks to create a task, call propose_task exactly once and ask them to review and confirm the returned draft.",
     "Never print tool arguments or a task-proposal JSON object in the conversational reply.",
+    "Leave the draft description empty unless the user gave details; never invent them.",
+    "Keep replies short and chat-friendly: use short bullet lists, never tables.",
     "Do not say a task was created. The application creates it only after a separate user confirmation.",
+    "Earlier replies may end with an app note like [Task draft: … · status]. It shows the draft you proposed and whether the user created or dismissed it. To change a draft, call propose_task again with the full updated draft. Never write such notes yourself.",
     `The user's time zone is ${time.zone} (UTC${time.offset}). Their current local date and time: ${time.local}.`,
+    `The next seven days: ${time.week}. Use these dates for weekday names.`,
     `Interpret dates and times in that time zone and write dueDate as ISO 8601 with that offset, for example 2026-01-15T09:00:00${time.offset}.`,
   ].join("\n");
 };
@@ -163,6 +178,7 @@ export const runTaskAgent = async ({
       reply: unsupportedLanguageReply(context.locale),
       provider: UNAVAILABLE_PROVIDER,
       proposal: null,
+      available: true,
     };
   }
 
@@ -181,6 +197,7 @@ export const runTaskAgent = async ({
       reply: aiUnavailableReply(context.locale),
       provider: UNAVAILABLE_PROVIDER,
       proposal: null,
+      available: false,
     };
   }
 
@@ -207,6 +224,7 @@ export const runTaskAgent = async ({
         reply: aiUnavailableReply(context.locale),
         provider: UNAVAILABLE_PROVIDER,
         proposal: null,
+        available: false,
       };
     }
     proposal = parseProposalToolCall(result.toolCalls);
@@ -247,5 +265,6 @@ export const runTaskAgent = async ({
       : safeReply,
     provider: result.provider,
     proposal,
+    available: true,
   };
 };

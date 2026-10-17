@@ -31,3 +31,4 @@ export {
 } from "./support/replySuggestions.ts";
 
 export { detectMessageLocale } from "./language.ts";
+export { getAiConfig } from "./providers/openai-compatible.ts";

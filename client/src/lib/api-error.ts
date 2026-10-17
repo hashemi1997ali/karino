@@ -28,6 +28,9 @@ const germanApiMessages: Record<string, string> = {
   "Refresh token has expired": "Deine Sitzung ist abgelaufen.",
   "Invalid refresh token": "Deine Sitzung ist ungültig.",
   "User not found": "Das Benutzerkonto wurde nicht gefunden.",
+  "The AI assistant is temporarily unavailable. Please try again":
+    "Der KI-Assistent ist gerade nicht erreichbar. Bitte versuche es erneut.",
+  "AI assistance is currently disabled": "Die KI-Unterstützung ist derzeit deaktiviert.",
   "Task not found": "Die Aufgabe wurde nicht gefunden.",
   "Administrator permission is required": "Dafür sind Administratorrechte nötig.",
   "You cannot remove your own administrator role":

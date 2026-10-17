@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createServer } from "node:http";
 import { after, before, describe, test } from "node:test";
 
 import type { Express } from "express";
@@ -22,7 +23,7 @@ delete process.env.AI_BASE_URL;
 delete process.env.SUPER_ADMIN_EMAIL;
 
 const { app } = (await import("../src/app.ts")) as { app: Express };
-const { SupportChat, User } = await import("#models");
+const { AssistantConversation, SupportChat, Task, User } = await import("#models");
 
 const PASSWORD = "Integr4tionPass";
 let emailCounter = 0;
@@ -315,5 +316,115 @@ describe("support escalation", () => {
 
     assert.equal(response.body.data.chat.escalationReason, "security");
     assert.equal(response.body.data.chat.requiresSuperAdmin, true);
+  });
+});
+
+describe("private task assistant", () => {
+  type FakeRequest = {
+    messages: Array<{ role: string; content: string }>;
+    tools?: Array<{ function: { name: string } }>;
+  };
+  const seen: FakeRequest[] = [];
+  let failing = false;
+
+  // Stands in for the OpenAI-compatible provider and answers by keyword.
+  const provider = createServer((req, res) => {
+    let body = "";
+    req.on("data", (chunk) => (body += chunk));
+    req.on("end", () => {
+      const payload = JSON.parse(body) as FakeRequest;
+      seen.push(payload);
+      if (failing) {
+        res.writeHead(429).end("rate limited");
+        return;
+      }
+      const text = payload.messages.at(-1)!.content;
+      const toolCall = (name: string, args: object) => ({
+        content: "",
+        tool_calls: [
+          {
+            id: "1",
+            type: "function",
+            function: { name, arguments: JSON.stringify(args) },
+          },
+        ],
+      });
+      const message = text.startsWith("Add")
+        ? toolCall("propose_task", {
+            title: "Call the landlord",
+            description: "",
+            priority: "medium",
+            dueDate: null,
+          })
+        : text.startsWith("What") && payload.tools?.length === 2
+          ? toolCall("get_task_context", {})
+          : { content: "Sounds good." };
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ choices: [{ finish_reason: "stop", message }] }));
+    });
+  });
+
+  before(async () => {
+    await new Promise<void>((resolve) => provider.listen(0, "127.0.0.1", resolve));
+    const { port } = provider.address() as { port: number };
+    process.env.AI_BASE_URL = `http://127.0.0.1:${port}/v1`;
+    process.env.AI_MODEL = "fake-model";
+  });
+
+  after(() => {
+    delete process.env.AI_BASE_URL;
+    delete process.env.AI_MODEL;
+    provider.close();
+  });
+
+  test("sees open tasks before done ones, remembers drafts, and drops failed turns", async () => {
+    const user = await registerUser();
+    const auth = { Authorization: `Bearer ${user.token}` };
+    await Task.insertMany([
+      ...Array.from({ length: 25 }, (_, index) => ({
+        owner: user.id,
+        title: `Finished chore ${index}`,
+        status: "done",
+        completedAt: new Date(),
+      })),
+      { owner: user.id, title: "Still open", status: "todo" },
+    ]);
+
+    const started = await request(app)
+      .post("/assistant")
+      .set(auth)
+      .send({ message: "What should I do next?" })
+      .expect(201);
+    const contextPrompt = seen.at(-1)!.messages[0]!.content;
+    assert.match(contextPrompt, /Still open/);
+
+    const id = started.body.data.conversation.id as string;
+    await request(app)
+      .post(`/assistant/${id}/messages`)
+      .set(auth)
+      .send({ message: "Add a task to call the landlord" })
+      .expect(200);
+    await request(app)
+      .post(`/assistant/${id}/messages`)
+      .set(auth)
+      .send({ message: "Make it high priority" })
+      .expect(200);
+    assert.ok(
+      seen
+        .at(-1)!
+        .messages.some((message) =>
+          message.content.includes('[Task draft: "Call the landlord"'),
+        ),
+    );
+
+    failing = true;
+    await request(app)
+      .post(`/assistant/${id}/messages`)
+      .set(auth)
+      .send({ message: "Anything else?" })
+      .expect(503);
+    failing = false;
+    const saved = await AssistantConversation.findById(id);
+    assert.equal(saved?.messages.length, 6);
   });
 });

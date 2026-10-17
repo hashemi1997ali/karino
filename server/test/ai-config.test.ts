@@ -44,6 +44,8 @@ test("the task assistant reads times in the user's time zone", async () => {
   assert.equal(describeLocalTime("Europe/Berlin", summer).offset, "+02:00");
   assert.equal(describeLocalTime("Europe/Berlin", winter).offset, "+01:00");
   assert.equal(describeLocalTime("Asia/Tehran", winter).offset, "+03:30");
+  // 2026-01-15 is a Thursday, so the coming week starts on Friday the 16th.
+  assert.match(describeLocalTime("Europe/Berlin", winter).week, /^Fri, 2026-01-16; Sat/);
   // Unknown or missing zones fall back to UTC instead of failing.
   assert.deepEqual(
     [

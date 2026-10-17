@@ -284,6 +284,13 @@ const parseStaffCommand = async (
     if (!canManageBan(actor.roles, target.roles)) {
       throw new AppError("You cannot ban this account", 403);
     }
+    if (target.ban?.isBanned) {
+      return localized(
+        locale,
+        `${target.email} is already banned (${target.ban.reason}).`,
+        `${target.email} ist bereits gesperrt (${target.ban.reason}).`,
+      );
+    }
     if (command === "/ban") {
       rememberPendingAction(actorInfo.userId, pendingAction);
       return localized(

@@ -64,6 +64,8 @@ export interface TaskAssistantResult {
   reply: string;
   provider: string;
   proposal: TaskProposalDraft | null;
+  /** False when the AI provider is unconfigured or the request failed. */
+  available: boolean;
 }
 
 /** Result returned by the orchestrator to the caller (chatController). */

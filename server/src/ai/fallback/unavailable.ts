@@ -1,3 +1,4 @@
+import { getAiConfig } from "../providers/openai-compatible.ts";
 import type { AssistantLocale } from "../types.ts";
 
 const line = (locale: AssistantLocale, en: string, de: string): string =>
@@ -17,9 +18,17 @@ export const outOfScopeReply = (locale: AssistantLocale): string =>
     "Ich kann nur bei Karino und seinen Funktionen zur Aufgabenverwaltung helfen.",
   );
 
+// Configured but failing (rate limit, timeout, outage) is temporary;
+// unconfigured means the feature is off.
 export const aiUnavailableReply = (locale: AssistantLocale): string =>
-  line(
-    locale,
-    "AI assistance is currently disabled.",
-    "Die AI-Unterstützung ist derzeit deaktiviert.",
-  );
+  getAiConfig()
+    ? line(
+        locale,
+        "The AI assistant is temporarily unavailable. Please try again in a moment.",
+        "Der KI-Assistent ist gerade nicht erreichbar. Bitte versuche es gleich noch einmal.",
+      )
+    : line(
+        locale,
+        "AI assistance is currently disabled.",
+        "Die AI-Unterstützung ist derzeit deaktiviert.",
+      );
