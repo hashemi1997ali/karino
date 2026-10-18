@@ -472,3 +472,15 @@ export function DashboardView() {
     </div>
   );
 }
+
+/** Before the session is restored the name is unknown, so greet without it. */
+export function DashboardViewFallback() {
+  const { locale } = usePreferences();
+  const t = copy[locale];
+  return (
+    <div className="space-y-5">
+      <PageHeading title={t.greetings[getGreetingKey()]} description={t.intro} />
+      <DashboardSkeleton />
+    </div>
+  );
+}

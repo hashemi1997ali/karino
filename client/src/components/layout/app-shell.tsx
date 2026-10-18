@@ -755,13 +755,14 @@ export function AppShell({
 export function ShellSkeleton({
   tabletSidebarCollapsed,
   desktopSidebarCollapsed,
+  children,
 }: {
   tabletSidebarCollapsed: boolean;
   desktopSidebarCollapsed: boolean;
+  /** The page itself, which shows its own heading and skeleton via AuthReady. */
+  children: ReactNode;
 }) {
   const { locale } = usePreferences();
-  const block =
-    "animate-pulse rounded-[var(--control-radius)] bg-[var(--surface-muted)] motion-reduce:animate-none";
 
   return (
     <div
@@ -788,17 +789,7 @@ export function ShellSkeleton({
         )}
       />
       <div className="desk-main px-4 pt-[5.25rem] sm:px-6 md:py-6 lg:px-8 lg:py-8">
-        <div className={cn(block, "h-10 w-56 sm:h-12 sm:w-72")} />
-        <div className={cn(block, "mt-3 h-4 w-full max-w-sm")} />
-        <div className="mt-7 grid grid-cols-2 gap-3 xl:grid-cols-4">
-          {Array.from({ length: 4 }, (_, index) => (
-            <div
-              key={index}
-              className={cn(block, "h-28 rounded-[var(--container-radius)]")}
-            />
-          ))}
-        </div>
-        <div className={cn(block, "mt-5 h-72 rounded-[var(--container-radius)]")} />
+        {children}
       </div>
     </div>
   );

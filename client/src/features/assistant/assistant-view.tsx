@@ -290,7 +290,8 @@ export function AssistantView() {
   const { locale, intlLocale } = usePreferences();
   const t = copy[locale];
   const queryClient = useQueryClient();
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  // Open on a fresh chat; earlier ones stay one click away in the list.
+  const [selectedId, setSelectedId] = useState<string | null>("__new__");
   const [mobileThreadOpen, setMobileThreadOpen] = useState(false);
   const [suggestionsOpen, setSuggestionsOpen] = useState(false);
   const router = useRouter();
@@ -407,14 +408,7 @@ export function AssistantView() {
 
   const heading = <PageHeading title={t.title} description={t.subtitle} />;
 
-  if (conversationsQuery.isPending) {
-    return (
-      <div className="md:flex md:h-[calc(100dvh-3rem)] md:min-h-0 md:flex-col md:overflow-hidden lg:h-[calc(100dvh-4rem)]">
-        {heading}
-        <ChatWorkspaceSkeleton />
-      </div>
-    );
-  }
+  if (conversationsQuery.isPending) return <AssistantViewFallback />;
   if (conversationsQuery.isError) {
     return (
       <div>
@@ -677,6 +671,18 @@ export function AssistantView() {
           </footer>
         </section>
       </div>
+    </div>
+  );
+}
+
+/** Real heading with the chat skeleton, while the session or chats load. */
+export function AssistantViewFallback() {
+  const { locale } = usePreferences();
+  const t = copy[locale];
+  return (
+    <div className="md:flex md:h-[calc(100dvh-3rem)] md:min-h-0 md:flex-col md:overflow-hidden lg:h-[calc(100dvh-4rem)]">
+      <PageHeading title={t.title} description={t.subtitle} />
+      <ChatWorkspaceSkeleton />
     </div>
   );
 }

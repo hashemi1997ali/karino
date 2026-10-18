@@ -229,30 +229,9 @@ export function AdminUserDetailView({ userId }: { userId: string }) {
     },
     onError: (error) => toast.error(getErrorMessage(error, locale)),
   });
-  const heading = (
-    <PageHeading
-      title={t.pageTitle}
-      description={t.pageDescription}
-      actions={
-        <Link
-          href="/admin/users"
-          className="focus-ring inline-flex items-center gap-2 rounded-full text-sm font-bold text-[var(--muted)] hover:text-[var(--primary)]"
-        >
-          <ArrowLeft className="size-4" />
-          {t.back}
-        </Link>
-      }
-    />
-  );
+  const heading = <UserDetailHeading />;
 
-  if (userQuery.isPending) {
-    return (
-      <div>
-        {heading}
-        <UserDetailSkeleton />
-      </div>
-    );
-  }
+  if (userQuery.isPending) return <AdminUserDetailViewFallback />;
   if (userQuery.isError) {
     return (
       <div>
@@ -586,6 +565,35 @@ export function AdminUserDetailView({ userId }: { userId: string }) {
             : undefined
         }
       />
+    </div>
+  );
+}
+
+function UserDetailHeading() {
+  const { locale } = usePreferences();
+  const t = copy[locale];
+  return (
+    <PageHeading
+      title={t.pageTitle}
+      description={t.pageDescription}
+      actions={
+        <Link
+          href="/admin/users"
+          className="focus-ring inline-flex items-center gap-2 rounded-full text-sm font-bold text-[var(--muted)] hover:text-[var(--primary)]"
+        >
+          <ArrowLeft className="size-4" />
+          {t.back}
+        </Link>
+      }
+    />
+  );
+}
+
+export function AdminUserDetailViewFallback() {
+  return (
+    <div>
+      <UserDetailHeading />
+      <UserDetailSkeleton />
     </div>
   );
 }

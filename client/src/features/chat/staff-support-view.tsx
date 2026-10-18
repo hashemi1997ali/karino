@@ -653,3 +653,14 @@ export function StaffSupportView() {
     </>
   );
 }
+
+export function StaffSupportViewFallback() {
+  const { locale } = usePreferences();
+  const t = copy[locale];
+  return (
+    <div className="md:flex md:h-[calc(100dvh-3rem)] md:min-h-0 md:flex-col md:overflow-hidden lg:h-[calc(100dvh-4rem)]">
+      <PageHeading title={t.title} description={t.description} />
+      <ChatWorkspaceSkeleton />
+    </div>
+  );
+}

@@ -25,7 +25,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Field, Input, PasswordInput } from "@/components/ui/form-controls";
 import { PageHeading } from "@/components/ui/page-heading";
 import { PasswordChecklist } from "@/components/ui/password-checklist";
-import { SessionsSkeleton } from "@/components/ui/skeleton";
+import { SessionsSkeleton, Skeleton, SkeletonRegion } from "@/components/ui/skeleton";
 import { ErrorState } from "@/components/ui/states";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { ThemeSelector } from "@/components/ui/theme-selector";
@@ -300,6 +300,13 @@ const formatDateTime = (value: string, intlLocale: string): string => {
   }).format(date);
 };
 
+const parseAccountTab = (requestedTab: string | null): AccountTab =>
+  requestedTab === "general" || requestedTab === "appearance"
+    ? "general"
+    : requestedTab === "security" || requestedTab === "sessions"
+      ? "security"
+      : "account";
+
 export function AccountView({ embedded = false }: { embedded?: boolean }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -315,13 +322,7 @@ export function AccountView({ embedded = false }: { embedded?: boolean }) {
   const [processingImage, setProcessingImage] = useState(false);
   const [embeddedTab, setEmbeddedTab] = useState<AccountTab>("account");
   const [securityPane, setSecurityPane] = useState<SecurityPane>("overview");
-  const requestedTab = searchParams.get("tab");
-  const routeTab: AccountTab =
-    requestedTab === "general" || requestedTab === "appearance"
-      ? "general"
-      : requestedTab === "security" || requestedTab === "sessions"
-        ? "security"
-        : "account";
+  const routeTab = parseAccountTab(searchParams.get("tab"));
   const activeTab = embedded ? embeddedTab : routeTab;
   const profileImagePreview = useMemo(
     () => (profileImage ? URL.createObjectURL(profileImage) : null),
@@ -988,6 +989,47 @@ export function AccountView({ embedded = false }: { embedded?: boolean }) {
         loading={deleteAccountMutation.isPending}
         onConfirm={() => deleteAccountMutation.mutateAsync().then(() => undefined)}
       />
+    </div>
+  );
+}
+
+export function AccountViewFallback() {
+  const searchParams = useSearchParams();
+  const { locale } = usePreferences();
+  const t = copy[locale];
+  const tab = parseAccountTab(searchParams.get("tab"));
+  return (
+    <div>
+      <PageHeading
+        title={
+          tab === "general"
+            ? t.appearanceTitle
+            : tab === "account"
+              ? t.profileTitle
+              : t.securityTitle
+        }
+        description={
+          tab === "general"
+            ? t.appearanceDescription
+            : tab === "account"
+              ? t.profileDescription
+              : t.securityDescription
+        }
+      />
+      <SkeletonRegion className="max-w-3xl">
+        <Card className="grid gap-5 p-5 sm:p-6">
+          <div className="flex items-center gap-3 border-b pb-4">
+            <Skeleton className="size-14 shrink-0 rounded-full" />
+            <div className="grid gap-2">
+              <Skeleton className="h-4 w-40" />
+              <Skeleton className="h-3 w-56 max-w-full" />
+            </div>
+          </div>
+          <Skeleton className="h-11 w-full" />
+          <Skeleton className="h-11 w-full" />
+          <Skeleton className="h-11 w-full" />
+        </Card>
+      </SkeletonRegion>
     </div>
   );
 }

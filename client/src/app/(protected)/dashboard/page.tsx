@@ -1,7 +1,11 @@
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
 
-import { DashboardView } from "@/features/dashboard/dashboard-view";
+import { AuthReady } from "@/features/auth/auth-gate";
+import {
+  DashboardView,
+  DashboardViewFallback,
+} from "@/features/dashboard/dashboard-view";
 import { LOCALE_COOKIE_NAME, parseLocale } from "@/lib/preferences";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -10,5 +14,9 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default function DashboardPage() {
-  return <DashboardView />;
+  return (
+    <AuthReady fallback={<DashboardViewFallback />}>
+      <DashboardView />
+    </AuthReady>
+  );
 }

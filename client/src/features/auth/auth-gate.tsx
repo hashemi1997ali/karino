@@ -52,7 +52,9 @@ export function AdminGate({ children }: { children: ReactNode }) {
     if (status === "authenticated" && !isAdmin) router.replace("/dashboard");
   }, [status, isAdmin, router]);
 
-  if (status !== "authenticated" || !isAdmin) {
+  // While the session is still loading, the page's AuthReady shows its own
+  // placeholder; only a confirmed non-admin is held here until redirected.
+  if (status === "authenticated" && !isAdmin) {
     return (
       <LoadingState
         label={
@@ -65,4 +67,19 @@ export function AdminGate({ children }: { children: ReactNode }) {
   }
 
   return children;
+}
+
+/**
+ * Renders the page once the session is restored. Until then the page shows
+ * `fallback` (its real heading plus a skeleton) inside the shell placeholder.
+ */
+export function AuthReady({
+  children,
+  fallback,
+}: {
+  children: ReactNode;
+  fallback: ReactNode;
+}) {
+  const { status } = useAuth();
+  return status === "authenticated" ? children : fallback;
 }

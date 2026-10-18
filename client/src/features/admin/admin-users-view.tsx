@@ -607,3 +607,16 @@ export function AdminUsersView() {
     </div>
   );
 }
+
+export function AdminUsersViewFallback() {
+  const { locale } = usePreferences();
+  const t = copy[locale];
+  return (
+    <div>
+      <PageHeading title={t.title} description={t.description} />
+      <div className="mt-6">
+        <UserListSkeleton />
+      </div>
+    </div>
+  );
+}

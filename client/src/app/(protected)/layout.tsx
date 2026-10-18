@@ -33,7 +33,9 @@ export default async function ProtectedLayout({
         <ShellSkeleton
           tabletSidebarCollapsed={initialTabletSidebarCollapsed}
           desktopSidebarCollapsed={initialDesktopSidebarCollapsed}
-        />
+        >
+          {children}
+        </ShellSkeleton>
       }
     >
       <AppShell

@@ -85,14 +85,7 @@ export function AdminOverviewView() {
 
   const heading = <PageHeading title={t.title} description={t.subtitle} />;
 
-  if (query.isPending) {
-    return (
-      <div className="space-y-5">
-        {heading}
-        <AdminOverviewSkeleton />
-      </div>
-    );
-  }
+  if (query.isPending) return <AdminOverviewViewFallback />;
   if (query.isError) {
     return (
       <div className="space-y-5">
@@ -287,6 +280,17 @@ export function AdminOverviewView() {
           />
         </section>
       </div>
+    </div>
+  );
+}
+
+export function AdminOverviewViewFallback() {
+  const { locale } = usePreferences();
+  const t = copy[locale];
+  return (
+    <div className="space-y-5">
+      <PageHeading title={t.title} description={t.subtitle} />
+      <AdminOverviewSkeleton />
     </div>
   );
 }

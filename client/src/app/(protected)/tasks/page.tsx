@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import { Suspense } from "react";
 
+import { AuthReady } from "@/features/auth/auth-gate";
 import { TasksView, TasksViewFallback } from "@/features/tasks/tasks-view";
 import { LOCALE_COOKIE_NAME, parseLocale } from "@/lib/preferences";
 
@@ -12,8 +13,10 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default function TasksPage() {
   return (
-    <Suspense fallback={<TasksViewFallback />}>
-      <TasksView />
-    </Suspense>
+    <AuthReady fallback={<TasksViewFallback />}>
+      <Suspense fallback={<TasksViewFallback />}>
+        <TasksView />
+      </Suspense>
+    </AuthReady>
   );
 }

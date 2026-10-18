@@ -1,7 +1,11 @@
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
 
-import { StaffSupportView } from "@/features/chat/staff-support-view";
+import { AuthReady } from "@/features/auth/auth-gate";
+import {
+  StaffSupportView,
+  StaffSupportViewFallback,
+} from "@/features/chat/staff-support-view";
 import { LOCALE_COOKIE_NAME, parseLocale } from "@/lib/preferences";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -10,5 +14,9 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default function SupportPage() {
-  return <StaffSupportView />;
+  return (
+    <AuthReady fallback={<StaffSupportViewFallback />}>
+      <StaffSupportView />
+    </AuthReady>
+  );
 }

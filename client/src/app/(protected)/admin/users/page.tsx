@@ -1,7 +1,11 @@
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
 
-import { AdminUsersView } from "@/features/admin/admin-users-view";
+import { AuthReady } from "@/features/auth/auth-gate";
+import {
+  AdminUsersView,
+  AdminUsersViewFallback,
+} from "@/features/admin/admin-users-view";
 import { LOCALE_COOKIE_NAME, parseLocale, type Locale } from "@/lib/preferences";
 
 const copy = {
@@ -16,5 +20,9 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default function AdminUsersPage() {
-  return <AdminUsersView />;
+  return (
+    <AuthReady fallback={<AdminUsersViewFallback />}>
+      <AdminUsersView />
+    </AuthReady>
+  );
 }

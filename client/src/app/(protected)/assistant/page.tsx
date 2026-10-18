@@ -2,7 +2,11 @@ import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import { Suspense } from "react";
 
-import { AssistantView } from "@/features/assistant/assistant-view";
+import { AuthReady } from "@/features/auth/auth-gate";
+import {
+  AssistantView,
+  AssistantViewFallback,
+} from "@/features/assistant/assistant-view";
 import { LOCALE_COOKIE_NAME, parseLocale } from "@/lib/preferences";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -12,8 +16,10 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default function AssistantPage() {
   return (
-    <Suspense>
-      <AssistantView />
-    </Suspense>
+    <AuthReady fallback={<AssistantViewFallback />}>
+      <Suspense fallback={<AssistantViewFallback />}>
+        <AssistantView />
+      </Suspense>
+    </AuthReady>
   );
 }
