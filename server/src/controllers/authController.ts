@@ -83,7 +83,7 @@ const issueNewSessionTokens = async (
     throw error;
   }
 
-  setRefreshTokenCookie(response, refreshToken.token, refreshToken.expiresAt);
+  setRefreshTokenCookie(response, refreshToken.token, refreshToken.expiresAt, roles);
 
   return accessToken;
 };
@@ -398,7 +398,12 @@ export const refreshAccessToken: RequestHandler = async (request, response) => {
       refreshAuth,
       getSessionContext(request),
     );
-    setRefreshTokenCookie(response, refreshToken.token, refreshToken.expiresAt);
+    setRefreshTokenCookie(
+      response,
+      refreshToken.token,
+      refreshToken.expiresAt,
+      user.roles,
+    );
   } catch (error) {
     if (error instanceof AppError && error.statusCode === 401) {
       clearRefreshTokenCookie(response);

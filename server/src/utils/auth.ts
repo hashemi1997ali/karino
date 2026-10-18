@@ -3,11 +3,15 @@ import jwt, { type JwtPayload } from "jsonwebtoken";
 
 import { AppError } from "./AppError.ts";
 import { getPositiveIntegerEnv, getRequiredEnv } from "./env.ts";
+import { isStaffRoles } from "./roles.ts";
 
 const JWT_ALGORITHM = "HS256" as const;
 const objectIdPattern = /^[a-f\d]{24}$/i;
 
 export const REFRESH_TOKEN_COOKIE_NAME = "refreshToken";
+// Lets the web app's proxy redirect non-admins away from /admin before the
+// page renders. Only a hint for that redirect; the API checks every request.
+export const SESSION_ROLE_COOKIE_NAME = "sessionRole";
 
 export interface AccessTokenPayload extends JwtPayload {
   userId: string;
@@ -147,13 +151,18 @@ export const setRefreshTokenCookie = (
   response: Response,
   token: string,
   expiresAt: Date,
+  roles: readonly string[],
 ): void => {
-  response.cookie(REFRESH_TOKEN_COOKIE_NAME, token, {
-    ...getRefreshCookieOptions(),
-    expires: expiresAt,
-  });
+  const options = { ...getRefreshCookieOptions(), expires: expiresAt };
+  response.cookie(REFRESH_TOKEN_COOKIE_NAME, token, options);
+  response.cookie(
+    SESSION_ROLE_COOKIE_NAME,
+    isStaffRoles(roles) ? "admin" : "user",
+    options,
+  );
 };
 
 export const clearRefreshTokenCookie = (response: Response): void => {
   response.clearCookie(REFRESH_TOKEN_COOKIE_NAME, getRefreshCookieOptions());
+  response.clearCookie(SESSION_ROLE_COOKIE_NAME, getRefreshCookieOptions());
 };

@@ -91,10 +91,10 @@ describe("registration and login", () => {
       })
       .expect(201);
 
-    const cookie = ([] as string[])
-      .concat(response.headers["set-cookie"] ?? [])
-      .find((value) => value.startsWith("refreshToken="));
+    const cookies = ([] as string[]).concat(response.headers["set-cookie"] ?? []);
+    const cookie = cookies.find((value) => value.startsWith("refreshToken="));
     assert.match(cookie ?? "", /HttpOnly/i);
+    assert.ok(cookies.some((value) => value.startsWith("sessionRole=user;")));
     assert.equal(response.body.data.user.password, undefined);
   });
 
