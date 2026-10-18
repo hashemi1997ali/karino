@@ -1,11 +1,7 @@
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
 
-import { AuthReady } from "@/features/auth/auth-gate";
-import {
-  AdminUserDetailView,
-  AdminUserDetailViewFallback,
-} from "@/features/admin/admin-user-detail-view";
+import { AdminUserDetailView } from "@/features/admin/admin-user-detail-view";
 import { LOCALE_COOKIE_NAME, parseLocale } from "@/lib/preferences";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -19,9 +15,5 @@ export default async function AdminUserPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  return (
-    <AuthReady fallback={<AdminUserDetailViewFallback />}>
-      <AdminUserDetailView key={id} userId={id} />
-    </AuthReady>
-  );
+  return <AdminUserDetailView key={id} userId={id} />;
 }

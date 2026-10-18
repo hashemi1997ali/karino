@@ -589,7 +589,7 @@ function UserDetailHeading() {
   );
 }
 
-export function AdminUserDetailViewFallback() {
+function AdminUserDetailViewFallback() {
   return (
     <div>
       <UserDetailHeading />

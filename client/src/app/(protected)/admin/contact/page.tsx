@@ -1,11 +1,7 @@
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
 
-import { AuthReady } from "@/features/auth/auth-gate";
-import {
-  AdminContactView,
-  AdminContactViewFallback,
-} from "@/features/contact/admin-contact-view";
+import { AdminContactView } from "@/features/contact/admin-contact-view";
 import { LOCALE_COOKIE_NAME, parseLocale } from "@/lib/preferences";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -14,9 +10,5 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default function AdminContactPage() {
-  return (
-    <AuthReady fallback={<AdminContactViewFallback />}>
-      <AdminContactView />
-    </AuthReady>
-  );
+  return <AdminContactView />;
 }

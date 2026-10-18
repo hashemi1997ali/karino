@@ -284,7 +284,7 @@ export function AdminOverviewView() {
   );
 }
 
-export function AdminOverviewViewFallback() {
+function AdminOverviewViewFallback() {
   const { locale } = usePreferences();
   const t = copy[locale];
   return (

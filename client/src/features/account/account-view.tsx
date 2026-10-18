@@ -479,6 +479,9 @@ export function AccountView({ embedded = false }: { embedded?: boolean }) {
             ? t.sessionsDescription
             : t.securityDescription;
 
+  // The form is filled from the signed-in user, so wait for it.
+  if (!user && !embedded) return <AccountViewFallback />;
+
   return (
     <div
       className={cn(

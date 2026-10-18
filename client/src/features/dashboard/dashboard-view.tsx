@@ -162,7 +162,11 @@ export function DashboardView() {
   // dashboard loads or fails.
   const heading = (
     <PageHeading
-      title={`${t.greetings[getGreetingKey()]}, ${user?.firstName ?? ""}`}
+      title={
+        user
+          ? `${t.greetings[getGreetingKey()]}, ${user.firstName}`
+          : t.greetings[getGreetingKey()]
+      }
       description={t.intro}
     />
   );
@@ -469,18 +473,6 @@ export function DashboardView() {
           </section>
         </div>
       </div>
-    </div>
-  );
-}
-
-/** Before the session is restored the name is unknown, so greet without it. */
-export function DashboardViewFallback() {
-  const { locale } = usePreferences();
-  const t = copy[locale];
-  return (
-    <div className="space-y-5">
-      <PageHeading title={t.greetings[getGreetingKey()]} description={t.intro} />
-      <DashboardSkeleton />
     </div>
   );
 }

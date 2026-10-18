@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import { Suspense } from "react";
 
-import { AuthReady } from "@/features/auth/auth-gate";
 import {
   AssistantView,
   AssistantViewFallback,
@@ -16,10 +15,8 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default function AssistantPage() {
   return (
-    <AuthReady fallback={<AssistantViewFallback />}>
-      <Suspense fallback={<AssistantViewFallback />}>
-        <AssistantView />
-      </Suspense>
-    </AuthReady>
+    <Suspense fallback={<AssistantViewFallback />}>
+      <AssistantView />
+    </Suspense>
   );
 }

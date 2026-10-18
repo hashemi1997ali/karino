@@ -24,7 +24,7 @@ import {
   setAccessToken,
   subscribeToAuthEvents,
 } from "@/features/auth/token-vault";
-import { refreshAccessToken } from "@/lib/api-client";
+import { markSessionRestored, refreshAccessToken } from "@/lib/api-client";
 import type { User } from "@/lib/types";
 
 type AuthStatus = "loading" | "authenticated" | "anonymous";
@@ -82,6 +82,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setUser(null);
           setStatus("anonymous");
         }
+      } finally {
+        markSessionRestored();
       }
     };
 

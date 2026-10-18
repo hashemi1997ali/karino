@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
 
-import { AuthReady } from "@/features/auth/auth-gate";
-import { AccountView, AccountViewFallback } from "@/features/account/account-view";
+import { AccountView } from "@/features/account/account-view";
 import { LOCALE_COOKIE_NAME, parseLocale, type Locale } from "@/lib/preferences";
 
 const copy = {
@@ -17,9 +16,5 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default function AccountPage() {
-  return (
-    <AuthReady fallback={<AccountViewFallback />}>
-      <AccountView />
-    </AuthReady>
-  );
+  return <AccountView />;
 }

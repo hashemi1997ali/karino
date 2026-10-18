@@ -8,8 +8,8 @@ import { useAuth } from "@/features/auth/auth-provider";
 import { usePreferences } from "@/providers/preferences-provider";
 
 /**
- * Sends signed-out visitors to the login page. The shell renders straight
- * away so the tree never swaps; each page waits for the session via AuthReady.
+ * Sends signed-out visitors to the login page. The shell and page render straight
+ * away (requests wait for the session in apiRequest), so nothing remounts.
  */
 export function AuthGate({ children }: { children: ReactNode }) {
   const { status } = useAuth();
@@ -36,8 +36,7 @@ export function AdminGate({ children }: { children: ReactNode }) {
     if (status === "authenticated" && !isAdmin) router.replace("/dashboard");
   }, [status, isAdmin, router]);
 
-  // While the session is still loading, the page's AuthReady shows its own
-  // placeholder; only a confirmed non-admin is held here until redirected.
+  // Only a confirmed non-admin is held here until redirected.
   if (status === "authenticated" && !isAdmin) {
     return (
       <LoadingState
@@ -51,19 +50,4 @@ export function AdminGate({ children }: { children: ReactNode }) {
   }
 
   return children;
-}
-
-/**
- * Renders the page once the session is restored. Until then the page shows
- * `fallback` (its real heading plus a skeleton) inside the shell placeholder.
- */
-export function AuthReady({
-  children,
-  fallback,
-}: {
-  children: ReactNode;
-  fallback: ReactNode;
-}) {
-  const { status } = useAuth();
-  return status === "authenticated" ? children : fallback;
 }

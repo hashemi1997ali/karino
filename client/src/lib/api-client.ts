@@ -23,6 +23,15 @@ interface ApiRequestOptions extends Omit<RequestInit, "body"> {
 
 let refreshPromise: Promise<string> | null = null;
 
+// Resolved by AuthProvider once the session is restored (or ruled out), so
+// requests a page makes on first render wait for the token instead of
+// failing with 401 and retrying.
+let resolveSessionRestored: () => void = () => {};
+const sessionRestored = new Promise<void>((resolve) => {
+  resolveSessionRestored = resolve;
+});
+export const markSessionRestored = (): void => resolveSessionRestored();
+
 const parseResponse = async <T>(response: Response): Promise<ApiEnvelope<T>> => {
   const contentType = response.headers.get("content-type") ?? "";
   if (!contentType.includes("application/json")) {
@@ -89,6 +98,7 @@ export const apiRequest = async <T>(
     ...requestOptions
   } = options;
   const headers = new Headers(initialHeaders);
+  if (auth && !getAccessToken()) await sessionRestored;
   const token = auth ? getAccessToken() : null;
 
   if (token) headers.set("Authorization", `Bearer ${token}`);
