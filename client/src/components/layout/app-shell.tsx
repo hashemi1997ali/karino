@@ -28,6 +28,7 @@ import { Logo, LogoMark, LogoWordmark } from "@/components/logo";
 import { UserAvatar } from "@/components/user-avatar";
 import { Button, buttonClassName } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { Skeleton } from "@/components/ui/skeleton";
 import { ThemeSelector } from "@/components/ui/theme-selector";
 import { AccountView } from "@/features/account/account-view";
 import { useAuth } from "@/features/auth/auth-provider";
@@ -287,7 +288,11 @@ export function AppShell({
               : "opacity-100 delay-100 motion-reduce:delay-0",
           )}
         >
-          {user?.firstName} {user?.lastName}
+          {user ? (
+            `${user.firstName} ${user.lastName}`
+          ) : (
+            <Skeleton className="h-3.5 w-24" />
+          )}
         </span>
       </button>
     </div>
@@ -744,53 +749,6 @@ export function AppShell({
         loading={logoutPending}
         onConfirm={doLogout}
       />
-    </div>
-  );
-}
-
-/**
- * Shown while the session is being restored, with the same sidebar width and
- * content padding as the shell, so the page does not jump when it appears.
- */
-export function ShellSkeleton({
-  tabletSidebarCollapsed,
-  desktopSidebarCollapsed,
-  children,
-}: {
-  tabletSidebarCollapsed: boolean;
-  desktopSidebarCollapsed: boolean;
-  /** The page itself, which shows its own heading and skeleton via AuthReady. */
-  children: ReactNode;
-}) {
-  const { locale } = usePreferences();
-
-  return (
-    <div
-      className={cn(
-        "desk-shell min-h-dvh",
-        tabletSidebarCollapsed ? "md:pl-[5.75rem]" : "md:pl-[17.25rem]",
-        desktopSidebarCollapsed ? "xl:pl-[5.75rem]" : "xl:pl-[17.25rem]",
-      )}
-      role="status"
-      aria-label={
-        locale === "de" ? "Deine Sitzung wird geprüft …" : "Checking your session …"
-      }
-    >
-      <div
-        className={cn(
-          "desk-sidebar fixed inset-y-3 left-3 max-md:hidden xl:hidden",
-          tabletSidebarCollapsed ? "w-[4.75rem]" : "w-[15.75rem]",
-        )}
-      />
-      <div
-        className={cn(
-          "desk-sidebar fixed inset-y-3 left-3 max-xl:hidden",
-          desktopSidebarCollapsed ? "w-[4.75rem]" : "w-[15.75rem]",
-        )}
-      />
-      <div className="desk-main px-4 pt-[5.25rem] sm:px-6 md:py-6 lg:px-8 lg:py-8">
-        {children}
-      </div>
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import { cookies } from "next/headers";
 
-import { AppShell, ShellSkeleton } from "@/components/layout/app-shell";
+import { AppShell } from "@/components/layout/app-shell";
 import { AuthGate } from "@/features/auth/auth-gate";
 
 const parseSidebarPreference = (
@@ -28,16 +28,7 @@ export default async function ProtectedLayout({
   );
 
   return (
-    <AuthGate
-      fallback={
-        <ShellSkeleton
-          tabletSidebarCollapsed={initialTabletSidebarCollapsed}
-          desktopSidebarCollapsed={initialDesktopSidebarCollapsed}
-        >
-          {children}
-        </ShellSkeleton>
-      }
-    >
+    <AuthGate>
       <AppShell
         initialTabletSidebarCollapsed={initialTabletSidebarCollapsed}
         initialDesktopSidebarCollapsed={initialDesktopSidebarCollapsed}

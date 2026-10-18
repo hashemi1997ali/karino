@@ -7,15 +7,12 @@ import { LoadingState } from "@/components/ui/states";
 import { useAuth } from "@/features/auth/auth-provider";
 import { usePreferences } from "@/providers/preferences-provider";
 
-export function AuthGate({
-  children,
-  fallback,
-}: {
-  children: ReactNode;
-  fallback?: ReactNode;
-}) {
+/**
+ * Sends signed-out visitors to the login page. The shell renders straight
+ * away so the tree never swaps; each page waits for the session via AuthReady.
+ */
+export function AuthGate({ children }: { children: ReactNode }) {
   const { status } = useAuth();
-  const { locale } = usePreferences();
   const pathname = usePathname();
   const router = useRouter();
 
@@ -26,19 +23,6 @@ export function AuthGate({
       router.replace(`/login?next=${encodeURIComponent(next)}`);
     }
   }, [status, pathname, router]);
-
-  if (status !== "authenticated") {
-    if (fallback) return fallback;
-    return (
-      <main id="main-content" tabIndex={-1} className="grid min-h-dvh place-items-center">
-        <LoadingState
-          label={
-            locale === "de" ? "Deine Sitzung wird geprüft …" : "Checking your session …"
-          }
-        />
-      </main>
-    );
-  }
 
   return children;
 }
